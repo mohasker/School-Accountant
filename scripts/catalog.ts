@@ -1,8 +1,7 @@
 /**
  * Official operational budget items (template «موازنة المدرسة») with the account numbers used on the
  * petty-cash statement. Library: expense account 510201, books posted to asset account 110805.
- * The career-path item had no account number in the templates: confirm it
- * and update it from the budget catalog screen.
+ * Career-path materials: account 10001 (confirmed by the system owner).
  */
 export const BUDGET_CATALOG = [
   {
@@ -28,11 +27,11 @@ export const BUDGET_CATALOG = [
     note: 'مخصص للمصاريف خارج العقود المركزية',
   },
   {
-    code: 'CAREER',
+    code: '10001',
     nameAr: 'مواد مسار مهني',
     nameEn: 'Career Path Materials',
     groupKey: 'INSTRUCTIONAL',
-    note: 'رقم الحساب بانتظار التأكيد — في حال وجود طلاب المسار المهني',
+    note: 'يستخدم في حال وجود طلاب المسار المهني / مخصص للمصاريف خارج العقود المركزية',
   },
   {
     code: '520501',

@@ -606,12 +606,12 @@ test('REGISTRY: certificate register across own schools only, with Excel export'
 });
 test('BUDGET: catalog lines, school/kindergarten split, assumptions and estimate print', async () => {
   const setup = (await req(approver, route('setup?year=' + year))).body;
-  const career = setup.budgets.find((b: any) => b.code === 'CAREER');
+  const career = setup.budgets.find((b: any) => b.code === '10001');
   assert.equal(
     (
       await req(approver, route('budgets/' + career.id), 'PATCH', {
         yearId: year,
-        code: 'CAREER',
+        code: '10001',
         name: career.name,
         amount: '900',
         schoolAmount: '500',
@@ -624,7 +624,7 @@ test('BUDGET: catalog lines, school/kindergarten split, assumptions and estimate
   await ok(
     approver,
     'budgets/' + career.id,
-    { yearId: year, code: 'CAREER', name: career.name, amount: '800', schoolAmount: '500', kgAmount: '300', reason: 'اعتماد' },
+    { yearId: year, code: '10001', name: career.name, amount: '800', schoolAmount: '500', kgAmount: '300', reason: 'اعتماد' },
     'PATCH',
   );
   await ok(acc, 'budget-plan', {
