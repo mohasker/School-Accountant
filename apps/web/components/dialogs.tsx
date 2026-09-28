@@ -1,9 +1,16 @@
 'use client';
 import type { Workspace } from './context';
-import { ItemLines, readItemLines, type Dialog } from './FormDialog';
+import type { Dialog } from './FormDialog';
+import { toNumberText } from './NumberInput';
+import { caseDialogs, QuoteRows } from '../views/CaseDetail';
 import type { Row } from '../lib/api';
-import { currency, IMPREST_TYPES } from '../lib/format';
+import { currency, dateNow, IMPREST_TYPES } from '../lib/format';
 
+/**
+ * New file = the quote report itself: subject, budget line, report date and the companies with their
+ * quote values. Saving issues the report (lowest compliant quote, or the only company) and opens the
+ * assignment letter straight away. A ministry assignment takes the company and value of the first row.
+ */
 export function newCaseDialog(w: Workspace): Dialog {
   const p = w.setup.policy || {};
   return {
@@ -11,13 +18,19 @@ export function newCaseDialog(w: Workspace): Dialog {
     wide: true,
     intro: (
       <p>
-        سجّل موضوع المعاملة والأصناف، ثم أدخل عروض أسعار الشركات؛ يُكلَّف الأقل سعراً المطابق للمواصفات، أو الشركة الوحيدة. حتى{' '}
-        {currency(p.singleQuoteLimit)} ر.ق يكفي عرض واحد، وما يزيد يتطلب {p.minQuotes} عروض إلا للمورد المحتكر. ما يزيد عن{' '}
-        {currency(p.tenderLimit)} ر.ق من اختصاص إدارة المشتريات بالوزارة.
+        اكتب موضوع المعاملة وبند الموازنة، ثم اسم كل شركة وقيمة عرضها. يُكلَّف الأقل سعراً أو الشركة الوحيدة، ويصدر التقرير وتنتقل مباشرة
+        إلى كتاب التكليف. حتى {currency(p.singleQuoteLimit)} ر.ق يكفي عرض واحد، وما يزيد يتطلب {p.minQuotes} عروض إلا للمورد المحتكر.
       </p>
     ),
     fields: [
       { name: 'subject', label: 'موضوع المعاملة (مثل: توريد أقلام سبورة تفاعلية)' },
+      {
+        name: 'budgetId',
+        label: 'بند الموازنة',
+        type: 'select',
+        options: (w.setup.budgets || []).map((b: Row) => ({ value: b.id, label: `${b.code} — ${b.name}` })),
+      },
+      { name: 'date', label: 'تاريخ التقرير', type: 'date', value: dateNow() },
       {
         name: 'origin',
         label: 'نوع المعاملة',
@@ -27,18 +40,44 @@ export function newCaseDialog(w: Workspace): Dialog {
           { value: 'MINISTRY', label: 'تكليف وارد من الوزارة' },
         ],
       },
+      { name: 'exclusiveReason', label: 'مبرر احتكار الشركة (عند عرض واحد فوق الحد)', required: false },
       { name: 'ministryReference', label: 'مرجع التكليف الوزاري (للتكليف الوارد فقط)', required: false },
     ],
-    body: <ItemLines budgets={w.setup.budgets || []} />,
+    body: <QuoteRows suppliers={w.setup.suppliers || []} />,
+    submit: 'إصدار التقرير ← إعداد التكليف',
     save: async (v, fd) => {
+      const quotes = [];
+      for (let i = 0; fd.has('q_name_' + i); i++) {
+        const name = String(fd.get('q_name_' + i) || '').trim(),
+          total = toNumberText(String(fd.get('q_total_' + i) || ''));
+        if (!name && !total) continue;
+        if (!name || !total) throw Error(`الصف ${i + 1}: أدخل اسم الشركة وقيمة العرض معاً`);
+        quotes.push({ supplierName: name, total, reference: String(fd.get('q_ref_' + i) || ''), quoteDate: v.date });
+      }
+      if (!quotes.length) throw Error('أدخل شركة واحدة على الأقل وقيمة عرضها');
+      const ministry = v.origin === 'MINISTRY';
+      if (ministry && !v.ministryReference) throw Error('أدخل مرجع التكليف الوزاري');
       const row = await w.api(w.root('cases'), 'POST', {
         subject: v.subject,
         origin: v.origin,
-        ...(v.ministryReference ? { ministryReference: v.ministryReference } : {}),
+        ...(ministry ? { ministryReference: v.ministryReference } : {}),
         yearId: w.year,
-        items: readItemLines(fd),
+        items: [{ name: v.subject, unit: 'عدد', qty: '1', budgetId: v.budgetId }],
       });
+      const act = (action: string, body: Row) => w.api(w.root(`cases/${row.id}/${action}`), 'POST', body);
       w.go('case', row.id);
+      try {
+        if (ministry)
+          await act('direct-order', { supplierName: quotes[0].supplierName, total: quotes[0].total, reason: v.ministryReference });
+        else {
+          for (const q of quotes) await act('quotes', q);
+          await act('evaluate', { date: v.date, ...(v.exclusiveReason ? { exclusiveReason: v.exclusiveReason } : {}) });
+        }
+        w.open(caseDialogs(w, await w.api(w.root('cases/' + row.id))).order);
+      } catch (e) {
+        // The file and its quotes are saved; the message tells what is missing to issue the report.
+        w.fail(e);
+      }
     },
   };
 }

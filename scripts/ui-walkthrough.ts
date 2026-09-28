@@ -83,6 +83,13 @@ async function main() {
   const st = petty.settlements[0];
 
   await shot(acc, '02-dashboard');
+  await acc.click('.quick-link:has-text("معاملة جديدة")');
+  await acc.waitForSelector('.modal');
+  await acc.fill('.modal input[name=subject]', 'توريد أحبار طابعات');
+  await acc.fill('input[name=q_name_0]', 'مكتبة الجامعة');
+  await acc.type('input[name=q_total_0]', '٨٥٠');
+  await shot(acc, '03b-new-case-quote-report-dialog');
+  await acc.click('.modal-actions button.secondary');
   await nav(acc, 'المعاملات');
   await shot(acc, '03-cases');
   const open = async (n: string) => {

@@ -332,19 +332,24 @@ export async function returnCase({ s, school, t, body, c }: WriteCtx & { c: Full
   });
 }
 
-/** Local purchase order number: PREFIX/YYYY-MMDD, then -2, -3 … for further orders on the same day. */
+/**
+ * Assignment-letter number, per school and year in issue order: SCHOOLCODE/YEAR/NNN (e.g. ABAF/2026/007) —
+ * the school's prefix, the year of the letter and a three-digit running number, as in outgoing-mail registers.
+ */
 async function orderNumberFor(t: Tx, c: FullCase, on: string, manual?: string) {
   const taken = async (n: string) => (await t.case.count({ where: { schoolId: c.schoolId, orderNumber: n } })) > 0;
   if (manual) {
     if (await taken(manual)) fail('رقم أمر الشراء مستخدم في المدرسة');
     return manual;
   }
-  const base = `${c.school.orderPrefix || 'PO'}/${on.slice(0, 4)}-${on.slice(5, 7)}${on.slice(8, 10)}`;
-  for (let n = 1; n < 100; n++) {
-    const candidate = n === 1 ? base : `${base}-${n}`;
+  const base = `${c.school.orderPrefix || c.school.code || 'PO'}/${on.slice(0, 4)}/`;
+  const used = await t.case.findMany({ where: { schoolId: c.schoolId, orderNumber: { startsWith: base } }, select: { orderNumber: true } });
+  const last = Math.max(0, ...used.map((u) => Number(u.orderNumber!.slice(base.length)) || 0));
+  for (let n = last + 1; n < last + 100; n++) {
+    const candidate = base + String(n).padStart(3, '0');
     if (!(await taken(candidate))) return candidate;
   }
-  fail('تعذر توليد رقم أمر الشراء');
+  fail('تعذر توليد رقم كتاب التكليف');
 }
 
 const pct = (v: string) => new D(v).mul(100).toDecimalPlaces(2).toString();

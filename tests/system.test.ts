@@ -230,7 +230,7 @@ test('WORKFLOW: quote report awards the lowest, the accountant issues the assign
   // 10 working days after Tuesday 1 September 2026 (Fri/Sat excluded).
   assert.equal(day(c.dueDate), '2026-09-15');
   assert.equal(c.method, 'THREE_QUOTES');
-  assert.match(c.orderNumber, /^SHFI\/2026-0901/);
+  assert.match(c.orderNumber, /^SHFI\/2026\/\d{3}$/);
 });
 const day = (v: string) => v.slice(0, 10);
 test('WORKFLOW: cross-school case and attachment inaccessible', async () => {
@@ -942,4 +942,15 @@ test('NUMBERS: hand-typed amounts in Arabic or English digits are cleaned for en
   assert.equal(toNumberText('۳۵۰'), '350');
   assert.equal(toNumberText('12.5.3'), '12.53');
   assert.equal(toNumberText('15.7', true), '15');
+});
+test('REFERENCES: assignment letters numbered SCHOOL/YEAR/NNN; certificates carry no reference box', async () => {
+  const cert = (await req(acc, 'registry/certificates')).body.rows[0];
+  const html = (await req(acc, `schools/${cert.schoolId}/certificates/${cert.id}`)).body.html;
+  assert.ok(!html.includes('<th>المرجع</th>'), 'certificate without reference');
+  const orders = (await req(acc, 'registry/cases?type=order')).body.rows;
+  const numbered = orders.map((r: any) => String(r.cells[1])).filter((n: string) => /^[A-Z]+\/\d{4}\/\d{3}$/.test(n));
+  assert.ok(numbered.length >= 1, JSON.stringify(orders.map((r: any) => r.cells[1])));
+  const order = orders.find((r: any) => /\/\d{3}$/.test(String(r.cells[1])));
+  const letter = (await req(acc, `schools/${order.schoolId}/cases/${order.id}/order-print`)).body.html;
+  assert.ok(letter.includes('<th>المرجع</th>') && letter.includes(order.cells[1]));
 });

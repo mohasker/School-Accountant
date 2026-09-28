@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useWorkspace, type Workspace } from '../components/context';
 import type { Dialog, Field } from '../components/FormDialog';
 import { Badge, DocButtons, Empty, Panel, Table } from '../components/ui';
-import { NumberInput } from '../components/NumberInput';
+import { NumberInput, toNumberText } from '../components/NumberInput';
 import { useLoad } from '../components/useLoad';
 import type { Row } from '../lib/api';
 import { currency, dateNow, day, downloadFile, ERP_URL, EVIDENCE, EVIDENCE_ORDER, METHOD_NAMES, readBase64 } from '../lib/format';
@@ -55,7 +55,7 @@ const defaultCover = (c: Row) => {
 };
 
 /** Repeating rows of the quote report: company name and quote value (quote number optional). */
-function QuoteRows({ suppliers }: { suppliers: Row[] }) {
+export function QuoteRows({ suppliers }: { suppliers: Row[] }) {
   const [count, setCount] = useState(3);
   return (
     <>
@@ -75,7 +75,7 @@ function QuoteRows({ suppliers }: { suppliers: Row[] }) {
           <div className="quote-row" key={i}>
             <span className="n">{i + 1}</span>
             <input name={'q_name_' + i} list="companies" autoComplete="off" placeholder="اسم الشركة" required={i === 0} />
-            <NumberInput name={'q_total_' + i} placeholder="0.00" required={i === 0} />
+            <NumberInput name={'q_total_' + i} required={i === 0} />
             <input name={'q_ref_' + i} placeholder="—" />
           </div>
         ))}
@@ -133,7 +133,7 @@ export function caseDialogs(w: Workspace, c: Row) {
                 {c.items.map((i: Row) => (
                   <label key={i.id}>
                     {i.name} — {i.qty} {i.unit}
-                    <NumberInput name={'v_' + i.id} placeholder="0.00" required />
+                    <NumberInput name={'v_' + i.id} required />
                   </label>
                 ))}
               </>
@@ -145,7 +145,9 @@ export function caseDialogs(w: Workspace, c: Row) {
             supplierName: v.supplierName,
             reason: v.reason,
             total: v.total,
-            ...(c.items.length > 1 ? { values: c.items.map((i: Row) => ({ itemId: i.id, value: String(fd.get('v_' + i.id)) })) } : {}),
+            ...(c.items.length > 1
+              ? { values: c.items.map((i: Row) => ({ itemId: i.id, value: toNumberText(String(fd.get('v_' + i.id) ?? '')) })) }
+              : {}),
           }),
       }
     : {
@@ -162,7 +164,7 @@ export function caseDialogs(w: Workspace, c: Row) {
         save: async (_v, fd) => {
           for (let i = 0; fd.has('q_name_' + i); i++) {
             const name = String(fd.get('q_name_' + i) || '').trim(),
-              total = String(fd.get('q_total_' + i) || '').trim();
+              total = toNumberText(String(fd.get('q_total_' + i) || '').trim());
             if (!name && !total) continue;
             if (!name || !total) throw Error(`الصف ${i + 1}: أدخل اسم الشركة وقيمة العرض معاً`);
             await act('quotes', { supplierName: name, total, reference: String(fd.get('q_ref_' + i) || ''), quoteDate: dateNow() });
@@ -205,7 +207,7 @@ export function caseDialogs(w: Workspace, c: Row) {
         {c.items.map((i: Row) => (
           <label key={i.id}>
             {i.name} — {i.qty} {i.unit}
-            <NumberInput name={'v_' + i.id} placeholder="0.00" required />
+            <NumberInput name={'v_' + i.id} required />
           </label>
         ))}
       </>
@@ -215,7 +217,9 @@ export function caseDialogs(w: Workspace, c: Row) {
       await act('evaluate', {
         date: v.date,
         ...(v.exclusiveReason ? { exclusiveReason: v.exclusiveReason } : {}),
-        ...(needsSplit ? { values: c.items.map((i: Row) => ({ itemId: i.id, value: String(fd.get('v_' + i.id)) })) } : {}),
+        ...(needsSplit
+          ? { values: c.items.map((i: Row) => ({ itemId: i.id, value: toNumberText(String(fd.get('v_' + i.id) ?? '')) })) }
+          : {}),
       });
       w.open(order);
     },

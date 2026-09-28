@@ -2,7 +2,7 @@
 import { useEffect, useState } from 'react';
 import { BudgetBars, ExecutionGauge, GroupBars, MonthlyBars } from '../components/charts';
 import { useWorkspace } from '../components/context';
-import { newCaseDialog, openImprestDialog } from '../components/dialogs';
+import { newCaseDialog } from '../components/dialogs';
 import { Panel, Stat } from '../components/ui';
 import { useLoad } from '../components/useLoad';
 import type { Row } from '../lib/api';
@@ -40,8 +40,7 @@ export function Dashboard() {
     { icon: '☰', title: 'تقارير عروض الأسعار', hint: 'بحث وإعادة طباعة', onClick: () => w.go('quote-register') },
     { icon: '✎', title: 'التكليفات', hint: 'أوامر الشراء', onClick: () => w.go('order-register') },
     { icon: '✔', title: 'شهادات الإنجاز', hint: 'وكتب التغطية', onClick: () => w.go('registry') },
-    ...(accountant ? [{ icon: '＋', title: 'عهدة جديدة', hint: 'نثرية أو خاصة', onClick: () => w.open(openImprestDialog(w)) }] : []),
-    { icon: '▣', title: 'العهد والتسوية', hint: 'إدخال الفواتير عند التسوية', onClick: () => w.go('imprests') },
+    { icon: '▣', title: 'العهد', hint: 'عهدة جديدة والتسوية', onClick: () => w.go('imprests') },
     { icon: '▧', title: 'التقارير', hint: 'التقرير المالي الشامل والمعاملات', onClick: () => w.go('reports') },
     { icon: '▥', title: 'الموازنة', hint: 'البنود والأرصدة', onClick: () => w.go('budget') },
     { icon: '↗', title: 'نظام ERP', hint: 'بوابة الوزارة', href: ERP_URL },
@@ -53,16 +52,14 @@ export function Dashboard() {
       <section className="quick-links" aria-label="روابط سريعة">
         {links.map((l) =>
           l.href ? (
-            <a key={l.title} className="quick-link erp" href={l.href} target="_blank" rel="noreferrer">
+            <a key={l.title} className="quick-link erp" href={l.href} target="_blank" rel="noreferrer" title={l.hint}>
               <i>{l.icon}</i>
               <b>{l.title}</b>
-              <small>{l.hint}</small>
             </a>
           ) : (
-            <button key={l.title} type="button" className={'quick-link' + (l.primary ? ' primary' : '')} onClick={l.onClick}>
+            <button key={l.title} type="button" className={'quick-link' + (l.primary ? ' primary' : '')} onClick={l.onClick} title={l.hint}>
               <i>{l.icon}</i>
               <b>{l.title}</b>
-              <small>{l.hint}</small>
             </button>
           ),
         )}

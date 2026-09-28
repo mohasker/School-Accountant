@@ -1,6 +1,6 @@
 'use client';
 import React, { useState } from 'react';
-import { NumberInput } from './NumberInput';
+import { NumberInput, toNumberText } from './NumberInput';
 import { Select } from './Select';
 import type { Row } from '../lib/api';
 
@@ -38,7 +38,13 @@ export function FormDialog({ dialog, onClose, onSaved }: { dialog: Dialog; onClo
     setError('');
     const fd = new FormData(e.currentTarget),
       values: Row = {};
-    for (const f of dialog.fields ?? []) values[f.name] = f.type === 'checkbox' ? fd.get(f.name) === 'on' : String(fd.get(f.name) ?? '');
+    for (const f of dialog.fields ?? [])
+      values[f.name] =
+        f.type === 'checkbox'
+          ? fd.get(f.name) === 'on'
+          : f.type === 'number'
+            ? toNumberText(String(fd.get(f.name) ?? ''), f.step === '1')
+            : String(fd.get(f.name) ?? '');
     try {
       await dialog.save(values, fd);
       onSaved();
@@ -80,13 +86,7 @@ export function FormDialog({ dialog, onClose, onSaved }: { dialog: Dialog; onClo
                 ) : f.type === 'textarea' ? (
                   <textarea name={f.name} defaultValue={f.value as string} required={f.required !== false} rows={3} />
                 ) : f.type === 'checkbox' ? null : f.type === 'number' ? (
-                  <NumberInput
-                    name={f.name}
-                    defaultValue={f.value as string}
-                    required={f.required !== false}
-                    integer={f.step === '1'}
-                    placeholder={f.step === '1' ? '0' : '0.00'}
-                  />
+                  <NumberInput name={f.name} defaultValue={f.value as string} required={f.required !== false} integer={f.step === '1'} />
                 ) : (
                   <input
                     name={f.name}
@@ -112,36 +112,4 @@ export function FormDialog({ dialog, onClose, onSaved }: { dialog: Dialog; onClo
       </form>
     </div>
   );
-}
-
-/** Repeating purchase lines (description, unit, quantity, budget line) inside a dialog form. */
-export function ItemLines({ budgets }: { budgets: Row[] }) {
-  const [count, setCount] = useState(1);
-  return (
-    <>
-      <h3>البنود المطلوبة</h3>
-      {Array.from({ length: count }, (_, i) => (
-        <div className="item-form" key={i}>
-          <input name={'name_' + i} placeholder="وصف الصنف" aria-label="وصف الصنف" required />
-          <input name={'unit_' + i} defaultValue="عدد" aria-label="الوحدة" required />
-          <NumberInput name={'qty_' + i} placeholder="الكمية" aria-label="الكمية" required />
-          <Select
-            name={'budget_' + i}
-            label="بند الموازنة"
-            options={budgets.map((b) => ({ value: b.id, label: `${b.code} — ${b.name}` }))}
-          />
-        </div>
-      ))}
-      <button type="button" className="secondary" onClick={() => setCount((n) => n + 1)}>
-        ＋ صنف آخر
-      </button>
-    </>
-  );
-}
-
-export function readItemLines(fd: FormData) {
-  const lines = [];
-  for (let i = 0; fd.has('name_' + i); i++)
-    lines.push({ name: fd.get('name_' + i), unit: fd.get('unit_' + i), qty: fd.get('qty_' + i), budgetId: fd.get('budget_' + i) });
-  return lines;
 }

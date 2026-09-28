@@ -71,20 +71,20 @@ ${row(8, 'قيمة غرامات التأخير / ونسبتها %', fineLine)}
 ${row(9, 'قيمة الفاتورة بعد خصم قيمة غرامة التأخير', `<b>${money(d.net)} ر.ق</b><div class="words">${tafqeet(d.net)}</div>`)}
 ${row(10, 'ملاحظات', esc(d.notes || '—'))}
 </table>
-<p class="bold section">تقييم المدرسة لأداء المورد</p>
-<table class="rating">
+<p class="bold section cert-head">تقييم المدرسة لأداء المورد</p>
+<table class="rating cert-small">
 <tr>${ratingRow('1- الالتزام بنطاق العمل', d.ratings.scope)}</tr>
 <tr>${ratingRow('2- الالتزام بالمدة الزمنية للعقد', d.ratings.time)}</tr>
 <tr>${ratingRow('3- الالتزام بتعليمات جهة الإشراف', d.ratings.supervision)}</tr>
 </table>
-<p class="bold section">** مرفقات مع تقرير (شهادة) الإنجاز:</p>
-<div class="checks">${attachments}</div>
+<p class="bold section cert-head">** مرفقات مع تقرير (شهادة) الإنجاز:</p>
+<div class="checks cert-small">${attachments}</div>
 ${CLOSING}
 ${signatures([
   { role: 'تم الاستلام والمراجعة بواسطة محاسب المدرسة', name: d.accountant },
   { role: 'مدير المدرسة', name: d.principal, extra: d.school },
 ])}`;
-  return printDocument({ title: 'شهادة إنجاز أعمال', ref: d.number, date: d.date, body, compact: true });
+  return printDocument({ title: 'شهادة إنجاز أعمال', ref: d.number, date: d.date, body, compact: true, showRef: false });
 }
 
 /** كتاب التغطية: طلب صرف مستحقات الشركة — template «Cover Let». */
@@ -104,5 +104,5 @@ ${CLOSING}
 ${signatures([{ role: 'مدير المدرسة', name: d.principal, extra: d.school }])}
 <p class="bold">المرفقات:</p>
 <ol>${items.map((a) => `<li>${esc(a.text)}</li>`).join('')}</ol>`;
-  return printDocument({ title: 'كتاب تغطية — صرف مستحقات', ref: d.number + '-COVER', date: d.coverDate, body });
+  return printDocument({ title: 'كتاب تغطية — صرف مستحقات', ref: d.number + '-COVER', date: d.coverDate, body, showRef: false });
 }

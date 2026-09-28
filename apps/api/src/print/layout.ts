@@ -87,6 +87,8 @@ li{margin:.8mm 0}
 .signs{display:flex;justify-content:space-around;align-items:stretch;gap:10mm;margin-top:6mm;break-inside:avoid;page-break-inside:avoid}
 .signs>div{flex:1;max-width:75mm;text-align:center;line-height:1.7;display:flex;flex-direction:column}
 .signs .role{font-weight:700;font-size:11pt}
+.signs.single{justify-content:flex-end}
+.signs.single>div{flex:0 0 75mm}
 .signs .line{margin-top:auto;padding-top:10mm}
 .signs .line span{display:block;border-top:.6pt solid #1a1a1a;padding-top:1mm;font-size:9.5pt;color:#555}
 .checks{display:grid;grid-template-columns:1fr 1fr;gap:.5mm 8mm;margin:2mm 3mm;font-size:10.5pt}
@@ -124,21 +126,35 @@ body.compact{font-size:10.5pt;line-height:1.4}
 .rating td.picked{background:#f3e7eb!important;font-weight:700;color:#4d0c20}
 .rating td.r{width:42%;background:#faf6f7}
 .compact .checks span{line-height:1.45}
+.cert-small{font-size:8.8pt!important;margin:.6mm 0!important}
+.cert-small td{padding:.5mm 1.6mm!important;font-size:8.8pt!important;line-height:1.25}
+.cert-small.checks{grid-template-columns:1fr 1fr;gap:0 6mm;margin:.5mm 2mm!important}
+.cert-small.checks span{line-height:1.3}
+.cert-small.checks span:before{font-size:9.5pt;margin-left:1.2mm}
+p.cert-head{font-size:9.5pt;margin:1.2mm 0 .4mm!important}
 `;
 
-export function printDocument(opts: { title: string; ref: string; body: string; date?: Date | string | null; compact?: boolean }) {
+export function printDocument(opts: {
+  title: string;
+  ref: string;
+  body: string;
+  date?: Date | string | null;
+  compact?: boolean;
+  /** false: the reference stays in the system (footer line) and is not printed in the letterhead box. */
+  showRef?: boolean;
+}) {
   const demo = process.env.DEMO_MODE === 'true';
   return `<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8"><title>${esc(opts.title)} — ${esc(opts.ref)}</title><style>${STYLE}</style></head><body${opts.compact ? ' class="compact"' : ''}>
-<header class="letterhead"><img src="${LOGO_URL}" alt="وزارة التربية والتعليم والتعليم العالي"><table class="meta"><tr><th>التاريخ</th><td>${dateHtml(opts.date ?? new Date())}</td></tr><tr><th>المرجع</th><td>${num(opts.ref)}</td></tr></table></header>
+<header class="letterhead"><img src="${LOGO_URL}" alt="وزارة التربية والتعليم والتعليم العالي"><table class="meta"><tr><th>التاريخ</th><td>${dateHtml(opts.date ?? new Date())}</td></tr>${opts.showRef === false ? '' : `<tr><th>المرجع</th><td>${num(opts.ref)}</td></tr>`}</table></header>
 <div class="rule"></div>
 ${demo ? '<div class="watermark">نسخة تجريبية — بيانات اختبار</div>' : ''}
 ${opts.body}
-<div class="doc-end"><span>${esc(opts.title)} — ${num(opts.ref)}</span><span>أُعد إلكترونياً بتاريخ ${dateHtml(new Date())}</span></div>
+<div class="doc-end"><span>${esc(opts.title)}${opts.showRef === false ? '' : ` — ${num(opts.ref)}`}</span><span>أُعد إلكترونياً بتاريخ ${dateHtml(new Date())}</span></div>
 </body></html>`;
 }
 
 export function signatures(items: { role: string; name?: string | null; extra?: string }[]) {
-  return `<div class="signs">${items
+  return `<div class="signs${items.length === 1 ? ' single' : ''}">${items
     .map(
       (i) =>
         `<div><div class="role">${esc(i.role)}</div>${i.extra ? `<div>${esc(i.extra)}</div>` : ''}<div>${esc(i.name || '')}</div><div class="line"><span>التوقيع</span></div></div>`,

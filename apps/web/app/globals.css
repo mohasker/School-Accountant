@@ -2436,3 +2436,31 @@ button.mini {
 .mail-btn:hover {
   background: var(--wine-soft);
 }
+/* Quick links as compact professional buttons */
+.quick-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.quick-link {
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 14px 7px 12px;
+  border-radius: 10px;
+  min-height: 40px;
+}
+.quick-link i {
+  width: 24px;
+  height: 24px;
+  border-radius: 7px;
+  font-size: 13px;
+  margin: 0;
+}
+.quick-link b {
+  font-size: 13.5px;
+  white-space: nowrap;
+}
+.quick-link:hover {
+  transform: translateY(-1px);
+}

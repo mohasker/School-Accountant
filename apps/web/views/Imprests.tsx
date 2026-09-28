@@ -262,7 +262,7 @@ function InvoiceRows({ budgets, vendors, limit }: { budgets: Row[]; vendors: str
           <input name={'i_date_' + i} type="date" defaultValue={dateNow()} aria-label="التاريخ" />
           <input name={'i_desc_' + i} placeholder="مثل: ضيافة - بوفيه المدرسة" aria-label="البيان" />
           <Select name={'i_budget_' + i} label="البند" options={lines} />
-          <NumberInput name={'i_amount_' + i} placeholder="0.00" aria-label="المبلغ" />
+          <NumberInput name={'i_amount_' + i} aria-label="المبلغ" />
           <input name={'i_note_' + i} placeholder="" aria-label="ملاحظات" />
         </div>
       ))}

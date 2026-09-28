@@ -14,8 +14,9 @@ export function toNumberText(raw: string, integer = false) {
 }
 
 /**
- * Number box typed by hand on any keyboard (Arabic or English digits, «٫» or «.», thousands commas):
- * no spinner arrows, the numeric keypad on phones, and the value is cleaned as you type.
+ * Number box typed by hand on any keyboard (Arabic or English digits, «٫» or «.», thousands commas).
+ * It is a plain text box — nothing is blocked or rewritten while typing; the value is cleaned when the
+ * box is left and again when the form is read (see `toNumberText`).
  */
 export function NumberInput({
   integer,
@@ -27,16 +28,14 @@ export function NumberInput({
       {...props}
       type="text"
       inputMode={integer ? 'numeric' : 'decimal'}
-      dir="ltr"
       autoComplete="off"
       className={'num-input ' + className}
       defaultValue={props.defaultValue === undefined || props.defaultValue === null ? undefined : String(props.defaultValue)}
-      onInput={(e) => {
+      onBlur={(e) => {
         const el = e.currentTarget,
           clean = toNumberText(el.value, integer);
         if (clean !== el.value) el.value = clean;
       }}
-      onFocus={(e) => e.currentTarget.select()}
     />
   );
 }
