@@ -24,10 +24,16 @@ echo  First run: installing packages - this takes a few minutes, once only...
 call npm ci --include=dev --no-audit --no-fund
 if errorlevel 1 goto failed
 :build
-if exist apps\web\.next\BUILD_ID if exist dist\main.js goto run
-echo  First run: preparing the application...
+rem Rebuild after an update: the prepared version is recorded next to the build.
+set "WANT="
+set "HAVE="
+if exist VERSION set /p WANT=<VERSION
+if exist apps\web\.next\madar-version set /p HAVE=<apps\web\.next\madar-version
+if exist apps\web\.next\BUILD_ID if exist dist\main.js if "%HAVE%"=="%WANT%" goto run
+echo  Preparing the application (first run or new version)...
 call npm run build
 if errorlevel 1 goto failed
+if exist VERSION copy /y VERSION apps\web\.next\madar-version >nul
 :run
 
 if "%DEMO_PASSWORD%"=="" set "DEMO_PASSWORD=Madar-Trial-2026"
