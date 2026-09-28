@@ -1,5 +1,6 @@
 'use client';
 import { useState } from 'react';
+import { Select } from '../components/Select';
 import { useWorkspace } from '../components/context';
 import { DocButtons, Empty, Panel, Table } from '../components/ui';
 import { useLoad } from '../components/useLoad';
@@ -55,14 +56,11 @@ export function Registry() {
         </label>
         <label>
           المدرسة
-          <select value={form.school} onChange={set('school')}>
-            <option value="">كل مدارسي</option>
-            {w.me.schools.map((s: Row) => (
-              <option key={s.id} value={s.id}>
-                {s.name}
-              </option>
-            ))}
-          </select>
+          <Select
+            value={form.school}
+            onChange={(v) => setForm({ ...form, school: v })}
+            options={[{ value: '', label: 'كل مدارسي' }, ...w.me.schools.map((s: Row) => ({ value: s.id, label: s.name }))]}
+          />
         </label>
         <label>
           من

@@ -34,50 +34,44 @@ export type CertificateData = {
   attachments: number[];
 };
 
-const ratingRow = (label: string, value: Rating) =>
-  `<td class="r bold">${esc(label)}</td>${(Object.keys(RATINGS) as Rating[])
-    .map((k) => `<td>${k === value ? '☒' : '☐'} ${RATINGS[k]}</td>`)
-    .join('')}`;
-
-/** شهادة إنجاز أعمال — template «Injaz». */
+/** شهادة إنجاز أعمال — template «Injaz», laid out in sections: file data, financial summary, rating, attachments. */
 export function certificateDocument(d: CertificateData) {
-  const row = (n: number, label: string, value: string) =>
-    `<tr><td class="n">${n}</td><td class="k">${esc(label)}</td><td>${value}</td></tr>`;
-  const delay = d.hasFine
-    ? `نعم — مدة التوريد ${workingDays(d.deliveryDays)} — عدد أيام التأخير ${workingDays(d.lateDays)}`
-    : `لا${d.deliveryDays ? ` — مدة التوريد ${workingDays(d.deliveryDays)}` : ''}`;
-  const fineLine =
-    `${money(d.fine)} ر.ق — ${num(d.finePct + '%')}` +
-    (Number(d.priorFine) > 0
-      ? ` <span class="muted">(غرامات سابقة ${money(d.priorFine)}، المتراكمة ${money(d.cumulativeFine)})</span>`
-      : '');
+  const cell = (label: string, value: string) => `<th>${esc(label)}</th><td>${value}</td>`;
+  const late = d.hasFine ? workingDays(d.lateDays) : 'لا يوجد';
   const attachments = PRE_CERTIFICATE.map(
     (code) => `<span class="${d.attachments.includes(code) ? 'on' : ''}">${esc(EVIDENCE[code].print)}</span>`,
   ).join('');
+  const rating = (label: string, value: Rating) =>
+    `<tr><th>${esc(label)}</th>${(Object.keys(RATINGS) as Rating[])
+      .map((k) => `<td class="${k === value ? 'picked' : ''}">${k === value ? '☒' : '☐'} ${RATINGS[k]}</td>`)
+      .join('')}</tr>`;
   const body = `
 <div class="to"><span>السادة / ${esc(ADDRESSEES[d.addressee - 1] ?? ADDRESSEES[0])}</span><span>المحترمين</span></div>
-<h1>الموضوع: شهادة إنجاز أعمال${d.kind === 'PARTIAL' ? ' (جزئية)' : ''}</h1>
-<p>تتقدم إليكم مدرسة: <b>${esc(d.school)}</b> بأخلص التحيات،</p>
-<p>بالإشارة إلى الموضوع أعلاه، وبناءً على قيام السادة شركة / <b>${esc(d.supplier)}</b> بتوريد الأصناف / تنفيذ الأعمال المنصوص عليها في أمر التوريد / كتاب التكليف (${esc(d.subject)})، حسب الآتي:</p>
-<table class="grid">
-${row(1, 'رقم أمر التوريد / كتاب التكليف / العقد', esc(d.orderNumber))}
-${row(2, 'رقم الفاتورة', esc(d.invoice))}
-${row(3, 'قيمة أمر التوريد / التكليف الإجمالية / العقد', money(d.orderValue) + ' ر.ق')}
-${row(4, 'تاريخ أمر التوريد / العقد', dateHtml(d.orderDate))}
-${row(5, 'تاريخ التوريد الفعلي للأصناف', dateHtml(d.deliveryDate))}
-${row(6, 'قيمة البنود والأصناف التي تم توريدها فعلياً', money(d.gross) + ' ر.ق')}
-${row(7, 'غرامات تأخير / مدة التوريد / عدد أيام التأخير', delay)}
-${row(8, 'قيمة غرامات التأخير / ونسبتها %', fineLine)}
-${row(9, 'قيمة الفاتورة بعد خصم قيمة غرامة التأخير', `<b>${money(d.net)} ر.ق</b><div class="words">${tafqeet(d.net)}</div>`)}
-${row(10, 'ملاحظات', esc(d.notes || '—'))}
+<div class="cert-title"><span>شهادة إنجاز أعمال${d.kind === 'PARTIAL' ? ' (جزئية)' : ''}</span><small>رقم ${num(d.number)}</small></div>
+<p>تتقدم إليكم مدرسة <b>${esc(d.school)}</b> بأخلص التحيات، وتشهد بقيام شركة / <b>${esc(d.supplier)}</b> بتوريد الأصناف / تنفيذ الأعمال المنصوص عليها في أمر التوريد / كتاب التكليف الخاص بـ (<b>${esc(d.subject)}</b>) حسب البيانات التالية:</p>
+<div class="cert-section">بيانات التكليف والتوريد</div>
+<table class="cert-info">
+<tr>${cell('رقم أمر التوريد / كتاب التكليف', esc(d.orderNumber))}${cell('رقم الفاتورة', esc(d.invoice))}</tr>
+<tr>${cell('تاريخ أمر التوريد', dateHtml(d.orderDate))}${cell('تاريخ التوريد الفعلي', dateHtml(d.deliveryDate))}</tr>
+<tr>${cell('مدة التوريد', d.deliveryDays ? workingDays(d.deliveryDays) : '—')}${cell('أيام التأخير', late)}</tr>
 </table>
-<p class="bold section">تقييم المدرسة لأداء المورد</p>
-<table class="rating">
-<tr>${ratingRow('1- الالتزام بنطاق العمل', d.ratings.scope)}</tr>
-<tr>${ratingRow('2- الالتزام بالمدة الزمنية للعقد', d.ratings.time)}</tr>
-<tr>${ratingRow('3- الالتزام بتعليمات جهة الإشراف', d.ratings.supervision)}</tr>
+<div class="cert-section">الملخص المالي</div>
+<div class="cert-money">
+<div><span>قيمة التكليف الإجمالية</span><b>${money(d.orderValue)}</b></div>
+<div><span>قيمة ما تم توريده فعلياً</span><b>${money(d.gross)}</b></div>
+<div class="${d.hasFine ? 'fine' : ''}"><span>غرامة التأخير (${num(d.finePct + '%')})</span><b>${money(d.fine)}</b></div>
+<div class="net"><span>الصافي المستحق بعد الخصم</span><b>${money(d.net)}</b></div>
+</div>
+<div class="words">${tafqeet(d.net)}</div>
+${Number(d.priorFine) > 0 ? `<p class="muted">غرامات سابقة ${money(d.priorFine)} ر.ق، والغرامة المتراكمة ${money(d.cumulativeFine)} ر.ق.</p>` : ''}
+${d.notes ? `<p><b>ملاحظات:</b> ${esc(d.notes)}</p>` : ''}
+<div class="cert-section">تقييم المدرسة لأداء الشركة</div>
+<table class="cert-rating">
+${rating('الالتزام بنطاق العمل', d.ratings.scope)}
+${rating('الالتزام بالمدة الزمنية للعقد', d.ratings.time)}
+${rating('الالتزام بتعليمات جهة الإشراف', d.ratings.supervision)}
 </table>
-<p class="bold section">** مرفقات مع تقرير (شهادة) الإنجاز:</p>
+<div class="cert-section">المرفقات مع شهادة الإنجاز</div>
 <div class="checks">${attachments}</div>
 ${CLOSING}
 ${signatures([

@@ -1,5 +1,6 @@
 'use client';
 import { useState } from 'react';
+import { Select } from '../components/Select';
 import { useWorkspace } from '../components/context';
 import { DocButtons, Empty, Panel, Table } from '../components/ui';
 import { useLoad } from '../components/useLoad';
@@ -40,14 +41,14 @@ export function Reports() {
           </label>
           <label>
             المحاسب
-            <select value={period.accountant} onChange={(e) => setPeriod({ ...period, accountant: e.target.value })}>
-              <option value="">كل المحاسبين المصرح بهم</option>
-              {w.setup.users?.map((u: Row) => (
-                <option key={u.id} value={u.user.id}>
-                  {u.user.name}
-                </option>
-              ))}
-            </select>
+            <Select
+              value={period.accountant}
+              onChange={(v) => setPeriod({ ...period, accountant: v })}
+              options={[
+                { value: '', label: 'كل المحاسبين المصرح بهم' },
+                ...(w.setup.users || []).map((u: Row) => ({ value: u.user.id, label: u.user.name })),
+              ]}
+            />
           </label>
           <button onClick={run}>استخراج التقرير</button>
         </div>

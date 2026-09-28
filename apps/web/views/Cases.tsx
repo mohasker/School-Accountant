@@ -1,5 +1,7 @@
 'use client';
 import { useState } from 'react';
+import { Select } from '../components/Select';
+import { caseDialogs } from './CaseDetail';
 import { useWorkspace } from '../components/context';
 import { newCaseDialog } from '../components/dialogs';
 import { Badge, Empty, Panel, Table } from '../components/ui';
@@ -7,11 +9,69 @@ import { useLoad } from '../components/useLoad';
 import type { Row } from '../lib/api';
 import { currency, day, METHOD_NAMES, STATE_NAMES, STATES } from '../lib/format';
 
-export function CaseTable({ rows }: { rows: Row[] }) {
+/** Quick actions of a file in the list: its next step, and reprint of every document already issued. */
+function RowActions({ r }: { r: Row }) {
   const w = useWorkspace();
+  const [open, setOpen] = useState(false);
+  const cert = r.certificates?.[0];
+  const docs = [
+    r.evaluationHtml && { label: 'تقرير عروض الأسعار', path: w.root(`cases/${r.id}/report-print`) },
+    r.orderHtml && { label: 'كتاب التكليف', path: w.root(`cases/${r.id}/order-print`) },
+    cert && { label: 'شهادة الإنجاز', path: w.root('certificates/' + cert.id) },
+    cert && { label: 'كتاب التغطية', path: w.root(`certificates/${cert.id}/cover`) },
+  ].filter(Boolean) as { label: string; path: string }[];
+  const step =
+    r.state === 'DRAFT'
+      ? { key: 'quotes', label: 'إكمال تقرير العروض' }
+      : r.state === 'APPROVED'
+        ? { key: 'order', label: 'إعداد التكليف' }
+        : ['ORDERED', 'PARTIAL', 'DELIVERED'].includes(r.state)
+          ? { key: 'finish', label: 'إعداد الشهادة والتغطية' }
+          : null;
+  const run = async () => {
+    if (!step) return;
+    if (r.state === 'DRAFT') return w.go('case', r.id);
+    try {
+      const full = await w.api(w.root('cases/' + r.id));
+      w.open((caseDialogs(w, full) as Row)[step.key]);
+    } catch (e) {
+      w.fail(e);
+    }
+  };
+  return (
+    <div className="row-actions">
+      {step && w.can('ACCOUNTANT') && (
+        <button className="mini" onClick={run}>
+          {step.label}
+        </button>
+      )}
+      {docs.length > 0 && (
+        <span className="send">
+          <button className="mini secondary" onClick={() => setOpen((o) => !o)} aria-expanded={open}>
+            ⎙ طباعة ▾
+          </button>
+          {open && (
+            <span className="send-menu" onMouseLeave={() => setOpen(false)}>
+              {docs.map((d) => (
+                <button key={d.label} type="button" onClick={() => (setOpen(false), w.print(d.path))}>
+                  {d.label}
+                </button>
+              ))}
+            </span>
+          )}
+        </span>
+      )}
+      <button className="link" onClick={() => w.go('case', r.id)}>
+        فتح ←
+      </button>
+    </div>
+  );
+}
+
+export function CaseTable({ rows }: { rows: Row[] }) {
   if (!rows.length) return <Empty />;
   return (
-    <Table heads={['المعاملة', 'الموضوع / المورد', 'أمر الشراء', 'المحاسب', 'القيمة', 'الحالة', '']}>
+    <Table heads={['المعاملة', 'الموضوع / الشركة', 'أمر الشراء', 'القيمة', 'الحالة', 'الإجراءات']}>
       {rows.map((r) => (
         <tr key={r.id}>
           <td>
@@ -21,12 +81,11 @@ export function CaseTable({ rows }: { rows: Row[] }) {
           <td>
             {r.subject}
             <small>
-              {r.supplier?.name || 'لم يحدد المورد'}
+              {r.supplier?.name || 'لم تحدد الشركة'}
               {r.method ? ' · ' + METHOD_NAMES[r.method] : ''}
             </small>
           </td>
           <td className="mono">{r.orderNumber || '—'}</td>
-          <td>{r.accountantName}</td>
           <td>
             {currency(r.total)} <small>ر.ق</small>
           </td>
@@ -34,9 +93,7 @@ export function CaseTable({ rows }: { rows: Row[] }) {
             <Badge state={r.state} />
           </td>
           <td>
-            <button className="link" onClick={() => w.go('case', r.id)}>
-              فتح ←
-            </button>
+            <RowActions r={r} />
           </td>
         </tr>
       ))}
@@ -63,14 +120,12 @@ export function Cases() {
           onChange={(e) => setQ(e.target.value)}
           onKeyDown={(e) => e.key === 'Enter' && setSearch(q)}
         />
-        <select aria-label="الحالة" value={state} onChange={(e) => setState(e.target.value)}>
-          <option value="">كل الحالات</option>
-          {STATES.map((s) => (
-            <option key={s} value={s}>
-              {STATE_NAMES[s]}
-            </option>
-          ))}
-        </select>
+        <Select
+          label="الحالة"
+          value={state}
+          onChange={setState}
+          options={[{ value: '', label: 'كل الحالات' }, ...STATES.map((s) => ({ value: s, label: STATE_NAMES[s] }))]}
+        />
         <button onClick={() => setSearch(q)}>بحث</button>
       </div>
       <CaseTable rows={rows || []} />

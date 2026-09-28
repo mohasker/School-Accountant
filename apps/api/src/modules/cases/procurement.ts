@@ -82,7 +82,9 @@ export async function addQuote({ s, school, t, body, c }: WriteCtx & { c: FullCa
         supplierName: z.string().trim().min(2).max(200).optional(),
         reference: z.string().trim().max(150).default(''),
         quoteDate: date.optional(),
-        prices,
+        // The quote report needs only the company and its quote value; unit prices are optional.
+        total: money.optional(),
+        prices: prices.optional(),
         compliant: z.boolean().default(true),
         note: z.string().max(1000).default(''),
       })
@@ -91,7 +93,9 @@ export async function addQuote({ s, school, t, body, c }: WriteCtx & { c: FullCa
   );
   const supplierId = await supplierFor(t, school, p.supplierId, p.supplierName);
   if (c.quotes.some((q) => q.supplierId === supplierId)) fail('يوجد عرض مسجل لهذه الشركة؛ احذفه أولاً لتعديله');
-  const { total } = priceLines(c, p.prices);
+  if (!p.prices && !p.total) fail('قيمة عرض السعر مطلوبة');
+  const total = p.prices ? priceLines(c, p.prices).total : round(new D(p.total!));
+  if (total.lte(0)) fail('قيمة العرض موجبة');
   if (!p.compliant && !p.note.trim()) fail('سبب استبعاد العرض مطلوب');
   return t.quote.create({
     data: {
@@ -101,12 +105,45 @@ export async function addQuote({ s, school, t, body, c }: WriteCtx & { c: FullCa
       supplierId,
       reference: p.reference,
       quoteDate: p.quoteDate ? new Date(p.quoteDate) : null,
-      prices: p.prices,
+      prices: p.prices ?? [],
       total,
       compliant: p.compliant,
       note: p.note,
     },
   });
+}
+
+/**
+ * Item prices on the assignment letter: from the awarded quote's unit prices, or — for a quote
+ * entered as a total — the whole value on a single item, or the item values given at award time
+ * (they must add up to the quote value).
+ */
+async function awardItems(
+  t: Tx,
+  c: FullCase,
+  q: { prices: unknown; total: InstanceType<typeof D> },
+  values?: { itemId: string; value: string }[],
+) {
+  const lines = (q.prices ?? []) as { itemId: string; price: string }[];
+  if (lines.length) {
+    for (const line of lines) {
+      const item = c.items.find((i) => i.id === line.itemId)!;
+      await t.item.update({ where: { id: item.id }, data: { unitPrice: line.price, value: round(item.qty.mul(line.price)) } });
+    }
+    return;
+  }
+  const split =
+    c.items.length === 1
+      ? [{ item: c.items[0], value: q.total }]
+      : c.items.map((item) => {
+          const v = values?.find((x) => x.itemId === item.id);
+          if (!v) fail('حدد قيمة كل صنف للشركة المختارة (مجموعها = قيمة العرض)');
+          return { item, value: round(new D(v.value)) };
+        });
+  const total = split.reduce((a, x) => a.plus(x.value), new D(0));
+  if (!total.eq(q.total)) fail(`مجموع قيم الأصناف (${amount(total)}) لا يساوي قيمة العرض (${amount(q.total)})`);
+  for (const { item, value } of split)
+    await t.item.update({ where: { id: item.id }, data: { unitPrice: value.div(item.qty).toDecimalPlaces(4), value } });
 }
 
 /**
@@ -169,6 +206,8 @@ export async function evaluate({ s, school, t, body, c }: WriteCtx & { c: FullCa
         reason: z.string().trim().max(500).optional(),
         exclusiveReason: z.string().trim().max(500).optional(),
         date: date.optional(),
+        /** Value of each item for the awarded company when its quote was entered as a total. */
+        values: z.array(z.object({ itemId: id, value: money })).optional(),
       })
       .strict(),
     body,
@@ -186,10 +225,7 @@ export async function evaluate({ s, school, t, body, c }: WriteCtx & { c: FullCa
   const policy = await loadPolicy(t, s.user.tenantId, on);
   const method = purchaseMethod(policy, q.total, c.quotes.length, p.exclusiveReason);
   if (method === 'EXCLUSIVE' && c.quotes.length > 1) fail('حالة المورد المحتكر تكون بعرض سعر واحد');
-  for (const line of q.prices as { itemId: string; price: string }[]) {
-    const item = c.items.find((i) => i.id === line.itemId)!;
-    await t.item.update({ where: { id: item.id }, data: { unitPrice: line.price, value: round(item.qty.mul(line.price)) } });
-  }
+  await awardItems(t, c, q, p.values);
   const evaluationNumber = c.evaluationNumber ?? formatNumber('EV', await nextNumber(t, school, c.yearId, 'EV'));
   const awarded = {
     ...c,
@@ -223,12 +259,22 @@ export async function directOrder({ s, school, t, body, c }: WriteCtx & { c: Ful
   requireState(c, ['DRAFT']);
   if (c.origin !== 'MINISTRY') fail('ليس تكليفاً وزارياً');
   const p = parse(
-    z.object({ supplierId: id.optional(), supplierName: z.string().trim().min(2).max(200).optional(), reason: text, prices }).strict(),
+    z
+      .object({
+        supplierId: id.optional(),
+        supplierName: z.string().trim().min(2).max(200).optional(),
+        reason: text,
+        prices: prices.optional(),
+        total: money.optional(),
+        values: z.array(z.object({ itemId: id, value: money })).optional(),
+      })
+      .strict(),
     body,
   );
   const supplierId = await supplierFor(t, school, p.supplierId, p.supplierName);
-  const { total, values } = priceLines(c, p.prices);
-  for (const v of values) await t.item.update({ where: { id: v.item.id }, data: { unitPrice: v.price, value: v.value } });
+  if (!p.prices && !p.total) fail('قيمة التكليف مطلوبة');
+  const total = p.prices ? priceLines(c, p.prices).total : round(new D(p.total!));
+  await awardItems(t, c, { prices: p.prices ?? [], total }, p.values);
   return t.case.update({
     where: { id: c.id },
     data: { supplierId, total, awardReason: p.reason, method: 'MINISTRY', state: 'APPROVED', version: { increment: 1 } },

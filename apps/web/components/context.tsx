@@ -37,7 +37,8 @@ export type Workspace = {
   /** Downloads the document at `path` as a PDF rendered on the server (`part: 'cover'` for a covering letter). */
   pdf: (path: string, part?: 'cover') => Promise<void>;
   fail: (e: unknown) => void;
-  go: (view: View, caseId?: string) => void;
+  /** Opens a screen; for a transaction, `intent` opens one of its dialogs (quotes, report, order, finish). */
+  go: (view: View, caseId?: string, intent?: string) => void;
   /** Increments after every successful change so views reload their data. */
   version: number;
   busy: boolean;

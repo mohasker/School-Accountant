@@ -86,7 +86,7 @@ export function Imprests() {
             type="button"
             className="secondary"
             onClick={async () => {
-              const type = (document.querySelector('select[name="type"]') as HTMLSelectElement)?.value || 'REPLENISH';
+              const type = (document.querySelector('input[name="type"]') as HTMLInputElement)?.value || 'REPLENISH';
               try {
                 const r = await w.api(w.root(`imprests/${a.id}/preview?type=${type}`));
                 w.printHtml(r.html);

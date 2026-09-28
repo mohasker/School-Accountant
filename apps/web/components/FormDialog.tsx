@@ -1,5 +1,6 @@
 'use client';
 import React, { useState } from 'react';
+import { Select } from './Select';
 import type { Row } from '../lib/api';
 
 export type Field = {
@@ -68,13 +69,13 @@ export function FormDialog({ dialog, onClose, onSaved }: { dialog: Dialog; onClo
                 {f.type === 'checkbox' && <input name={f.name} type="checkbox" defaultChecked={Boolean(f.value)} />}
                 {f.label}
                 {f.type === 'select' ? (
-                  <select name={f.name} defaultValue={f.value as string} required={f.required !== false}>
-                    {f.options?.map((o) => (
-                      <option value={o.value} key={o.value}>
-                        {o.label}
-                      </option>
-                    ))}
-                  </select>
+                  <Select
+                    name={f.name}
+                    label={f.label}
+                    options={f.options ?? []}
+                    defaultValue={f.value as string}
+                    required={f.required !== false}
+                  />
                 ) : f.type === 'textarea' ? (
                   <textarea name={f.name} defaultValue={f.value as string} required={f.required !== false} rows={3} />
                 ) : f.type === 'checkbox' ? null : (
@@ -117,13 +118,11 @@ export function ItemLines({ budgets }: { budgets: Row[] }) {
           <input name={'name_' + i} placeholder="وصف الصنف" aria-label="وصف الصنف" required />
           <input name={'unit_' + i} defaultValue="عدد" aria-label="الوحدة" required />
           <input name={'qty_' + i} type="number" min="0.001" step="0.001" placeholder="الكمية" aria-label="الكمية" required />
-          <select name={'budget_' + i} aria-label="بند الموازنة">
-            {budgets.map((b) => (
-              <option key={b.id} value={b.id}>
-                {b.code} — {b.name}
-              </option>
-            ))}
-          </select>
+          <Select
+            name={'budget_' + i}
+            label="بند الموازنة"
+            options={budgets.map((b) => ({ value: b.id, label: `${b.code} — ${b.name}` }))}
+          />
         </div>
       ))}
       <button type="button" className="secondary" onClick={() => setCount((n) => n + 1)}>

@@ -493,7 +493,8 @@ test('PRINT: official templates carry the logo, order number, working-day terms 
   const final = full.certificates.find((x: any) => x.kind === 'FINAL');
   const cert = text((await req(acc, route('certificates/' + final.id))).body.html);
   assert.ok(cert.includes('شهادة إنجاز أعمال'));
-  assert.ok(cert.includes('عدد أيام التأخير 5 أيام عمل'));
+  assert.ok(cert.includes('أيام التأخير') && cert.includes('5 أيام عمل'));
+  assert.ok(cert.includes('الصافي المستحق بعد الخصم'));
   assert.ok(cert.includes('فقط ثلاثة آلاف و ثمانمائة ريال قطري لا غير'));
   const cover = text((await req(acc, route(`certificates/${final.id}/cover`))).body.html);
   assert.ok(cover.includes('صرف مستحقات شركة'));
@@ -837,4 +838,46 @@ test('PURGE: the administrator deletes a file or an imprest and the budget balan
   assert.ok((await req(admin, 'admin/purge', 'POST', { scope: 'imprest', id: a.id, confirm: 'حذف' })).status < 300);
   assert.equal((await db.budget.findUnique({ where: { id: budget } })).spent.toString(), spent.minus(100).toString());
   await assert.rejects(() => db.$executeRawUnsafe('DELETE FROM "Ledger"'), 'history stays protected outside a purge');
+});
+
+test('QUOTES: the quote report takes only company and value; item values are set for the awarded company', async () => {
+  const row = await ok(acc, 'cases', {
+    yearId: year,
+    subject: 'توريد أجهزة وملحقات',
+    origin: 'SCHOOL',
+    items: [
+      { name: 'جهاز', unit: 'عدد', qty: '2', budgetId: budget },
+      { name: 'ملحقات', unit: 'مجموعة', qty: '1', budgetId: budget },
+    ],
+  });
+  for (const [name, total] of [
+    ['شركة أ للتجارة', '3000'],
+    ['شركة ب للتجارة', '2800'],
+    ['شركة ج للتجارة', '3100'],
+  ])
+    await ok(acc, `cases/${row.id}/quotes`, { supplierName: name, total });
+  const f = await load(row.id);
+  assert.equal((await req(acc, route(`cases/${row.id}/evaluate`), 'POST', {})).status, 400, 'item values required for several items');
+  const bad = await req(acc, route(`cases/${row.id}/evaluate`), 'POST', {
+    values: [
+      { itemId: f.items[0].id, value: '2000' },
+      { itemId: f.items[1].id, value: '700' },
+    ],
+  });
+  assert.match(bad.body.message, /لا يساوي/);
+  await ok(acc, `cases/${row.id}/evaluate`, {
+    values: [
+      { itemId: f.items[0].id, value: '2400' },
+      { itemId: f.items[1].id, value: '400' },
+    ],
+  });
+  const done = await load(row.id);
+  assert.equal(done.total, '2800');
+  assert.equal(done.supplier.name, 'شركة ب للتجارة');
+  assert.equal(done.items[0].unitPrice, '1200');
+  // Accountants see only their own account in the school set-up.
+  const setup = (await req(acc, route('setup'))).body;
+  assert.ok(setup.users.every((u: any) => u.user.username === 'accountant'));
+  assert.ok((await req(admin, route('setup'))).body.users.length > 1);
+  await ok(acc, `cases/${row.id}/cancel`, { reason: 'تنظيف' });
 });

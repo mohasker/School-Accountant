@@ -185,7 +185,7 @@ export function Dashboard() {
           </button>
         }
       >
-        {b.lines.length ? <BudgetBars lines={b.lines} /> : <p>لم تُعتمد مبالغ للبنود بعد؛ أدخلها من شاشة الموازنة.</p>}
+        {b.lines.length ? <BudgetBars compact lines={b.lines} /> : <p>لم تُعتمد مبالغ للبنود بعد؛ أدخلها من شاشة الموازنة.</p>}
       </Panel>
 
       <Panel

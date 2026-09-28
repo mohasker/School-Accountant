@@ -99,8 +99,10 @@ export function MonthlyBars({ rows, series }: { rows: Record<string, any>[]; ser
 }
 
 /** Budget lines as one horizontal bar each: spent, committed and the remaining balance. */
-export function BudgetBars({ lines }: { lines: Record<string, any>[] }) {
+export function BudgetBars({ lines, compact }: { lines: Record<string, any>[]; compact?: boolean }) {
   const [hover, setHover] = useState<string | null>(null);
+  const [all, setAll] = useState(false);
+  const shown = compact && !all ? lines.slice(0, 8) : lines;
   const parts = [
     { key: 'spent', label: 'المصروف', color: SERIES[0] },
     { key: 'committed', label: 'الارتباطات (تكليفات قائمة)', color: SERIES[1] },
@@ -109,32 +111,39 @@ export function BudgetBars({ lines }: { lines: Record<string, any>[] }) {
   return (
     <div className="chart">
       <Legend items={parts.map((p) => ({ label: p.label, color: p.color }))} />
-      {lines.map((l) => {
-        const total = Math.max(Number(l.approved), Number(l.spent) + Number(l.committed), 1);
-        return (
-          <div className="hbar" key={l.id} onMouseEnter={() => setHover(l.id)} onMouseLeave={() => setHover(null)}>
-            <div className="hbar-label">
-              <span>
-                {l.name} <small className="mono">{l.code}</small>
-              </span>
-              <b>{currency(l.available)}</b>
-            </div>
-            <div className="hbar-track">
-              {parts.map((p) =>
-                Number(l[p.key]) > 0 ? (
-                  <span key={p.key} style={{ width: `${(100 * Number(l[p.key])) / total}%`, background: p.color }} />
-                ) : null,
+      <div className={compact ? 'hbars compact' : 'hbars'}>
+        {shown.map((l) => {
+          const total = Math.max(Number(l.approved), Number(l.spent) + Number(l.committed), 1);
+          return (
+            <div className="hbar" key={l.id} onMouseEnter={() => setHover(l.id)} onMouseLeave={() => setHover(null)}>
+              <div className="hbar-label">
+                <span>
+                  {l.name} <small className="mono">{l.code}</small>
+                </span>
+                <b>{currency(l.available)}</b>
+              </div>
+              <div className="hbar-track">
+                {parts.map((p) =>
+                  Number(l[p.key]) > 0 ? (
+                    <span key={p.key} style={{ width: `${(100 * Number(l[p.key])) / total}%`, background: p.color }} />
+                  ) : null,
+                )}
+              </div>
+              {hover === l.id && (
+                <small className="hbar-tip">
+                  الاعتماد {currency(l.approved)} · المصروف {currency(l.spent)} · الارتباطات {currency(l.committed)} · المتاح{' '}
+                  {currency(l.available)} ر.ق
+                </small>
               )}
             </div>
-            {hover === l.id && (
-              <small className="hbar-tip">
-                الاعتماد {currency(l.approved)} · المصروف {currency(l.spent)} · الارتباطات {currency(l.committed)} · المتاح{' '}
-                {currency(l.available)} ر.ق
-              </small>
-            )}
-          </div>
-        );
-      })}
+          );
+        })}
+      </div>
+      {compact && lines.length > 8 && (
+        <button type="button" className="link" onClick={() => setAll((a) => !a)}>
+          {all ? 'عرض أقل ▴' : `عرض كل البنود (${lines.length}) ▾`}
+        </button>
+      )}
     </div>
   );
 }

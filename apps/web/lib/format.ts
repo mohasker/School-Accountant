@@ -44,6 +44,9 @@ export const METHOD_NAMES: Row = {
   MINISTRY: 'تكليف وزاري',
 };
 
+/** Ministry ERP sign-in page (registration stays manual). */
+export const ERP_URL = 'https://erp.edu.gov.qa/OA_HTML/AppsLocalLogin.jsp';
+
 export const IMPREST_TYPES: Row = {
   PETTY: 'العهدة النثرية',
   EDUCATION: 'عهدة يوم التعليم',

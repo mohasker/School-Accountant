@@ -1,10 +1,11 @@
 'use client';
-import { useWorkspace } from '../components/context';
+import { useEffect, useRef, useState } from 'react';
+import { useWorkspace, type Workspace } from '../components/context';
 import type { Dialog, Field } from '../components/FormDialog';
 import { Badge, DocButtons, Empty, Panel, Table } from '../components/ui';
 import { useLoad } from '../components/useLoad';
 import type { Row } from '../lib/api';
-import { currency, dateNow, day, downloadFile, EVIDENCE, EVIDENCE_ORDER, METHOD_NAMES, readBase64 } from '../lib/format';
+import { currency, dateNow, day, downloadFile, ERP_URL, EVIDENCE, EVIDENCE_ORDER, METHOD_NAMES, readBase64 } from '../lib/format';
 
 /** The purchase file in four documents: quote report → assignment letter → completion certificate + covering letter. */
 const STEPS = ['تقرير عروض الأسعار', 'كتاب التكليف', 'شهادة الإنجاز', 'كتاب التغطية'];
@@ -52,79 +53,127 @@ const defaultCover = (c: Row) => {
   return c.method === 'THREE_QUOTES' ? [...base, 'quoteReport', 'quotes', 'crs'] : [...base, 'quoteReport'];
 };
 
-export function CaseDetail({ id }: { id: string }) {
-  const w = useWorkspace();
-  const [c] = useLoad<Row>(() => w.api(w.root('cases/' + id)), [id]);
-  if (!c) return <p>جارٍ التحميل…</p>;
+/** Repeating rows of the quote report: company name and quote value (quote number optional). */
+function QuoteRows({ suppliers }: { suppliers: Row[] }) {
+  const [count, setCount] = useState(3);
+  return (
+    <>
+      <datalist id="companies">
+        {suppliers.map((s: Row) => (
+          <option key={s.id} value={s.name} />
+        ))}
+      </datalist>
+      <div className="quote-rows">
+        <div className="quote-row head">
+          <span>م</span>
+          <span>اسم الشركة</span>
+          <span>قيمة عرض السعر (ر.ق)</span>
+          <span>رقم العرض (اختياري)</span>
+        </div>
+        {Array.from({ length: count }, (_, i) => (
+          <div className="quote-row" key={i}>
+            <span className="n">{i + 1}</span>
+            <input name={'q_name_' + i} list="companies" autoComplete="off" placeholder="اسم الشركة" required={i === 0} />
+            <input name={'q_total_' + i} type="number" min="0.01" step="0.01" placeholder="0.00" required={i === 0} />
+            <input name={'q_ref_' + i} placeholder="—" />
+          </div>
+        ))}
+      </div>
+      <button type="button" className="secondary" onClick={() => setCount((n) => n + 1)}>
+        ＋ شركة أخرى
+      </button>
+    </>
+  );
+}
+
+/** The dialogs of a purchase file; used on the file page and from the quick actions of the transactions list. */
+export function caseDialogs(w: Workspace, c: Row) {
   const policy = w.setup.policy || {};
   const act = (action: string, body: Row = {}) => w.api(w.root(`cases/${c.id}/${action}`), 'POST', body);
-  const simple = (title: string, action: string, fields: Field[], extra: Row = {}): Dialog => ({
-    title,
-    fields,
-    save: (v) => act(action, { ...v, ...extra }),
-  });
-  const work = w.can('ACCOUNTANT');
-  const step = STEP_OF[c.state] ?? 0;
   const ministry = c.origin === 'MINISTRY';
   const lowest = [...c.quotes].filter((q: Row) => q.compliant).sort((a: Row, b: Row) => Number(a.total) - Number(b.total))[0];
 
-  const companies = (
-    <datalist id="companies">
-      {(w.setup.suppliers || []).map((s: Row) => (
-        <option key={s.id} value={s.name} />
-      ))}
-    </datalist>
-  );
-
-  const quoteDialog: Dialog = {
-    title: ministry ? 'أسعار التكليف الوزاري' : 'إضافة عرض سعر شركة',
-    wide: true,
-    intro: ministry ? undefined : (
-      <p>اكتب اسم الشركة كما في عرض السعر (أو اختره من القائمة). تُضاف الشركة الجديدة إلى دليل الموردين تلقائياً.</p>
-    ),
+  const order: Dialog = {
+    title: 'إعداد كتاب التكليف',
+    intro: <p>مدة التنفيذ بأيام العمل (الأحد – الخميس) مع استبعاد الإجازات الرسمية المسجلة؛ يوم الإصدار لا يُحتسب.</p>,
     fields: [
-      { name: 'supplierName', label: 'اسم الشركة', list: 'companies' },
-      ...(ministry
-        ? [{ name: 'reason', label: 'مرجع اعتماد الأسعار من الوزارة' } as Field]
-        : ([
-            { name: 'reference', label: 'رقم عرض السعر', required: false },
-            { name: 'quoteDate', label: 'تاريخ عرض السعر', type: 'date', value: dateNow() },
-            {
-              name: 'compliant',
-              label: 'مطابق للمواصفات',
-              type: 'select',
-              options: [
-                { value: 'true', label: 'نعم' },
-                { value: 'false', label: 'لا — مستبعد' },
-              ],
-            },
-            { name: 'note', label: 'الرأي الفني (اختياري؛ إلزامي للمستبعد)', required: false },
-          ] as Field[])),
+      { name: 'trigger', label: 'تاريخ كتاب التكليف', type: 'date', value: dateNow() },
+      { name: 'days', label: 'مدة التنفيذ (أيام عمل)', type: 'number', step: '1', min: '1', value: policy.defaultDeliveryDays ?? 15 },
+      ...(!ministry ? [{ name: 'orderNumber', label: 'رقم أمر الشراء (فارغ = ترقيم تلقائي)', required: false } as Field] : []),
     ],
-    body: (
-      <>
-        {companies}
-        <h3>{c.items.length > 1 ? 'سعر الوحدة لكل صنف' : 'سعر الوحدة'}</h3>
-        {c.items.map((i: Row) => (
-          <label key={i.id}>
-            {i.name} — الكمية {i.qty} {i.unit}
-            <input name={'price_' + i.id} type="number" min="0.01" step="0.01" placeholder="سعر الوحدة (ر.ق)" required />
-          </label>
-        ))}
-      </>
-    ),
-    save: (v, fd) =>
-      act(ministry ? 'direct-order' : 'quotes', {
-        ...v,
-        ...(!ministry ? { compliant: v.compliant === 'true' } : {}),
-        ...(!ministry && !v.reference ? { reference: '' } : {}),
-        prices: c.items.map((i: Row) => ({ itemId: i.id, price: String(fd.get('price_' + i.id)) })),
+    submit: 'إصدار كتاب التكليف',
+    save: (v) =>
+      act('issue', {
+        trigger: v.trigger,
+        days: Number(v.days),
+        policyConfirmed: true,
+        ...(v.orderNumber ? { orderNumber: v.orderNumber } : {}),
       }),
   };
 
+  const quotes: Dialog = ministry
+    ? {
+        title: 'بيانات التكليف الوزاري',
+        fields: [
+          { name: 'supplierName', label: 'اسم الشركة', list: 'companies' },
+          { name: 'total', label: 'قيمة التكليف (ر.ق)', type: 'number' },
+          { name: 'reason', label: 'مرجع اعتماد الأسعار من الوزارة' },
+        ],
+        body: (
+          <>
+            <datalist id="companies">
+              {(w.setup.suppliers || []).map((s: Row) => (
+                <option key={s.id} value={s.name} />
+              ))}
+            </datalist>
+            {c.items.length > 1 && (
+              <>
+                <h3>قيمة كل صنف (مجموعها = قيمة التكليف)</h3>
+                {c.items.map((i: Row) => (
+                  <label key={i.id}>
+                    {i.name} — {i.qty} {i.unit}
+                    <input name={'v_' + i.id} type="number" min="0.01" step="0.01" required />
+                  </label>
+                ))}
+              </>
+            )}
+          </>
+        ),
+        save: (v, fd) =>
+          act('direct-order', {
+            supplierName: v.supplierName,
+            reason: v.reason,
+            total: v.total,
+            ...(c.items.length > 1 ? { values: c.items.map((i: Row) => ({ itemId: i.id, value: String(fd.get('v_' + i.id)) })) } : {}),
+          }),
+      }
+    : {
+        title: 'تقرير عروض الأسعار — بيانات العروض',
+        wide: true,
+        intro: (
+          <p>
+            أدخل اسم كل شركة وقيمة عرضها فقط. يُكلَّف الأقل سعراً، أو الشركة الوحيدة. حتى {currency(policy.singleQuoteLimit)} ر.ق يكفي عرض
+            واحد، وما يزيد يتطلب {policy.minQuotes} عروض إلا للمورد المحتكر.
+          </p>
+        ),
+        body: <QuoteRows suppliers={w.setup.suppliers || []} />,
+        submit: 'حفظ العروض',
+        save: async (_v, fd) => {
+          for (let i = 0; fd.has('q_name_' + i); i++) {
+            const name = String(fd.get('q_name_' + i) || '').trim(),
+              total = String(fd.get('q_total_' + i) || '').trim();
+            if (!name && !total) continue;
+            if (!name || !total) throw Error(`الصف ${i + 1}: أدخل اسم الشركة وقيمة العرض معاً`);
+            await act('quotes', { supplierName: name, total, reference: String(fd.get('q_ref_' + i) || ''), quoteDate: dateNow() });
+          }
+        },
+      };
+
+  const needsSplit = lowest && !lowest.prices?.length && c.items.length > 1;
   const overLimit = lowest && Number(lowest.total) > Number(policy.singleQuoteLimit);
-  const reportDialog: Dialog = {
-    title: 'إصدار تقرير عروض الأسعار',
+  const report: Dialog = {
+    title: 'إصدار تقرير عروض الأسعار والانتقال إلى التكليف',
+    wide: needsSplit,
     intro: lowest ? (
       <>
         <p>
@@ -149,35 +198,35 @@ export function CaseDetail({ id }: { id: string }) {
         ? [{ name: 'exclusiveReason', label: 'مبرر احتكار الشركة للصنف', required: false } as Field]
         : []),
     ],
-    submit: 'إصدار التقرير',
-    save: (v) => act('evaluate', { date: v.date, ...(v.exclusiveReason ? { exclusiveReason: v.exclusiveReason } : {}) }),
+    body: needsSplit ? (
+      <>
+        <h3>قيمة كل صنف في عرض الشركة المختارة (المجموع {currency(lowest.total)} ر.ق)</h3>
+        {c.items.map((i: Row) => (
+          <label key={i.id}>
+            {i.name} — {i.qty} {i.unit}
+            <input name={'v_' + i.id} type="number" min="0.01" step="0.01" required />
+          </label>
+        ))}
+      </>
+    ) : undefined,
+    submit: 'إصدار التقرير ← إعداد التكليف',
+    save: async (v, fd) => {
+      await act('evaluate', {
+        date: v.date,
+        ...(v.exclusiveReason ? { exclusiveReason: v.exclusiveReason } : {}),
+        ...(needsSplit ? { values: c.items.map((i: Row) => ({ itemId: i.id, value: String(fd.get('v_' + i.id)) })) } : {}),
+      });
+      w.open(order);
+    },
   };
 
-  const issueDialog: Dialog = {
-    title: 'إصدار كتاب التكليف',
-    intro: <p>مدة التنفيذ بأيام العمل (الأحد – الخميس) مع استبعاد الإجازات الرسمية المسجلة؛ يوم الإصدار لا يُحتسب.</p>,
-    fields: [
-      { name: 'trigger', label: 'تاريخ كتاب التكليف', type: 'date', value: dateNow() },
-      { name: 'days', label: 'مدة التنفيذ (أيام عمل)', type: 'number', step: '1', min: '1', value: policy.defaultDeliveryDays ?? 15 },
-      ...(!ministry ? [{ name: 'orderNumber', label: 'رقم أمر الشراء (فارغ = ترقيم تلقائي)', required: false } as Field] : []),
-    ],
-    submit: 'إصدار التكليف',
-    save: (v) =>
-      act('issue', {
-        trigger: v.trigger,
-        days: Number(v.days),
-        policyConfirmed: true,
-        ...(v.orderNumber ? { orderNumber: v.orderNumber } : {}),
-      }),
-  };
-
-  const finishDialog: Dialog = {
-    title: 'إصدار شهادة الإنجاز وكتاب التغطية',
+  const finish: Dialog = {
+    title: 'إعداد شهادة الإنجاز وكتاب التغطية',
     wide: true,
     intro: (
       <p>
-        بعد إتمام المعاملة: تاريخ الإنجاز الفعلي يُقارن بآخر موعد ({day(c.dueDate)}) بأيام العمل، وتُحسب الغرامة تلقائياً إن وجد تأخير. يصدر
-        كتاب التغطية مع الشهادة مباشرة.
+        تاريخ الإنجاز الفعلي يُقارن بآخر موعد ({day(c.dueDate)}) بأيام العمل، وتُحسب الغرامة تلقائياً إن وجد تأخير. يصدر كتاب التغطية مع
+        الشهادة مباشرة.
       </p>
     ),
     fields: [
@@ -216,7 +265,7 @@ export function CaseDetail({ id }: { id: string }) {
       }),
   };
 
-  const uploadDialog: Dialog = {
+  const upload: Dialog = {
     title: 'إرفاق مستند بالمعاملة (اختياري)',
     fields: [
       {
@@ -244,8 +293,85 @@ export function CaseDetail({ id }: { id: string }) {
       });
     },
   };
+  return { quotes, report, order, finish, upload };
+}
 
+/** The next step of a file, for its main button and the quick actions of the transactions list. */
+export function nextStep(c: Row): { key: 'quotes' | 'report' | 'order' | 'finish'; label: string } | null {
+  if (c.state === 'DRAFT')
+    return c.origin === 'MINISTRY'
+      ? { key: 'quotes', label: 'بيانات التكليف الوزاري' }
+      : c.quotes?.length
+        ? { key: 'report', label: 'إصدار التقرير ← التكليف' }
+        : { key: 'quotes', label: 'إدخال عروض الأسعار' };
+  if (c.state === 'APPROVED') return { key: 'order', label: 'إعداد كتاب التكليف' };
+  if (['ORDERED', 'PARTIAL', 'DELIVERED'].includes(c.state)) return { key: 'finish', label: 'إعداد الشهادة والتغطية' };
+  return null;
+}
+
+export function CaseDetail({ id, intent }: { id: string; intent?: string }) {
+  const w = useWorkspace();
+  const [c] = useLoad<Row>(() => w.api(w.root('cases/' + id)), [id]);
+  const opened = useRef(false);
+  useEffect(() => {
+    if (!c || opened.current || !intent) return;
+    opened.current = true;
+    const d = caseDialogs(w, c) as Row;
+    if (d[intent]) w.open(d[intent]);
+  }, [c]);
+  if (!c) return <p>جارٍ التحميل…</p>;
+  const act = (action: string, body: Row = {}) => w.api(w.root(`cases/${c.id}/${action}`), 'POST', body);
+  const simple = (title: string, action: string, fields: Field[], extra: Row = {}): Dialog => ({
+    title,
+    fields,
+    save: (v) => act(action, { ...v, ...extra }),
+  });
+  const d = caseDialogs(w, c);
+  const work = w.can('ACCOUNTANT');
+  const step = STEP_OF[c.state] ?? 0;
+  const ministry = c.origin === 'MINISTRY';
+  const lowest = [...c.quotes].filter((q: Row) => q.compliant).sort((a: Row, b: Row) => Number(a.total) - Number(b.total))[0];
+  const next = nextStep(c);
   const cert = c.certificates.at(-1);
+  const docs = [
+    {
+      n: 1,
+      name: 'تقرير عروض الأسعار',
+      ready: !!c.evaluationHtml,
+      path: w.root(`cases/${c.id}/report-print`),
+      hint: ministry ? 'لا يلزم للتكليف الوزاري' : c.quotes.length ? 'جاهز للإصدار' : 'أدخل عروض الأسعار',
+      action: !ministry && c.state === 'DRAFT' ? (c.quotes.length ? d.report : d.quotes) : null,
+      actionLabel: c.quotes.length ? 'إصدار التقرير' : 'إدخال العروض',
+    },
+    {
+      n: 2,
+      name: 'كتاب التكليف',
+      ready: !!c.orderHtml,
+      path: w.root(`cases/${c.id}/order-print`),
+      hint: 'بعد تقرير العروض',
+      action: c.state === 'APPROVED' ? d.order : null,
+      actionLabel: 'إعداد التكليف',
+    },
+    {
+      n: 3,
+      name: 'شهادة الإنجاز',
+      ready: !!cert,
+      path: cert && w.root('certificates/' + cert.id),
+      hint: 'بعد إتمام المعاملة',
+      action: ['ORDERED', 'PARTIAL', 'DELIVERED'].includes(c.state) ? d.finish : null,
+      actionLabel: 'إعداد الشهادة والتغطية',
+    },
+    {
+      n: 4,
+      name: 'كتاب التغطية',
+      ready: !!cert?.coverHtml,
+      path: cert && w.root(`certificates/${cert.id}/cover`),
+      hint: 'يصدر مع الشهادة',
+      action: null,
+      actionLabel: '',
+    },
+  ];
+
   return (
     <>
       <div className="case-top">
@@ -273,30 +399,31 @@ export function CaseDetail({ id }: { id: string }) {
         ))}
       </div>
 
-      {work && c.state !== 'CANCELLED' && (
-        <div className="actions panel">
-          {c.state === 'DRAFT' && (
-            <>
-              <button onClick={() => w.open(quoteDialog)}>{ministry ? 'إدخال أسعار التكليف الوزاري' : '＋ إضافة عرض سعر شركة'}</button>
-              {!ministry && c.quotes.length > 0 && (
+      <div className="case-layout">
+        <div className="case-main">
+          {work && c.state !== 'CANCELLED' && (next || c.state === 'DRAFT') && (
+            <div className="actions panel next-step">
+              {next && (
+                <button className="primary-lg" onClick={() => w.open((d as Row)[next.key])}>
+                  {next.label} ←
+                </button>
+              )}
+              {c.state === 'DRAFT' && !ministry && c.quotes.length > 0 && (
                 <>
-                  <button onClick={() => w.open(reportDialog)}>إصدار تقرير عروض الأسعار ←</button>
+                  <button className="secondary" onClick={() => w.open(d.quotes)}>
+                    ＋ إضافة عروض
+                  </button>
                   <button className="secondary" onClick={() => w.print(w.root(`cases/${c.id}/report-print`))}>
                     معاينة التقرير
                   </button>
                 </>
               )}
-            </>
-          )}
-          {c.state === 'EVALUATED' && (
-            <button disabled={w.busy} onClick={() => w.task(() => act('approve'), 'تم اعتماد التقرير')}>
-              اعتماد التقرير
-            </button>
-          )}
-          {c.state === 'APPROVED' && (
-            <>
-              <button onClick={() => w.open(issueDialog)}>إصدار كتاب التكليف ←</button>
-              {!ministry && (
+              {c.state === 'EVALUATED' && (
+                <button disabled={w.busy} onClick={() => w.task(() => act('approve'), 'تم اعتماد التقرير')}>
+                  اعتماد التقرير
+                </button>
+              )}
+              {c.state === 'APPROVED' && !ministry && (
                 <button
                   className="secondary"
                   onClick={() => w.open(simple('إعادة فتح تقرير العروض للتعديل', 'return', [{ name: 'reason', label: 'سبب التعديل' }]))}
@@ -304,12 +431,7 @@ export function CaseDetail({ id }: { id: string }) {
                   تعديل تقرير العروض
                 </button>
               )}
-            </>
-          )}
-          {['ORDERED', 'PARTIAL', 'DELIVERED'].includes(c.state) && (
-            <>
-              <button onClick={() => w.open(finishDialog)}>إصدار شهادة الإنجاز وكتاب التغطية ←</button>
-              {c.state !== 'DELIVERED' && (
+              {['ORDERED', 'PARTIAL'].includes(c.state) && (
                 <button
                   className="secondary"
                   onClick={() =>
@@ -324,192 +446,211 @@ export function CaseDetail({ id }: { id: string }) {
                   تمديد المدة
                 </button>
               )}
-            </>
+              {['DRAFT', 'EVALUATED', 'APPROVED', 'ORDERED'].includes(c.state) && !c.deliveries.length && (
+                <button
+                  className="secondary danger"
+                  onClick={() => w.open(simple('إلغاء المعاملة', 'cancel', [{ name: 'reason', label: 'سبب الإلغاء' }]))}
+                >
+                  إلغاء المعاملة
+                </button>
+              )}
+            </div>
           )}
-          {['CERTIFIED', 'COMPLETE'].includes(c.state) && (
-            <button
-              className="secondary"
-              onClick={() =>
-                w.open(
-                  simple('تسجيل المعاملة في ERP (اختياري)', 'erp', [
-                    { name: 'reference', label: 'رقم القيد في ERP' },
-                    { name: 'date', label: 'تاريخ التسجيل', type: 'date', value: dateNow() },
-                    { name: 'evidence', label: 'ملاحظة / مرجع الإثبات', value: 'تسجيل يدوي' },
-                  ]),
+
+          {!ministry && (
+            <Panel
+              title="تقرير عروض الأسعار"
+              actions={
+                work &&
+                c.state === 'DRAFT' && (
+                  <button className="secondary" onClick={() => w.open(d.quotes)}>
+                    ＋ إدخال عروض
+                  </button>
                 )
               }
             >
-              تسجيل رقم ERP
-            </button>
+              {c.quotes.length ? (
+                <Table heads={['م', 'اسم الشركة', 'قيمة عرض السعر', 'رقم العرض', 'الرأي الفني', '']}>
+                  {[...c.quotes]
+                    .sort((a: Row, b: Row) => Number(a.total) - Number(b.total))
+                    .map((q: Row, i: number) => (
+                      <tr
+                        key={q.id}
+                        className={c.selectedQuoteId === q.id || (!c.selectedQuoteId && q.id === lowest?.id) ? 'selected' : ''}
+                      >
+                        <td>{i + 1}</td>
+                        <td>
+                          <b>{q.supplier.name}</b>
+                          {q.id === lowest?.id && <small className="tag-best">الأقل سعراً</small>}
+                        </td>
+                        <td>
+                          <b>{currency(q.total)}</b> <small>ر.ق</small>
+                        </td>
+                        <td>{q.reference || '—'}</td>
+                        <td>{q.note || (q.compliant ? 'مطابق للمواصفات' : 'غير مطابق')}</td>
+                        <td>
+                          {work && c.state === 'DRAFT' && (
+                            <button
+                              className="link danger"
+                              onClick={() =>
+                                confirm('حذف عرض هذه الشركة؟') && w.task(() => act('quote-delete', { quoteId: q.id }), 'حُذف العرض')
+                              }
+                            >
+                              حذف
+                            </button>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                </Table>
+              ) : (
+                <Empty text="أدخل اسم كل شركة وقيمة عرضها" />
+              )}
+              {c.awardReason && <p>التوصية: {c.awardReason}</p>}
+              {c.exclusiveReason && <p>مبرر الاحتكار: {c.exclusiveReason}</p>}
+            </Panel>
           )}
-          {['DRAFT', 'EVALUATED', 'APPROVED', 'ORDERED'].includes(c.state) && !c.deliveries.length && (
-            <button
-              className="secondary danger"
-              onClick={() => w.open(simple('إلغاء المعاملة', 'cancel', [{ name: 'reason', label: 'سبب الإلغاء' }]))}
-            >
-              إلغاء المعاملة
-            </button>
-          )}
-        </div>
-      )}
 
-      <Panel title="مستندات المعاملة">
-        <div className="doc-list">
-          <div className={c.evaluationHtml ? 'ready' : ''}>
-            <span>1</span>
-            <b>تقرير عروض الأسعار</b>
-            {c.evaluationHtml ? (
-              <DocButtons link path={w.root(`cases/${c.id}/report-print`)} label="" />
-            ) : (
-              <small>{ministry ? 'لا يلزم للتكليف الوزاري' : 'يصدر بعد إدخال العروض'}</small>
-            )}
-          </div>
-          <div className={c.orderHtml ? 'ready' : ''}>
-            <span>2</span>
-            <b>كتاب التكليف</b>
-            {c.orderHtml ? <DocButtons link path={w.root(`cases/${c.id}/order-print`)} label="" /> : <small>بعد التقرير</small>}
-          </div>
-          <div className={cert ? 'ready' : ''}>
-            <span>3</span>
-            <b>شهادة الإنجاز</b>
-            {cert ? <DocButtons link path={w.root('certificates/' + cert.id)} label="" /> : <small>بعد إتمام المعاملة</small>}
-          </div>
-          <div className={cert?.coverHtml ? 'ready' : ''}>
-            <span>4</span>
-            <b>كتاب التغطية</b>
-            {cert?.coverHtml ? <DocButtons link path={w.root(`certificates/${cert.id}/cover`)} label="" /> : <small>يصدر مع الشهادة</small>}
-          </div>
-        </div>
-        {cert && (
-          <p>
-            قيمة الأعمال {currency(cert.gross)} ر.ق — الغرامة {currency(cert.fine)} ر.ق — الصافي المستحق <b>{currency(cert.net)} ر.ق</b>
-          </p>
-        )}
-        {c.erp && (
-          <div className="success">
-            مسجلة في ERP بالرقم {c.erp.reference} بتاريخ {day(c.erp.date)}.
-          </div>
-        )}
-      </Panel>
-
-      {!ministry && (
-        <Panel title="عروض أسعار الشركات">
-          {c.quotes.length ? (
-            <Table heads={['م', 'اسم الشركة', 'رقم العرض', 'التاريخ', 'قيمة العرض', 'الرأي الفني', '']}>
-              {[...c.quotes]
-                .sort((a: Row, b: Row) => Number(a.total) - Number(b.total))
-                .map((q: Row, i: number) => (
-                  <tr key={q.id} className={c.selectedQuoteId === q.id || (!c.selectedQuoteId && q.id === lowest?.id) ? 'selected' : ''}>
-                    <td>{i + 1}</td>
-                    <td>
-                      {q.supplier.name}
-                      {q.id === lowest?.id && <small>الأقل سعراً</small>}
-                    </td>
-                    <td>{q.reference || '—'}</td>
-                    <td>{day(q.quoteDate)}</td>
-                    <td>{currency(q.total)}</td>
-                    <td>{q.note || (q.compliant ? 'مطابق للمواصفات' : 'غير مطابق')}</td>
-                    <td>
-                      {work && c.state === 'DRAFT' && (
-                        <button
-                          className="link danger"
-                          onClick={() =>
-                            confirm('حذف عرض هذه الشركة؟') && w.task(() => act('quote-delete', { quoteId: q.id }), 'حُذف العرض')
-                          }
-                        >
-                          حذف
-                        </button>
-                      )}
-                    </td>
-                  </tr>
-                ))}
-            </Table>
-          ) : (
-            <Empty text="لم تُسجل عروض أسعار بعد — أضف عرض كل شركة" />
-          )}
-          {c.awardReason && <p>التوصية: {c.awardReason}</p>}
-          {c.exclusiveReason && <p>مبرر الاحتكار: {c.exclusiveReason}</p>}
-        </Panel>
-      )}
-
-      <Panel title="الأصناف">
-        <Table heads={['الصنف', 'بند الموازنة', 'الكمية', 'سعر الوحدة', 'القيمة', 'المستلم']}>
-          {c.items.map((i: Row) => (
-            <tr key={i.id}>
-              <td>
-                {i.name}
-                <small>{i.unit}</small>
-              </td>
-              <td>
-                {i.budget.code}
-                <small>{i.budget.name}</small>
-              </td>
-              <td>{i.qty}</td>
-              <td>{currency(i.unitPrice)}</td>
-              <td>{currency(i.value)}</td>
-              <td>{i.acceptedQty}</td>
-            </tr>
-          ))}
-        </Table>
-        <div className="total">
-          الإجمالي <b>{currency(c.total)} ر.ق</b>
-        </div>
-      </Panel>
-
-      <Panel
-        title="المرفقات (اختياري)"
-        actions={
-          work &&
-          c.state !== 'CANCELLED' && (
-            <button className="secondary" onClick={() => w.open(uploadDialog)}>
-              إرفاق مستند
-            </button>
-          )
-        }
-      >
-        {c.evidence.length ? (
-          <Table heads={['المستند', 'الملف', 'التاريخ', '']}>
-            {c.evidence
-              .filter((e: Row) => e.status !== 'NA')
-              .map((e: Row) => (
-                <tr key={e.id}>
-                  <td>{EVIDENCE[e.code] ?? e.code}</td>
-                  <td>{e.name}</td>
-                  <td>{day(e.createdAt)}</td>
+          <Panel title="الأصناف">
+            <Table heads={['الصنف', 'بند الموازنة', 'الكمية', 'سعر الوحدة', 'القيمة']}>
+              {c.items.map((i: Row) => (
+                <tr key={i.id}>
                   <td>
-                    <button className="link" onClick={async () => downloadFile(await w.api(w.root('evidence/' + e.id)))}>
-                      تنزيل
-                    </button>
+                    {i.name}
+                    <small>{i.unit}</small>
                   </td>
+                  <td>
+                    {i.budget.code}
+                    <small>{i.budget.name}</small>
+                  </td>
+                  <td>{i.qty}</td>
+                  <td>{currency(i.unitPrice)}</td>
+                  <td>{currency(i.value)}</td>
                 </tr>
               ))}
-          </Table>
-        ) : (
-          <p>يمكن إرفاق عروض الأسعار والفاتورة وسندات الاستلام ونسخ المستندات الموقعة للرجوع إليها.</p>
-        )}
-      </Panel>
+            </Table>
+            <div className="total">
+              الإجمالي <b>{currency(c.total)} ر.ق</b>
+            </div>
+          </Panel>
 
-      {w.me.user.isTenantAdmin && (
-        <Panel title="صلاحيات مدير النظام">
-          <button
-            className="secondary danger"
-            onClick={() =>
-              w.open({
-                title: 'حذف المعاملة نهائياً',
-                intro: <p className="warn">تُحذف المعاملة وكل مستنداتها، وتُعاد مبالغها إلى أرصدة بنود الموازنة. لا يمكن التراجع.</p>,
-                fields: [{ name: 'confirm', label: 'اكتب كلمة «حذف» للتأكيد' }],
-                submit: 'حذف نهائي',
-                save: async (v) => {
-                  await w.api('admin/purge', 'POST', { scope: 'case', id: c.id, confirm: v.confirm });
-                  w.go('cases');
-                },
-              })
+          <Panel
+            title="المرفقات (اختياري)"
+            actions={
+              work &&
+              c.state !== 'CANCELLED' && (
+                <button className="secondary" onClick={() => w.open(d.upload)}>
+                  إرفاق مستند
+                </button>
+              )
             }
           >
-            حذف المعاملة نهائياً
-          </button>
-        </Panel>
-      )}
+            {c.evidence.length ? (
+              <Table heads={['المستند', 'الملف', 'التاريخ', '']}>
+                {c.evidence
+                  .filter((e: Row) => e.status !== 'NA')
+                  .map((e: Row) => (
+                    <tr key={e.id}>
+                      <td>{EVIDENCE[e.code] ?? e.code}</td>
+                      <td>{e.name}</td>
+                      <td>{day(e.createdAt)}</td>
+                      <td>
+                        <button className="link" onClick={async () => downloadFile(await w.api(w.root('evidence/' + e.id)))}>
+                          تنزيل
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+              </Table>
+            ) : (
+              <p>يمكن إرفاق عروض الأسعار والفاتورة وسندات الاستلام ونسخ المستندات الموقعة للرجوع إليها.</p>
+            )}
+          </Panel>
+        </div>
+
+        <div className="case-side">
+          <div className="panel">
+            <h2>مستندات المعاملة</h2>
+            {docs.map((x) => (
+              <div key={x.n} className={'side-doc' + (x.ready ? ' ready' : '')}>
+                <div className="side-doc-head">
+                  <span className="dot">{x.ready ? '✓' : x.n}</span>
+                  <b>{x.name}</b>
+                </div>
+                {x.ready && x.path ? (
+                  <DocButtons link path={x.path} label="" />
+                ) : x.action && work ? (
+                  <button className="side-action" onClick={() => w.open(x.action!)}>
+                    {x.actionLabel} ←
+                  </button>
+                ) : (
+                  <small>{x.hint}</small>
+                )}
+              </div>
+            ))}
+            {cert && (
+              <div className="side-money">
+                <span>الصافي المستحق</span>
+                <b>{currency(cert.net)} ر.ق</b>
+                <small>
+                  القيمة {currency(cert.gross)} — الغرامة {currency(cert.fine)}
+                </small>
+              </div>
+            )}
+          </div>
+          <div className="panel">
+            <h2>ERP</h2>
+            {c.erp ? (
+              <p>
+                مسجلة بالرقم <b>{c.erp.reference}</b> بتاريخ {day(c.erp.date)}.
+              </p>
+            ) : (
+              <p>بعد إصدار الشهادة سجّل المعاملة في نظام الوزارة ثم دوّن رقم القيد هنا.</p>
+            )}
+            <a className="erp-link" href={ERP_URL} target="_blank" rel="noopener noreferrer">
+              فتح نظام ERP الوزارة ↗
+            </a>
+            {work && ['CERTIFIED', 'COMPLETE'].includes(c.state) && !c.erp && (
+              <button
+                className="secondary"
+                onClick={() =>
+                  w.open(
+                    simple('تسجيل رقم القيد في ERP', 'erp', [
+                      { name: 'reference', label: 'رقم القيد في ERP' },
+                      { name: 'date', label: 'تاريخ التسجيل', type: 'date', value: dateNow() },
+                      { name: 'evidence', label: 'ملاحظة / مرجع الإثبات', value: 'تسجيل يدوي' },
+                    ]),
+                  )
+                }
+              >
+                تسجيل رقم القيد
+              </button>
+            )}
+          </div>
+          {w.me.user.isTenantAdmin && (
+            <div className="panel">
+              <h2>مدير النظام</h2>
+              <button
+                className="secondary danger"
+                onClick={() =>
+                  w.open({
+                    title: 'حذف المعاملة نهائياً',
+                    intro: <p className="warn">تُحذف المعاملة وكل مستنداتها، وتُعاد مبالغها إلى أرصدة بنود الموازنة. لا يمكن التراجع.</p>,
+                    fields: [{ name: 'confirm', label: 'اكتب كلمة «حذف» للتأكيد' }],
+                    submit: 'حذف نهائي',
+                    save: async (v) => {
+                      await w.api('admin/purge', 'POST', { scope: 'case', id: c.id, confirm: v.confirm });
+                      w.go('cases');
+                    },
+                  })
+                }
+              >
+                حذف المعاملة نهائياً
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
     </>
   );
 }

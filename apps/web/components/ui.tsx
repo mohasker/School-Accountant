@@ -1,5 +1,5 @@
-import React from 'react';
-import { EVIDENCE_STATUS, STATE_NAMES } from '../lib/format';
+import React, { useState } from 'react';
+import { downloadFile, EVIDENCE_STATUS, STATE_NAMES } from '../lib/format';
 import { useWorkspace } from './context';
 
 export function Table({ heads, children }: { heads: string[]; children: React.ReactNode }) {
@@ -67,14 +67,44 @@ export function Stat({ label, value, hint, onClick }: { label: string; value: Re
   );
 }
 
-/** Print (browser) and PDF (server-rendered) buttons for a stored document. */
+/**
+ * Document actions: direct print, PDF download, and sending the PDF by e-mail or WhatsApp. On devices
+ * that can share files (phones, Windows) the PDF is attached through the system share sheet; otherwise
+ * it is downloaded and the e-mail / WhatsApp message opens ready for the file to be attached.
+ */
 export function DocButtons({ path, label, part, link }: { path: string; label: string; part?: 'cover'; link?: boolean }) {
   const w = useWorkspace();
+  const [open, setOpen] = useState(false);
   const cls = link ? 'link' : 'secondary';
+  const title = label || 'المستند';
+  const send = async (via: 'mail' | 'whatsapp') => {
+    setOpen(false);
+    try {
+      const file = await w.api(path + (path.includes('?') ? '&' : '?') + 'pdf=1' + (part ? '&part=' + part : ''));
+      const bytes = Uint8Array.from(atob(file.base64), (c) => c.charCodeAt(0));
+      const pdf = new File([bytes], file.name, { type: 'application/pdf' });
+      const text = `${title} — ${file.name.replace(/\.pdf$/, '')}`;
+      if (navigator.canShare?.({ files: [pdf] })) {
+        await navigator.share({ files: [pdf], title: text, text });
+        return;
+      }
+      downloadFile(file);
+      const note = `${text}\n(الملف المرفق: ${file.name})`;
+      window.open(
+        via === 'mail'
+          ? `mailto:?subject=${encodeURIComponent(text)}&body=${encodeURIComponent(note)}`
+          : `https://wa.me/?text=${encodeURIComponent(note)}`,
+        '_blank',
+      );
+    } catch (e: any) {
+      if (e?.name !== 'AbortError') w.fail(e);
+    }
+  };
   return (
     <span className="doc-buttons">
       <button
         className={cls}
+        title={'طباعة ' + title}
         onClick={async () => {
           if (!part) return w.print(path);
           try {
@@ -84,11 +114,26 @@ export function DocButtons({ path, label, part, link }: { path: string; label: s
           }
         }}
       >
-        طباعة{label ? ' ' + label : ''}
+        ⎙ طباعة{label ? ' ' + label : ''}
       </button>
-      <button className={cls + ' pdf'} disabled={w.busy} onClick={() => w.pdf(path, part)} title={'تنزيل ' + (label || 'المستند') + ' PDF'}>
+      <button className={cls + ' pdf'} disabled={w.busy} onClick={() => w.pdf(path, part)} title={'تنزيل ' + title + ' PDF'}>
         PDF
       </button>
+      <span className="send">
+        <button className={cls + ' send-btn'} onClick={() => setOpen((o) => !o)} aria-expanded={open} title={'إرسال ' + title}>
+          إرسال ▾
+        </button>
+        {open && (
+          <span className="send-menu" onMouseLeave={() => setOpen(false)}>
+            <button type="button" onClick={() => send('mail')}>
+              ✉ بالبريد الإلكتروني
+            </button>
+            <button type="button" onClick={() => send('whatsapp')}>
+              ◉ عبر واتساب
+            </button>
+          </span>
+        )}
+      </span>
     </span>
   );
 }

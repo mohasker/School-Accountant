@@ -1,7 +1,9 @@
 'use client';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { Select } from './Select';
+import { applyTheme, loadTheme } from '../lib/theme';
 import { request, type Row } from '../lib/api';
-import { downloadFile, ROLE_NAMES, showPrint } from '../lib/format';
+import { downloadFile, ERP_URL, ROLE_NAMES, showPrint } from '../lib/format';
 import { WorkspaceContext, type View, type Workspace } from './context';
 import { FormDialog, type Dialog } from './FormDialog';
 import { Logo } from './ui';
@@ -59,6 +61,7 @@ export default function App() {
     [setup, setSetup] = useState<Row>({}),
     [view, setView] = useState<View>('dashboard'),
     [caseId, setCaseId] = useState(''),
+    [intent, setIntent] = useState(''),
     [dialog, setDialog] = useState<Dialog | null>(null),
     [error, setError] = useState(''),
     [notice, setNotice] = useState(''),
@@ -80,6 +83,8 @@ export default function App() {
   const roles: string[] = setup.roles || [];
   const can = useCallback((...r: string[]) => r.some((x) => roles.includes(x)), [roles.join()]);
   const fail = useCallback((e: unknown) => setError((e as Error)?.message || String(e)), []);
+
+  useEffect(() => applyTheme(loadTheme()), []);
 
   useEffect(() => {
     request('auth/me')
@@ -161,10 +166,11 @@ export default function App() {
         printHtml: (html) => {
           if (!showPrint(html)) setError('اسمح بالنوافذ المنبثقة لفتح نسخة الطباعة');
         },
-        go: (v, id) => {
+        go: (v, id, next) => {
           setError('');
           setNotice('');
           setCaseId(id ?? '');
+          setIntent(next ?? '');
           setView(v);
           window.scrollTo?.(0, 0);
         },
@@ -203,6 +209,10 @@ export default function App() {
               </button>
             ))}
           </nav>
+          <a className="erp-nav" href={ERP_URL} target="_blank" rel="noopener noreferrer">
+            <span>↗</span>
+            نظام ERP الوزارة
+          </a>
           <div className="aside-bottom">
             <span>V0</span>
             <p>نظام مساعد شخصي لخدمة المحاسبين، وليس نظاماً حكومياً رسمياً.</p>
@@ -213,24 +223,22 @@ export default function App() {
             <div className="context">
               <label>
                 المدرسة
-                <select value={school} onChange={(e) => (setYear(''), setSchool(e.target.value), workspace.go('dashboard'))}>
-                  {me.schools.map((s: Row) => (
-                    <option key={s.id} value={s.id}>
-                      {s.name}
-                    </option>
-                  ))}
-                </select>
+                <Select
+                  label="المدرسة"
+                  className="wide"
+                  value={school}
+                  options={me.schools.map((s: Row) => ({ value: s.id, label: s.name }))}
+                  onChange={(v) => (setYear(''), setSchool(v), workspace.go('dashboard'))}
+                />
               </label>
               <label>
                 العام المالي
-                <select value={year} onChange={(e) => (setYear(e.target.value), workspace.go('dashboard'))}>
-                  {setup.years?.map((y: Row) => (
-                    <option key={y.id} value={y.id}>
-                      {y.label}
-                      {y.closed ? ' — مغلق' : ''}
-                    </option>
-                  ))}
-                </select>
+                <Select
+                  label="العام المالي"
+                  value={year}
+                  options={(setup.years || []).map((y: Row) => ({ value: y.id, label: y.label + (y.closed ? ' — مغلق' : '') }))}
+                  onChange={(v) => (setYear(v), workspace.go('dashboard'))}
+                />
               </label>
             </div>
             <div className="user">
@@ -283,7 +291,7 @@ export default function App() {
               <>
                 {view === 'dashboard' && <Dashboard />}
                 {view === 'cases' && <Cases />}
-                {view === 'case' && caseId && <CaseDetail id={caseId} />}
+                {view === 'case' && caseId && <CaseDetail key={caseId + intent} id={caseId} intent={intent} />}
                 {view === 'suppliers' && <Suppliers />}
                 {view === 'budget' && <Budget />}
                 {view === 'imprests' && <Imprests />}
@@ -305,10 +313,12 @@ export default function App() {
         </div>
         {dialog && (
           <FormDialog
+            key={dialog.title}
             dialog={dialog}
             onClose={() => setDialog(null)}
             onSaved={() => {
-              setDialog(null);
+              // A dialog may open the next step (e.g. quote report → assignment letter) from its save.
+              setDialog((current) => (current === dialog ? null : current));
               setNotice('تم حفظ العملية');
               setVersion((v) => v + 1);
             }}

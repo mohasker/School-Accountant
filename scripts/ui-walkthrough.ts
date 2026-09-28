@@ -66,7 +66,10 @@ async function main() {
   await login(acc, 'accountant');
   const me = await api(acc, 'auth/me');
   const school = me.schools.find((x: any) => x.name.startsWith('محمد بن عبد الوهاب')) ?? me.schools[0];
-  await acc.selectOption('.context select >> nth=0', school.id);
+  await acc.click('.context .select-field >> nth=0');
+  await acc.waitForTimeout(300);
+  await shot(acc, '02b-dropdown');
+  await acc.click(`.select-pop button:has-text("${school.name}")`);
   await acc.waitForTimeout(1500);
   const root = (p: string) => `schools/${school.id}/${p}`;
   const setup = await api(acc, root('setup'));
@@ -84,7 +87,7 @@ async function main() {
   await shot(acc, '03-cases');
   const open = async (n: string) => {
     await nav(acc, 'المعاملات');
-    await acc.locator('tr', { hasText: n }).locator('button').click();
+    await acc.locator('tr', { hasText: n }).locator('button:has-text("فتح")').click();
     await acc.waitForSelector('.stepper');
     await acc.waitForTimeout(600);
   };
@@ -92,12 +95,16 @@ async function main() {
   await shot(acc, '04-case-detail');
   await open('TR-00005');
   await shot(acc, '04b-case-quotes');
-  await acc.click('button:has-text("إصدار تقرير عروض الأسعار")');
+  await acc.click('button:has-text("إضافة عروض")');
   await acc.waitForSelector('.modal');
-  await shot(acc, '04c-quote-report-dialog');
+  await shot(acc, '04c-quotes-entry-dialog');
+  await acc.click('.modal-actions button.secondary');
+  await acc.click('.next-step button.primary-lg');
+  await acc.waitForSelector('.modal');
+  await shot(acc, '04e-quote-report-dialog');
   await acc.click('.modal-actions button.secondary');
   await open('TR-00003');
-  await acc.click('button:has-text("إصدار شهادة الإنجاز وكتاب التغطية")');
+  await acc.click('.next-step button.primary-lg');
   await acc.waitForSelector('.modal');
   await shot(acc, '04d-certificate-dialog');
   await acc.click('.modal-actions button.secondary');
@@ -115,6 +122,11 @@ async function main() {
   await acc.click('.modal-actions button.secondary');
   await nav(acc, 'الإعدادات');
   await shot(acc, '13-settings');
+  await acc.click('.theme >> nth=2');
+  await nav(acc, 'المعاملات');
+  await shot(acc, '14-theme-emerald');
+  await nav(acc, 'الإعدادات');
+  await acc.click('.theme >> nth=0');
 
   // Printed documents
   await printed(acc, (await api(acc, root(`cases/${done.id}/report-print`))).html, '20-print-quote-study');

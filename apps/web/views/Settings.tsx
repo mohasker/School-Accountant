@@ -5,6 +5,8 @@ import { Panel, Table } from '../components/ui';
 import { useLoad } from '../components/useLoad';
 import type { Row } from '../lib/api';
 import { day, ROLE_CHOICES, ROLE_NAMES } from '../lib/format';
+import { loadTheme, saveTheme, THEMES } from '../lib/theme';
+import { useState } from 'react';
 
 const ROLE_OPTIONS = ROLE_CHOICES.map((value) => ({ value, label: String(ROLE_NAMES[value]) }));
 
@@ -131,39 +133,41 @@ export function Settings() {
         </Table>
       </Panel>
 
-      <Panel
-        title="مستخدمو المدرسة وصلاحياتهم"
-        actions={
-          admin && (
-            <button
-              onClick={() =>
-                w.open({
-                  title: 'إضافة مستخدم للمدرسة',
-                  fields: [
-                    { name: 'name', label: 'الاسم الظاهر في المستندات' },
-                    { name: 'username', label: 'اسم الدخول بالإنجليزية' },
-                    { name: 'password', label: 'كلمة مرور أولية — 12 حرفاً على الأقل', type: 'password' },
-                  ],
-                  body: rolesBody(),
-                  save: (v, fd) => w.api(w.root('users'), 'POST', { ...v, roles: readRoles(fd) }),
-                })
-              }
-            >
-              ＋ مستخدم
-            </button>
-          )
-        }
-      >
-        <Table heads={['الاسم', 'الحساب', 'الصلاحيات']}>
-          {w.setup.users?.map((u: Row) => (
-            <tr key={u.id}>
-              <td>{u.user.name}</td>
-              <td className="mono">{u.user.username}</td>
-              <td>{u.roles.map((r: string) => ROLE_NAMES[r] || r).join(' · ')}</td>
-            </tr>
-          ))}
-        </Table>
-      </Panel>
+      {admin && (
+        <Panel
+          title="مستخدمو المدرسة وصلاحياتهم"
+          actions={
+            admin && (
+              <button
+                onClick={() =>
+                  w.open({
+                    title: 'إضافة مستخدم للمدرسة',
+                    fields: [
+                      { name: 'name', label: 'الاسم الظاهر في المستندات' },
+                      { name: 'username', label: 'اسم الدخول بالإنجليزية' },
+                      { name: 'password', label: 'كلمة مرور أولية — 12 حرفاً على الأقل', type: 'password' },
+                    ],
+                    body: rolesBody(),
+                    save: (v, fd) => w.api(w.root('users'), 'POST', { ...v, roles: readRoles(fd) }),
+                  })
+                }
+              >
+                ＋ مستخدم
+              </button>
+            )
+          }
+        >
+          <Table heads={['الاسم', 'الحساب', 'الصلاحيات']}>
+            {w.setup.users?.map((u: Row) => (
+              <tr key={u.id}>
+                <td>{u.user.name}</td>
+                <td className="mono">{u.user.username}</td>
+                <td>{u.roles.map((r: string) => ROLE_NAMES[r] || r).join(' · ')}</td>
+              </tr>
+            ))}
+          </Table>
+        </Panel>
+      )}
 
       <Panel
         title="المدارس"
@@ -243,6 +247,8 @@ export function Settings() {
         </Table>
       </Panel>
 
+      <ThemePicker />
+
       <Panel title="أمان حسابك">
         <button
           className="secondary"
@@ -264,5 +270,42 @@ export function Settings() {
         </button>
       </Panel>
     </>
+  );
+}
+
+/** Screen colours: preset themes or custom main / side-bar colours, saved in this browser. */
+function ThemePicker() {
+  const [t, setT] = useState(loadTheme);
+  const set = (next: { primary: string; side: string }) => (setT(next), saveTheme(next));
+  return (
+    <Panel title="ألوان النظام">
+      <p>اختر نمط الألوان أو حدد لونك الخاص؛ يُحفظ الاختيار على هذا الجهاز.</p>
+      <div className="themes">
+        {THEMES.map((x) => (
+          <button
+            key={x.key}
+            type="button"
+            className={'theme' + (x.primary === t.primary && x.side === t.side ? ' on' : '')}
+            onClick={() => set(x)}
+          >
+            <span style={{ background: `linear-gradient(135deg, ${x.side} 0 50%, ${x.primary} 50% 100%)` }} />
+            {x.name}
+          </button>
+        ))}
+      </div>
+      <div className="theme-custom">
+        <label>
+          اللون الرئيسي
+          <input type="color" value={t.primary} onChange={(e) => set({ ...t, primary: e.target.value })} />
+        </label>
+        <label>
+          لون القائمة الجانبية
+          <input type="color" value={t.side} onChange={(e) => set({ ...t, side: e.target.value })} />
+        </label>
+        <button type="button" className="secondary" onClick={() => set(THEMES[0])}>
+          استعادة الألوان الأصلية
+        </button>
+      </div>
+    </Panel>
   );
 }

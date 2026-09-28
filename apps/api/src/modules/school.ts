@@ -17,8 +17,9 @@ export async function readSetup({ s, school, query }: ReadCtx) {
       where: { schoolId: school, ...(yearId ? { yearId } : {}) },
       orderBy: [{ sort: 'asc' }, { code: 'asc' }],
     }),
+    // Only the system administrator sees the other accounts of a school.
     db.membership.findMany({
-      where: { schoolId: school },
+      where: { schoolId: school, ...(s.user.isTenantAdmin ? {} : { userId: s.user.id }) },
       include: { user: { select: { id: true, name: true, username: true, active: true } } },
     }),
     yearId ? db.budgetPlan.findUnique({ where: { schoolId_yearId: { schoolId: school, yearId } } }) : null,
