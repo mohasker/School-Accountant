@@ -50,6 +50,14 @@ DEMO_PASSWORD='ضع-كلمة-مرور-قوية-للتجربة' npm run demo
 
 ## النشر على خادم سحابي بدومين خاص
 
+على خادم Ubuntu جديد (4 GB ذاكرة) بأمر واحد يسأل عن الدومين ومدير النظام ثم يشغّل كل شيء بـ HTTPS مع نسخ احتياطي يومي:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/mohasker/School-Accountant/main/deploy/install.sh | sudo bash
+```
+
+أو يدوياً:
+
 ```bash
 cp .env.example .env        # DOMAIN, DB_PASSWORD, ADMIN_USERNAME, ADMIN_NAME, ADMIN_PASSWORD
 docker compose -f docker-compose.yml -f deploy/docker-compose.prod.yml up --build -d
