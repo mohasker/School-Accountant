@@ -170,12 +170,14 @@ export async function certificateRegistry(s: Identity, query: Record<string, any
     supplier = String(query.supplier ?? '')
       .trim()
       .slice(0, 200);
+  const accountant = query.accountant ? parse(id, query.accountant) : undefined;
   const contains = (v: string) => ({ contains: v, mode: 'insensitive' as const });
   const certs = await db.certificate.findMany({
     where: {
       case: {
         schoolId: school ? school : { in: allowed },
         ...(supplier ? { supplier: { name: contains(supplier) } } : {}),
+        ...(accountant ? { createdBy: accountant } : {}),
       },
       ...(from || to
         ? {
@@ -243,11 +245,158 @@ export async function certificateRegistry(s: Identity, query: Record<string, any
       html: tableReport({
         title: 'سجل شهادات الإنجاز',
         ref: 'REGISTER',
-        subtitle: `إعداد: ${s.user.name}${from ? ` — من ${fmtDate(from)}` : ''}${to ? ` إلى ${fmtDate(to)}` : ''}`,
+        subtitle: await filterLine(s, { school, accountant, supplier, from, to }),
         heads: REGISTRY_HEADS.filter((_, i) => ![7, 15, 17].includes(i)),
         rows: rows.map((r) => r.cells.filter((_, i) => ![7, 15, 17].includes(i))),
         footer: `عدد الشهادات: ${rows.length}`,
       }),
     };
   return { heads: REGISTRY_HEADS, rows };
+}
+
+/** Report header line naming who prepared it and the filters applied (school, accountant, company, period). */
+async function filterLine(s: Identity, f: { school?: string; accountant?: string; supplier?: string; from?: string; to?: string }) {
+  const parts = [`إعداد: ${s.user.name}`];
+  if (f.school) parts.push('المدرسة: ' + ((await db.school.findUnique({ where: { id: f.school } }))?.name ?? ''));
+  if (f.accountant) parts.push('المحاسب: ' + ((await db.user.findUnique({ where: { id: f.accountant } }))?.name ?? ''));
+  if (f.supplier) parts.push('الشركة: ' + f.supplier);
+  if (f.from || f.to) parts.push(`الفترة: ${f.from ? fmtDate(f.from) : '…'} — ${f.to ? fmtDate(f.to) : '…'}`);
+  return parts.join(' · ');
+}
+
+const REPORT_HEADS = [
+  'م',
+  'رقم التقرير',
+  'تاريخ التقرير',
+  'المدرسة',
+  'الموضوع',
+  'الشركة المكلفة',
+  'قيمة العرض',
+  'عدد العروض',
+  'المحاسب',
+  'الحالة',
+];
+const ORDER_HEADS = [
+  'م',
+  'رقم أمر الشراء / التكليف',
+  'تاريخ التكليف',
+  'المدرسة',
+  'الموضوع',
+  'الشركة',
+  'قيمة التكليف',
+  'مدة التنفيذ (أيام عمل)',
+  'آخر موعد',
+  'المحاسب',
+  'الحالة',
+];
+
+/**
+ * Register of quote reports (`type=report`) or assignment letters (`type=order`) across the user's
+ * schools, filtered by school, accountant, company, period or text; with Excel and print.
+ */
+export async function caseRegister(s: Identity, query: Record<string, any>) {
+  const type = query.type === 'order' ? 'order' : 'report';
+  const allowed = schoolIds(s);
+  const school = query.school ? parse(id, query.school) : undefined;
+  if (school && !allowed.includes(school)) fail('غير مصرح بهذه المدرسة');
+  const accountant = query.accountant ? parse(id, query.accountant) : undefined;
+  const from = query.from ? parse(date, query.from) : undefined,
+    to = query.to ? parse(date, query.to) : undefined;
+  const q = String(query.q ?? '')
+      .trim()
+      .slice(0, 200),
+    supplier = String(query.supplier ?? '')
+      .trim()
+      .slice(0, 200);
+  const contains = (v: string) => ({ contains: v, mode: 'insensitive' as const });
+  const range = from || to ? { ...(from ? { gte: new Date(from) } : {}), ...(to ? { lte: new Date(to) } : {}) } : undefined;
+  const cases = await db.case.findMany({
+    where: {
+      schoolId: school ? school : { in: allowed },
+      ...(type === 'report' ? { evaluationHtml: { not: null } } : { orderHtml: { not: null } }),
+      ...(accountant ? { createdBy: accountant } : {}),
+      ...(supplier ? { supplier: { name: contains(supplier) } } : {}),
+      ...(range ? (type === 'report' ? { reportDate: range } : { issueDate: range }) : {}),
+      ...(q
+        ? { OR: [{ number: contains(q) }, { subject: contains(q) }, { orderNumber: contains(q) }, { evaluationNumber: contains(q) }] }
+        : {}),
+    },
+    select: {
+      id: true,
+      schoolId: true,
+      number: true,
+      subject: true,
+      state: true,
+      total: true,
+      evaluationNumber: true,
+      reportDate: true,
+      createdAt: true,
+      orderNumber: true,
+      issueDate: true,
+      dueDate: true,
+      deliveryDays: true,
+      accountantName: true,
+      school: { select: { name: true } },
+      supplier: { select: { name: true } },
+      _count: { select: { quotes: true } },
+    },
+    orderBy: type === 'report' ? [{ reportDate: 'desc' }, { createdAt: 'desc' }] : [{ issueDate: 'desc' }],
+    take: 2000,
+  });
+  const rows = cases.map((c, i) => ({
+    id: c.id,
+    schoolId: c.schoolId,
+    cells:
+      type === 'report'
+        ? [
+            cases.length - i,
+            c.evaluationNumber ?? c.number,
+            fmtDate(c.reportDate ?? c.createdAt),
+            c.school.name,
+            c.subject,
+            c.supplier?.name ?? '',
+            num(c.total),
+            c._count.quotes,
+            c.accountantName,
+            STATE_NAMES[c.state] ?? c.state,
+          ]
+        : [
+            cases.length - i,
+            c.orderNumber ?? '',
+            fmtDate(c.issueDate),
+            c.school.name,
+            c.subject,
+            c.supplier?.name ?? '',
+            num(c.total),
+            c.deliveryDays ?? '',
+            fmtDate(c.dueDate),
+            c.accountantName,
+            STATE_NAMES[c.state] ?? c.state,
+          ],
+  }));
+  const heads = type === 'report' ? REPORT_HEADS : ORDER_HEADS;
+  const title = type === 'report' ? 'سجل تقارير دراسة عروض الأسعار' : 'سجل التكليفات (أوامر الشراء)';
+  const total = cases.reduce((a, c) => a.plus(c.total), new D(0));
+  if (query.format === 'xlsx')
+    return {
+      base64: await workbook(
+        title.slice(0, 30),
+        heads,
+        rows.map((r) => r.cells as (string | number)[]),
+      ),
+      name: type === 'report' ? 'quote-reports-register.xlsx' : 'assignments-register.xlsx',
+      mime: XLSX,
+    };
+  if (query.format === 'print')
+    return {
+      html: tableReport({
+        title,
+        ref: type === 'report' ? 'REPORTS' : 'ORDERS',
+        subtitle: await filterLine(s, { school, accountant, supplier, from, to }),
+        heads,
+        rows: rows.map((r) => r.cells as (string | number)[]),
+        footer: `العدد: ${rows.length} — الإجمالي: ${amount(total)} ر.ق`,
+      }),
+    };
+  return { heads, rows, total: num(total) };
 }

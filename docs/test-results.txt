@@ -2,7 +2,7 @@
 # Subtest: AUTH: school isolation on list, search, dashboard and mutation
 # Subtest: AUTH: CSRF rejected and logout revokes copied session
 # Subtest: SUPPLIER: create/update conflict/delete/atomic duplicate import
-# (node:3954) DeprecationWarning: Calling client.query() when the client is already executing a query is deprecated and will be removed in pg@9.0. Use async/await or an external async flow control mechanism instead.
+# (node:6914) DeprecationWarning: Calling client.query() when the client is already executing a query is deprecated and will be removed in pg@9.0. Use async/await or an external async flow control mechanism instead.
 # (Use `node --trace-deprecation ...` to show where the warning was created)
 # Subtest: WORKFLOW: quote report awards the lowest, the accountant issues the assignment and reserves budget
 # Subtest: WORKFLOW: cross-school case and attachment inaccessible
@@ -34,11 +34,12 @@
 # Subtest: PERMISSIONS: accountants add schools and fiscal years; policy and purge are for the administrator
 # Subtest: PURGE: the administrator deletes a file or an imprest and the budget balances are restored
 # Subtest: QUOTES: the quote report takes only company and value; item values are set for the awarded company
-# tests 34
+# Subtest: REGISTERS: quote reports and assignment letters by school, accountant, company and period, with print and Excel
+# tests 35
 # suites 0
-# pass 34
+# pass 35
 # fail 0
 # cancelled 0
 # skipped 0
 # todo 0
-# duration_ms 16283.031715
+# duration_ms 15495.110892

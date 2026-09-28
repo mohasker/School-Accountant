@@ -110,6 +110,10 @@ async function main() {
   await acc.click('.modal-actions button.secondary');
   await nav(acc, 'شهادات الإنجاز');
   await shot(acc, '05-registry');
+  await nav(acc, 'تقارير عروض الأسعار');
+  await shot(acc, '05b-quote-register');
+  await nav(acc, 'التكليفات');
+  await shot(acc, '05c-order-register');
   await nav(acc, 'الموازنة');
   await shot(acc, '06-budget');
   await nav(acc, 'الإجازات');

@@ -12,6 +12,8 @@ export type View =
   | 'imprests'
   | 'reports'
   | 'registry'
+  | 'quote-register'
+  | 'order-register'
   | 'holidays'
   | 'policy'
   | 'settings'

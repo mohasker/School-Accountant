@@ -2106,3 +2106,27 @@ button.mini {
 .context .select {
   min-width: 130px;
 }
+
+/* Registers */
+.register-filters {
+  display: grid !important;
+  grid-template-columns: 2fr 1.5fr 1.5fr repeat(3, 1fr) auto;
+  gap: 10px;
+  align-items: end;
+}
+.register-filters label {
+  margin: 0;
+}
+.register-buttons {
+  display: flex;
+  gap: 6px;
+}
+.register-count {
+  margin: 10px 0 4px;
+  color: var(--ink);
+}
+@media (max-width: 1100px) {
+  .register-filters {
+    grid-template-columns: 1fr 1fr;
+  }
+}

@@ -7,7 +7,7 @@ import { parse } from '../common/validation';
 import { authenticate, clearSessionCookie, login, passwordHash } from '../core/identity';
 import { htmlToPdf } from '../core/pdf';
 import { transact } from '../core/transaction';
-import { certificateRegistry } from '../modules/reports';
+import { caseRegister, certificateRegistry } from '../modules/reports';
 import { mutate, read } from '../modules/router';
 import { readTenant, writeTenant } from '../modules/tenant';
 
@@ -89,6 +89,13 @@ export class WorkspaceController {
     const s = await authenticate(req);
     if (query.pdf === '1') return maybePdf(query, await certificateRegistry(s, { ...query, format: 'print' }));
     return certificateRegistry(s, query);
+  }
+
+  /** Quote reports (`type=report`) or assignment letters (`type=order`) across the user's schools. */
+  @Get('registry/cases') async caseRegistry(@Req() req: Request, @Query() query: any) {
+    const s = await authenticate(req);
+    if (query.pdf === '1') return maybePdf(query, await caseRegister(s, { ...query, format: 'print' }));
+    return caseRegister(s, query);
   }
 
   /** Tenant-wide settings: holidays, policy, budget catalog, schools, memberships. */

@@ -26,6 +26,8 @@ const NAV: { view: View; icon: string; label: string; show?: (w: { can: Workspac
   { view: 'admin', icon: '♛', label: 'لوحة مدير النظام', show: ({ me }) => me.user.isTenantAdmin },
   { view: 'dashboard', icon: '◫', label: 'الرئيسية' },
   { view: 'cases', icon: '▤', label: 'المعاملات' },
+  { view: 'quote-register', icon: '☰', label: 'تقارير عروض الأسعار' },
+  { view: 'order-register', icon: '✎', label: 'التكليفات' },
   { view: 'registry', icon: '⌕', label: 'شهادات الإنجاز' },
   { view: 'imprests', icon: '▣', label: 'العهد والتسويات' },
   { view: 'budget', icon: '▥', label: 'الموازنة' },
@@ -45,7 +47,9 @@ const TITLES: Record<View, string> = {
   budget: 'الموازنة التشغيلية',
   imprests: 'العهد والتسويات',
   reports: 'التقارير',
-  registry: 'سجل شهادات الإنجاز',
+  registry: 'سجل شهادات الإنجاز وكتب التغطية',
+  'quote-register': 'سجل تقارير دراسة عروض الأسعار',
+  'order-register': 'سجل التكليفات',
   holidays: 'الإجازات والعطل الرسمية',
   policy: 'السياسة المالية ودليل البنود',
   settings: 'الإعدادات',
@@ -296,7 +300,9 @@ export default function App() {
                 {view === 'budget' && <Budget />}
                 {view === 'imprests' && <Imprests />}
                 {view === 'reports' && <Reports />}
-                {view === 'registry' && <Registry />}
+                {view === 'registry' && <Registry type="certificate" />}
+                {view === 'quote-register' && <Registry type="report" />}
+                {view === 'order-register' && <Registry type="order" />}
                 {view === 'holidays' && <Holidays />}
                 {view === 'policy' && <Policy />}
                 {view === 'settings' && <Settings />}

@@ -116,24 +116,14 @@ body.compact{font-size:10.5pt;line-height:1.4}
 .compact .rule{margin-bottom:2.5mm}
 .compact .rating td{padding:.8mm 2mm}
 .compact .doc-end{margin-top:3mm}
-.cert-title{display:flex;justify-content:space-between;align-items:center;background:#8a1538;color:#fff;border-radius:2mm;padding:2.2mm 5mm;margin:1mm 0 2.5mm}
-.cert-title span{font-size:15pt;font-weight:700}
-.cert-title small{font-size:10pt;background:#fff;color:#8a1538;border-radius:5mm;padding:.5mm 3.5mm;font-weight:700}
-.cert-section{font-weight:700;color:#5c0f27;font-size:10.5pt;margin:2.8mm 0 1.2mm;padding-right:2.5mm;border-right:2.5pt solid #b08d57}
-table.cert-info{margin:0}
-table.cert-info th{width:23%;background:#faf6f7;color:#3d0a1a;text-align:right;font-size:9.5pt}
-table.cert-info td{width:27%;text-align:right}
-.cert-money{display:grid;grid-template-columns:repeat(4,1fr);gap:2mm;margin:.5mm 0 1.5mm}
-.cert-money div{border:.6pt solid #c9b3ba;border-radius:1.8mm;padding:1.6mm 2.5mm;background:#fcfafb;display:flex;flex-direction:column;gap:.5mm}
-.cert-money span{font-size:8.5pt;color:#5a4a50}
-.cert-money b{font-size:12.5pt;direction:ltr;unicode-bidi:isolate;text-align:right}
-.cert-money b:after{content:" ر.ق";font-size:8.5pt;font-weight:400;color:#5a4a50}
-.cert-money .fine b{color:#9a1b1b}
-.cert-money .net{background:#8a1538;border-color:#8a1538}
-.cert-money .net span,.cert-money .net b,.cert-money .net b:after{color:#fff}
-table.cert-rating{margin:0}
-table.cert-rating th{text-align:right;background:#faf6f7;color:#3d0a1a;width:40%;font-size:9.5pt}
-table.cert-rating td.picked{background:#f3e7eb!important;font-weight:700;color:#4d0c20}
+/* Completion certificate (approved «Injaz» form): same rows and wording, tighter and clearer formatting. */
+.cert td{padding:1.1mm 2.4mm}
+.cert td.k{width:40%;font-size:9.8pt;color:#2a0a14}
+.cert tr:nth-child(9) td{background:#fbf3f6}
+.cert tr:nth-child(9) td b{font-size:11.5pt;color:#5c0f27}
+.rating td.picked{background:#f3e7eb!important;font-weight:700;color:#4d0c20}
+.rating td.r{width:42%;background:#faf6f7}
+.compact .checks span{line-height:1.45}
 `;
 
 export function printDocument(opts: { title: string; ref: string; body: string; date?: Date | string | null; compact?: boolean }) {

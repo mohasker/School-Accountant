@@ -493,8 +493,8 @@ test('PRINT: official templates carry the logo, order number, working-day terms 
   const final = full.certificates.find((x: any) => x.kind === 'FINAL');
   const cert = text((await req(acc, route('certificates/' + final.id))).body.html);
   assert.ok(cert.includes('شهادة إنجاز أعمال'));
-  assert.ok(cert.includes('أيام التأخير') && cert.includes('5 أيام عمل'));
-  assert.ok(cert.includes('الصافي المستحق بعد الخصم'));
+  assert.ok(cert.includes('عدد أيام التأخير 5 أيام عمل'));
+  assert.ok(cert.includes('قيمة الفاتورة بعد خصم قيمة غرامة التأخير'));
   assert.ok(cert.includes('فقط ثلاثة آلاف و ثمانمائة ريال قطري لا غير'));
   const cover = text((await req(acc, route(`certificates/${final.id}/cover`))).body.html);
   assert.ok(cover.includes('صرف مستحقات شركة'));
@@ -880,4 +880,24 @@ test('QUOTES: the quote report takes only company and value; item values are set
   assert.ok(setup.users.every((u: any) => u.user.username === 'accountant'));
   assert.ok((await req(admin, route('setup'))).body.users.length > 1);
   await ok(acc, `cases/${row.id}/cancel`, { reason: 'تنظيف' });
+});
+test('REGISTERS: quote reports and assignment letters by school, accountant, company and period, with print and Excel', async () => {
+  const reports = (await req(acc, 'registry/cases?type=report')).body;
+  assert.ok(reports.rows.length >= 1, JSON.stringify(reports).slice(0, 200));
+  assert.equal(reports.heads[1], 'رقم التقرير');
+  const orders = (await req(acc, 'registry/cases?type=order&from=2026-09-01&to=2026-09-30')).body;
+  assert.ok(orders.rows.length >= 1 && orders.rows.every((r: any) => r.schoolId === school));
+  const me = (await req(admin, 'admin/users')).body.find((u: any) => u.username === 'accountant');
+  const byAccountant = (await req(admin, `registry/cases?type=order&accountant=${me.id}`)).body;
+  assert.equal(byAccountant.rows.length, (await req(admin, 'registry/cases?type=order')).body.rows.length);
+  const none = (await req(acc, 'registry/cases?type=order&supplier=' + encodeURIComponent('لا توجد شركة بهذا الاسم'))).body;
+  assert.equal(none.rows.length, 0);
+  const printed = (await req(acc, `registry/cases?type=report&school=${school}&format=print`)).body.html;
+  assert.ok(printed.includes('سجل تقارير دراسة عروض الأسعار') && printed.includes('المدرسة:'));
+  assert.ok((await req(acc, 'registry/cases?type=order&format=xlsx')).body.base64.length > 100);
+  // The password of 'other' was reset by the administrator test; sign in again.
+  const r = await req(null, 'auth/login', 'POST', { username: 'other', password: 'Brand-New-Password-1' });
+  const o = { cookie: r.cookie, csrf: r.body.csrf };
+  assert.equal((await req(o, 'registry/cases?type=order')).body.rows.length, 0, 'another school sees nothing');
+  assert.equal((await req(o, `registry/cases?type=order&school=${school}`)).status, 400);
 });
