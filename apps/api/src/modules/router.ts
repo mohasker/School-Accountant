@@ -1,0 +1,56 @@
+import { NotFoundException } from '@nestjs/common';
+import { scope, type Identity } from '../core/identity';
+import { transact } from '../core/transaction';
+import { readBudgetEstimate, readLedger, writeBudget, writeBudgetPlan } from './budgets';
+import { readCases, readCertificate, readDashboard, readEvidence, writeCases } from './cases';
+import type { Reader, Writer } from './context';
+import { readImprests, writeImprests } from './imprests';
+import { readAudit, readReportRuns, readTransactionsReport } from './reports';
+import { readSetup, writeSchool, writeUser, writeYear } from './school';
+import { importSuppliers, writeSupplier } from './suppliers';
+
+/** GET schools/:school/:resource[/:id[/:action]] */
+const READERS: Record<string, Reader> = {
+  setup: readSetup,
+  dashboard: readDashboard,
+  cases: readCases,
+  certificates: readCertificate,
+  evidence: readEvidence,
+  imprests: readImprests,
+  ledger: readLedger,
+  'budget-estimate': readBudgetEstimate,
+  reports: readTransactionsReport,
+  'report-runs': readReportRuns,
+  audit: readAudit,
+};
+
+/** POST/PATCH/DELETE schools/:school/:resource[/:id[/:action]] — each runs in one idempotent transaction. */
+const WRITERS: Record<string, Writer> = {
+  suppliers: writeSupplier,
+  'supplier-import': importSuppliers,
+  school: writeSchool,
+  users: writeUser,
+  years: writeYear,
+  budgets: writeBudget,
+  'budget-plan': writeBudgetPlan,
+  cases: writeCases,
+  imprests: writeImprests,
+};
+
+export function read(s: Identity, school: string, path: string[], query: Record<string, any>) {
+  scope(s, school);
+  const [resource, rid, action] = path;
+  const reader = READERS[resource];
+  if (!reader) throw new NotFoundException();
+  return reader({ s, school, rid, action, query });
+}
+
+export function mutate(s: Identity, school: string, path: string[], body: any, key: string, method: string) {
+  scope(s, school);
+  const [resource, rid, action] = path;
+  const writer = WRITERS[resource];
+  if (!writer) throw new NotFoundException('الإجراء غير موجود');
+  return transact(s, school, `${method}:${path.join('/')}`, body, key, (t) =>
+    writer({ s, school, rid, action, query: {}, t, body, method }),
+  );
+}

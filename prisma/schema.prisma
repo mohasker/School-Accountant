@@ -9,22 +9,26 @@ datasource db {
 }
 
 model Tenant {
-  id      String   @id @default(uuid()) @db.Uuid
-  name    String
-  schools School[]
-  users   User[]
+  id       String          @id @default(uuid()) @db.Uuid
+  name     String
+  schools  School[]
+  users    User[]
+  holidays Holiday[]
+  policies PolicySetting[]
+  catalog  BudgetCatalog[]
 }
 
 model User {
-  id           String       @id @default(uuid()) @db.Uuid
-  tenantId     String       @db.Uuid
-  tenant       Tenant       @relation(fields: [tenantId], references: [id])
-  username     String       @unique
-  name         String
-  passwordHash String
-  active       Boolean      @default(true)
-  memberships  Membership[]
-  sessions     Session[]
+  id            String       @id @default(uuid()) @db.Uuid
+  tenantId      String       @db.Uuid
+  tenant        Tenant       @relation(fields: [tenantId], references: [id])
+  username      String       @unique
+  name          String
+  passwordHash  String
+  active        Boolean      @default(true)
+  memberships   Membership[]
+  sessions      Session[]
+  isTenantAdmin Boolean      @default(false)
 
   @@unique([id, tenantId])
 }
@@ -44,6 +48,8 @@ model School {
   years              FiscalYear[]
   suppliers          Supplier[]
   cases              Case[]
+  orderPrefix        String       @default("")
+  plans              BudgetPlan[]
 
   @@unique([id, tenantId])
   @@unique([tenantId, code])
@@ -72,16 +78,17 @@ model Session {
 }
 
 model FiscalYear {
-  id        String    @id @default(uuid()) @db.Uuid
-  schoolId  String    @db.Uuid
-  school    School    @relation(fields: [schoolId], references: [id])
+  id        String       @id @default(uuid()) @db.Uuid
+  schoolId  String       @db.Uuid
+  school    School       @relation(fields: [schoolId], references: [id])
   label     String
-  startDate DateTime  @db.Date
-  endDate   DateTime  @db.Date
-  closed    Boolean   @default(false)
+  startDate DateTime     @db.Date
+  endDate   DateTime     @db.Date
+  closed    Boolean      @default(false)
   cases     Case[]
   budgets   Budget[]
   imprests  Imprest[]
+  plans     BudgetPlan[]
 
   @@unique([id, schoolId])
   @@unique([schoolId, label])
@@ -106,18 +113,23 @@ model Supplier {
 }
 
 model Budget {
-  id        String     @id @default(uuid()) @db.Uuid
-  schoolId  String     @db.Uuid
-  yearId    String     @db.Uuid
-  year      FiscalYear @relation(fields: [yearId, schoolId], references: [id, schoolId])
-  code      String
-  name      String
-  approved  Decimal    @db.Decimal(18, 2)
-  committed Decimal    @default(0) @db.Decimal(18, 2)
-  spent     Decimal    @default(0) @db.Decimal(18, 2)
-  entries   Ledger[]
-  items     Item[]
-  expenses  Expense[]
+  id           String     @id @default(uuid()) @db.Uuid
+  schoolId     String     @db.Uuid
+  yearId       String     @db.Uuid
+  year         FiscalYear @relation(fields: [yearId, schoolId], references: [id, schoolId])
+  code         String
+  name         String
+  approved     Decimal    @db.Decimal(18, 2)
+  committed    Decimal    @default(0) @db.Decimal(18, 2)
+  spent        Decimal    @default(0) @db.Decimal(18, 2)
+  entries      Ledger[]
+  items        Item[]
+  expenses     Expense[]
+  nameEn       String     @default("")
+  groupKey     String     @default("")
+  schoolAmount Decimal    @default(0) @db.Decimal(18, 2)
+  kgAmount     Decimal    @default(0) @db.Decimal(18, 2)
+  sort         Int        @default(0)
 
   @@unique([id, schoolId, yearId])
   @@unique([schoolId, yearId, code])
@@ -159,6 +171,10 @@ model Case {
   certificates      Certificate[]
   evidence          Evidence[]
   erp               Erp?
+  method            String?
+  exclusiveReason   String?
+  deliveryDays      Int?
+  policy            Json?
 
   @@unique([id, schoolId, yearId])
   @@unique([schoolId, yearId, number])
@@ -187,18 +203,19 @@ model Item {
 }
 
 model Quote {
-  id         String   @id @default(uuid()) @db.Uuid
-  schoolId   String   @db.Uuid
-  yearId     String   @db.Uuid
-  caseId     String   @db.Uuid
-  case       Case     @relation(fields: [caseId, schoolId, yearId], references: [id, schoolId, yearId])
-  supplierId String   @db.Uuid
-  supplier   Supplier @relation(fields: [supplierId, schoolId], references: [id, schoolId])
+  id         String    @id @default(uuid()) @db.Uuid
+  schoolId   String    @db.Uuid
+  yearId     String    @db.Uuid
+  caseId     String    @db.Uuid
+  case       Case      @relation(fields: [caseId, schoolId, yearId], references: [id, schoolId, yearId])
+  supplierId String    @db.Uuid
+  supplier   Supplier  @relation(fields: [supplierId, schoolId], references: [id, schoolId])
   reference  String
   prices     Json
-  total      Decimal  @db.Decimal(18, 2)
-  compliant  Boolean  @default(true)
-  note       String   @default("")
+  total      Decimal   @db.Decimal(18, 2)
+  compliant  Boolean   @default(true)
+  note       String    @default("")
+  quoteDate  DateTime? @db.Date
 
   @@unique([caseId, supplierId])
 }
@@ -255,6 +272,7 @@ model Certificate {
   issuedBy       String     @db.Uuid
   createdAt      DateTime   @default(now())
   portions       Portion[]
+  details        Json?
 
   @@unique([id, caseId])
   @@unique([caseId, number])
@@ -320,6 +338,9 @@ model Imprest {
   expenses    Expense[]
   settlements Settlement[]
   movements   CashMovement[]
+  amount      Decimal        @default(0) @db.Decimal(18, 2)
+  reference   String         @default("")
+  createdAt   DateTime       @default(now())
 
   @@unique([id, schoolId, yearId])
 }
@@ -336,12 +357,14 @@ model Expense {
   invoice      String
   date         DateTime    @db.Date
   amount       Decimal     @db.Decimal(18, 2)
-  proof        String
+  proof        String      @default("")
   createdBy    String      @db.Uuid
   settlementId String?     @db.Uuid
   settlement   Settlement? @relation(fields: [settlementId, imprestId], references: [id, imprestId])
+  vendor       String      @default("")
+  note         String      @default("")
 
-  @@unique([imprestId, invoice])
+  @@index([imprestId])
 }
 
 model Settlement {
@@ -356,6 +379,9 @@ model Settlement {
   html        String
   createdAt   DateTime  @default(now())
   expenses    Expense[]
+  number      Int       @default(1)
+  coverHtml   String?
+  details     Json?
 
   @@unique([id, imprestId])
 }
@@ -373,7 +399,8 @@ model CashMovement {
 
 model Audit {
   id        String   @id @default(uuid()) @db.Uuid
-  schoolId  String   @db.Uuid
+  schoolId  String?  @db.Uuid
+  tenantId  String?  @db.Uuid
   actor     String   @db.Uuid
   action    String
   entity    String
@@ -407,4 +434,64 @@ model ReportRun {
   createdAt DateTime @default(now())
 
   @@index([schoolId, yearId, createdAt])
+}
+
+model Holiday {
+  id        String   @id @default(uuid()) @db.Uuid
+  tenantId  String   @db.Uuid
+  tenant    Tenant   @relation(fields: [tenantId], references: [id])
+  date      DateTime @db.Date
+  name      String
+  createdBy String   @db.Uuid
+  createdAt DateTime @default(now())
+
+  @@unique([tenantId, date])
+}
+
+model PolicySetting {
+  id            String   @id @default(uuid()) @db.Uuid
+  tenantId      String   @db.Uuid
+  tenant        Tenant   @relation(fields: [tenantId], references: [id])
+  key           String
+  value         Json
+  effectiveFrom DateTime @db.Date
+  reason        String
+  createdBy     String   @db.Uuid
+  createdAt     DateTime @default(now())
+
+  @@index([tenantId, key, effectiveFrom])
+}
+
+model BudgetCatalog {
+  id       String  @id @default(uuid()) @db.Uuid
+  tenantId String  @db.Uuid
+  tenant   Tenant  @relation(fields: [tenantId], references: [id])
+  code     String
+  nameAr   String
+  nameEn   String  @default("")
+  groupKey String
+  note     String  @default("")
+  sort     Int     @default(0)
+  active   Boolean @default(true)
+
+  @@unique([tenantId, code])
+}
+
+model BudgetPlan {
+  id              String     @id @default(uuid()) @db.Uuid
+  schoolId        String     @db.Uuid
+  yearId          String     @db.Uuid
+  school          School     @relation(fields: [schoolId], references: [id])
+  year            FiscalYear @relation(fields: [yearId, schoolId], references: [id, schoolId])
+  schoolBuildings Int        @default(1)
+  kgBuildings     Int        @default(0)
+  studentsSchool  Int        @default(0)
+  studentsKg      Int        @default(0)
+  teachersSchool  Int        @default(0)
+  teachersKg      Int        @default(0)
+  adminSchool     Int        @default(0)
+  adminKg         Int        @default(0)
+  updatedAt       DateTime   @updatedAt
+
+  @@unique([schoolId, yearId])
 }

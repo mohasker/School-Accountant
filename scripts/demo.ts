@@ -24,7 +24,7 @@ async function main(){
  const {start}=await import('../apps/api/src/main');const api=await start();
  const web=spawn(process.execPath,['node_modules/next/dist/bin/next',process.env.DEMO_DEV==='true'?'dev':'start','apps/web','--hostname','127.0.0.1','--port','3000'],{stdio:'inherit',env:{...process.env,API_URL:'http://127.0.0.1:3001',NEXT_TELEMETRY_DISABLED:'1'}});
  console.log('Demo: http://localhost:3000 | Accounts: accountant, approver, admin, other. Use your DEMO_PASSWORD.');
- let stopping=false;const stop=async()=>{if(stopping)return;stopping=true;web.kill('SIGTERM');await api.close();const {db}=await import('../apps/api/src/db');await db.$disconnect();await socket.stop();await engine.close();process.exit();};
+ let stopping=false;const stop=async()=>{if(stopping)return;stopping=true;web.kill('SIGTERM');await api.close();const {db}=await import('../apps/api/src/common/db');await db.$disconnect();await socket.stop();await engine.close();process.exit();};
  process.on('SIGINT',stop);process.on('SIGTERM',stop);web.on('exit',stop);
 }
 main().catch(e=>{console.error(e.message);process.exit(1)});
