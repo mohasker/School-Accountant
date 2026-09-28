@@ -10,7 +10,14 @@ async function main() {
 
   const t = await db.tenant.create({ data: { name: 'جهة تجريبية — بيانات اصطناعية' } });
   const school = await db.school.create({
-    data: { tenantId: t.id, code: 'DEMO-A', name: 'مدرسة الريادة التجريبية', principal: 'مدير المدرسة التجريبي', pettyCustodian: 'مسؤول العهدة التجريبي', orderPrefix: 'RYD' },
+    data: {
+      tenantId: t.id,
+      code: 'DEMO-A',
+      name: 'مدرسة الريادة التجريبية',
+      principal: 'مدير المدرسة التجريبي',
+      pettyCustodian: 'مسؤول العهدة التجريبي',
+      orderPrefix: 'RYD',
+    },
   });
   const other = await db.school.create({
     data: { tenantId: t.id, code: 'DEMO-B', name: 'مدرسة الأفق التجريبية', principal: 'مدير المدرسة الثانية', orderPrefix: 'OFQ' },
@@ -29,7 +36,13 @@ async function main() {
 
   await db.budgetCatalog.createMany({ data: BUDGET_CATALOG.map((c) => ({ ...c, tenantId: t.id })) });
   // Demo amounts; the first line is large enough for the purchase-cycle tests.
-  const demoAmounts: Record<string, string> = { '510401': '50000', '520601': '20000', '520801': '30000', '530301': '15000', '540201': '10000' };
+  const demoAmounts: Record<string, string> = {
+    '510401': '50000',
+    '520601': '20000',
+    '520801': '30000',
+    '530301': '15000',
+    '540201': '10000',
+  };
   for (const sc of [school, other]) {
     const y = await db.fiscalYear.create({
       data: { schoolId: sc.id, label: '2026', startDate: new Date('2026-01-01'), endDate: new Date('2026-12-31') },

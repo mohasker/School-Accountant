@@ -22,7 +22,10 @@ export async function createCase({ s, school, t, body }: WriteCtx) {
         subject: text,
         origin: z.enum(['SCHOOL', 'MINISTRY']),
         ministryReference: z.string().trim().max(150).optional(),
-        items: z.array(z.object({ name: text, unit: text, qty: quantity, budgetId: id })).min(1).max(100),
+        items: z
+          .array(z.object({ name: text, unit: text, qty: quantity, budgetId: id }))
+          .min(1)
+          .max(100),
       })
       .strict(),
     body,
@@ -30,7 +33,10 @@ export async function createCase({ s, school, t, body }: WriteCtx) {
   const y = await openYear(t, school, p.yearId);
   inYear(y, today());
   if (p.origin === 'MINISTRY' && !p.ministryReference) fail('مرجع التكليف الوزاري مطلوب');
-  if (p.ministryReference && (await t.case.count({ where: { schoolId: school, yearId: p.yearId, ministryReference: p.ministryReference } })))
+  if (
+    p.ministryReference &&
+    (await t.case.count({ where: { schoolId: school, yearId: p.yearId, ministryReference: p.ministryReference } }))
+  )
     fail('التكليف الوزاري مسجل');
   for (const item of p.items)
     if (!(await t.budget.findUnique({ where: { id: item.budgetId, schoolId: school, yearId: p.yearId } }))) fail('بند موازنة غير مسموح');
@@ -52,8 +58,7 @@ export async function createCase({ s, school, t, body }: WriteCtx) {
 
 /** Validates one unit price per item and returns the rounded order total. */
 function priceLines(c: FullCase, lines: { itemId: string; price: string }[]) {
-  if (lines.length !== c.items.length || new Set(lines.map((x) => x.itemId)).size !== c.items.length)
-    fail('يلزم سعر لكل بند دون تكرار');
+  if (lines.length !== c.items.length || new Set(lines.map((x) => x.itemId)).size !== c.items.length) fail('يلزم سعر لكل بند دون تكرار');
   let total = new D(0);
   const values = lines.map((line) => {
     const item = c.items.find((i) => i.id === line.itemId);
@@ -323,4 +328,3 @@ export async function cancel({ s, school, t, body, c }: WriteCtx & { c: FullCase
   await audit(t, s, school, 'CANCEL_REASON', c.id, p);
   return t.case.update({ where: { id: c.id }, data: { state: 'CANCELLED', version: { increment: 1 } } });
 }
-

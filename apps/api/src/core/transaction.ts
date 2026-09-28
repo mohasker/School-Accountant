@@ -14,14 +14,7 @@ export async function audit(t: Tx, s: Identity, scopeId: string, action: string,
  * Runs a mutation in a serializable transaction with an idempotency key: repeating the same
  * request returns the stored result, reusing a key for a different body is rejected.
  */
-export async function transact(
-  s: Identity,
-  scopeId: string,
-  op: string,
-  body: any,
-  key: string,
-  fn: (t: Tx) => Promise<any>,
-) {
+export async function transact(s: Identity, scopeId: string, op: string, body: any, key: string, fn: (t: Tx) => Promise<any>) {
   if (!/^[A-Za-z0-9_-]{8,100}$/.test(key)) fail('مفتاح الطلب مطلوب');
   const full = `${s.user.id}:${scopeId}:${op}:${key}`,
     requestHash = hash(JSON.stringify(body));

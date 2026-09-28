@@ -66,7 +66,7 @@ export function imprestStatement(d: ImprestStatement) {
 <h1>${esc(title)}</h1>
 <table><tr><th>مبلغ العهدة</th><th>المنصرف</th><th>الرصيد</th><th>مسؤول العهدة</th></tr>
 <tr><td>${amount(d.imprestAmount)}</td><td>${amount(total)}</td><td>${amount(balance)}</td><td>${esc(d.custodian)}</td></tr></table>
-<table><tr><th style="width:32px">م</th><th>المورد</th><th>رقم الفاتورة</th><th>تاريخ الفاتورة</th><th>البيان (التفاصيل)</th><th>البند</th><th>المبلغ</th><th>ملاحظات</th></tr>
+<table class="dense"><tr><th style="width:32px">م</th><th>المورد</th><th>رقم الفاتورة</th><th>تاريخ الفاتورة</th><th>البيان (التفاصيل)</th><th>البند</th><th>المبلغ</th><th>ملاحظات</th></tr>
 ${rows}
 <tr><td colspan="6" class="bold">الإجمالي</td><td class="bold">${amount(total)}</td><td></td></tr></table>
 <p class="words">${tafqeet(total)}</p>

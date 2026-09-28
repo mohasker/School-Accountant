@@ -49,7 +49,15 @@ export async function readImprests({ s, school, rid, action, query }: ReadCtx) {
     const info = await status(db, s.user.tenantId, a);
     if (action === 'preview') {
       const type = query.type === 'CLOSE' ? 'CLOSE' : 'REPLENISH';
-      const data = await statementData(db, s, school, a, type, a.expenses.filter((e) => !e.settlementId), {});
+      const data = await statementData(
+        db,
+        s,
+        school,
+        a,
+        type,
+        a.expenses.filter((e) => !e.settlementId),
+        {},
+      );
       return { html: imprestStatement(data), cover: imprestCover(data) };
     }
     const settlement = action ? a.settlements.find((x) => x.id === action) : undefined;
@@ -85,6 +93,8 @@ async function statementData(
   names: { custodian?: string; principal?: string; date?: string },
 ): Promise<ImprestStatement> {
   const schoolRow = await t.school.findUniqueOrThrow({ where: { id: school } });
+  // The statement is signed by the accountant who recorded the invoices, not by the approver settling it.
+  const recorder = expenses[0] ? await t.user.findUnique({ where: { id: expenses[0].createdBy }, select: { name: true } }) : null;
   return {
     number: a.settlements.length + 1,
     date: names.date ?? today(),
@@ -94,7 +104,7 @@ async function statementData(
     year: a.year.label,
     principal: names.principal || schoolRow.principal,
     custodian: names.custodian || a.custodian,
-    accountant: s.user.name,
+    accountant: recorder?.name ?? s.user.name,
     imprestAmount: a.amount,
     expenses,
   };
@@ -125,7 +135,8 @@ export async function writeImprests(ctx: WriteCtx) {
       body,
     );
     inYear(y, p.date);
-    if (p.date > today() || new D(p.amount).lte(0) || new D(p.amount).gt(a.balance)) fail('المبلغ أو التاريخ غير صالح أو يتجاوز رصيد العهدة');
+    if (p.date > today() || new D(p.amount).lte(0) || new D(p.amount).gt(a.balance))
+      fail('المبلغ أو التاريخ غير صالح أو يتجاوز رصيد العهدة');
     if (!p.invoice && !p.note) fail('بدون رقم فاتورة يلزم ذكر السبب في الملاحظات');
     if (a.type === 'PETTY') {
       const policy = await loadPolicy(t, s.user.tenantId, p.date);
@@ -196,7 +207,9 @@ export async function writeImprests(ctx: WriteCtx) {
     const st = a.settlements.find((x) => x.id === p.settlementId);
     if (!st || st.replenished || st.type !== 'REPLENISH') fail('الاستعاضة غير متاحة');
     await t.settlement.update({ where: { id: st.id }, data: { replenished: true } });
-    await t.cashMovement.create({ data: { imprestId: a.id, amount: st.amount, kind: 'REPLENISH', reference: p.reference, actor: s.user.id } });
+    await t.cashMovement.create({
+      data: { imprestId: a.id, amount: st.amount, kind: 'REPLENISH', reference: p.reference, actor: s.user.id },
+    });
     return t.imprest.update({ where: { id: a.id }, data: { balance: { increment: st.amount } } });
   }
 
@@ -224,9 +237,7 @@ export async function writeImprests(ctx: WriteCtx) {
 async function openImprest({ s, school, t, body }: WriteCtx) {
   scope(s, school, APPROVE);
   const p = parse(
-    z
-      .object({ yearId: id, name: text, custodian: text, type: z.enum(TYPES), amount: money, reference: text })
-      .strict(),
+    z.object({ yearId: id, name: text, custodian: text, type: z.enum(TYPES), amount: money, reference: text }).strict(),
     body,
   );
   await openYear(t, school, p.yearId);

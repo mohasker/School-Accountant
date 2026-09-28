@@ -49,7 +49,9 @@ export function certificateDocument(d: CertificateData) {
     : `لا${d.deliveryDays ? ` — مدة التوريد ${d.deliveryDays} يوم عمل` : ''}`;
   const fineLine =
     `${amount(d.fine)} ر.ق — ${d.finePct}%` +
-    (Number(d.priorFine) > 0 ? ` <span class="muted">(غرامات سابقة ${amount(d.priorFine)}، المتراكمة ${amount(d.cumulativeFine)})</span>` : '');
+    (Number(d.priorFine) > 0
+      ? ` <span class="muted">(غرامات سابقة ${amount(d.priorFine)}، المتراكمة ${amount(d.cumulativeFine)})</span>`
+      : '');
   const attachments = PRE_CERTIFICATE.map(
     (code) => `<span class="${d.attachments.includes(code) ? 'on' : ''}">${esc(EVIDENCE[code].print)}</span>`,
   ).join('');

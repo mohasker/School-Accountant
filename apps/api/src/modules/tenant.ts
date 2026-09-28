@@ -25,7 +25,11 @@ export async function readTenant(s: Identity, resource: string, query: Record<st
       });
     }
     case 'policy': {
-      const history = await db.policySetting.findMany({ where: { tenantId }, orderBy: [{ effectiveFrom: 'desc' }, { createdAt: 'desc' }], take: 200 });
+      const history = await db.policySetting.findMany({
+        where: { tenantId },
+        orderBy: [{ effectiveFrom: 'desc' }, { createdAt: 'desc' }],
+        take: 200,
+      });
       return {
         current: await loadPolicy(db, tenantId),
         definitions: policyKeys.map((k) => ({ key: k, label: POLICY[k].label, help: POLICY[k].help, default: POLICY[k].value })),
@@ -43,7 +47,14 @@ export async function readTenant(s: Identity, resource: string, query: Record<st
       requireTenantAdmin(s);
       return db.user.findMany({
         where: { tenantId },
-        select: { id: true, name: true, username: true, active: true, isTenantAdmin: true, memberships: { select: { schoolId: true, roles: true } } },
+        select: {
+          id: true,
+          name: true,
+          username: true,
+          active: true,
+          isTenantAdmin: true,
+          memberships: { select: { schoolId: true, roles: true } },
+        },
         orderBy: { name: 'asc' },
       });
   }
@@ -67,20 +78,31 @@ export async function writeTenant(s: Identity, t: Tx, resource: string, rid: str
       const days: string[] = [];
       for (let d = p.from; d <= p.to; d = isoDay(new Date(new Date(d).getTime() + 86400000))) days.push(d);
       if (days.length > 120) fail('الفترة طويلة؛ أدخل الإجازة على فترات');
-      const existing = new Set((await t.holiday.findMany({ where: { tenantId, date: { in: days.map((d) => new Date(d)) } } })).map((h) => isoDay(h.date)));
+      const existing = new Set(
+        (await t.holiday.findMany({ where: { tenantId, date: { in: days.map((d) => new Date(d)) } } })).map((h) => isoDay(h.date)),
+      );
       const fresh = days.filter((d) => !existing.has(d));
       await t.holiday.createMany({ data: fresh.map((d) => ({ tenantId, date: new Date(d), name: p.name, createdBy: s.user.id })) });
       return { id: tenantId, created: fresh.length, skipped: days.length - fresh.length };
     }
     case 'policy': {
       const p = parse(
-        z.object({ key: z.enum(policyKeys as [PolicyKey, ...PolicyKey[]]), value: z.unknown(), effectiveFrom: date, reason: text }).strict(),
+        z
+          .object({ key: z.enum(policyKeys as [PolicyKey, ...PolicyKey[]]), value: z.unknown(), effectiveFrom: date, reason: text })
+          .strict(),
         body,
       );
       const value = parse(POLICY[p.key].schema as z.ZodType<unknown>, p.value);
       if (p.effectiveFrom < today()) fail('تاريخ السريان لا يكون في الماضي حتى لا تتغير معاملات سابقة');
       return t.policySetting.create({
-        data: { tenantId, key: p.key, value: value as any, effectiveFrom: new Date(p.effectiveFrom), reason: p.reason, createdBy: s.user.id },
+        data: {
+          tenantId,
+          key: p.key,
+          value: value as any,
+          effectiveFrom: new Date(p.effectiveFrom),
+          reason: p.reason,
+          createdBy: s.user.id,
+        },
       });
     }
     case 'budget-catalog': {
@@ -113,7 +135,10 @@ export async function writeTenant(s: Identity, t: Tx, resource: string, rid: str
             name: text,
             principal: text,
             pettyCustodian: optionalText(100),
-            orderPrefix: z.string().regex(/^[A-Za-z0-9]{0,12}$/).default(''),
+            orderPrefix: z
+              .string()
+              .regex(/^[A-Za-z0-9]{0,12}$/)
+              .default(''),
             active: z.boolean().default(true),
           })
           .strict(),
@@ -152,7 +177,9 @@ export async function writeTenant(s: Identity, t: Tx, resource: string, rid: str
       if (user && user.tenantId !== tenantId) fail('اسم المستخدم محجوز');
       if (!user) {
         if (!p.name || !p.password) fail('مستخدم جديد: الاسم وكلمة المرور (12 حرفاً على الأقل) مطلوبان');
-        user = await t.user.create({ data: { tenantId, username: p.username, name: p.name, passwordHash: await passwordHash(p.password) } });
+        user = await t.user.create({
+          data: { tenantId, username: p.username, name: p.name, passwordHash: await passwordHash(p.password) },
+        });
       }
       return t.membership.upsert({
         where: { userId_schoolId: { userId: user.id, schoolId: p.schoolId } },

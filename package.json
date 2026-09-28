@@ -1,6 +1,6 @@
 {
   "name": "school-accounting",
-  "version": "0.2.0",
+  "version": "0.0.0",
   "private": true,
   "engines": {
     "node": ">=22.12"
@@ -17,12 +17,17 @@
     "demo": "node --import tsx scripts/demo.ts",
     "start:api": "node dist/main.js",
     "start:web": "next start apps/web --hostname 0.0.0.0",
-    "typecheck": "tsc -p apps/api/tsconfig.json --noEmit"
+    "typecheck": "tsc -p apps/api/tsconfig.json --noEmit",
+    "bootstrap": "node --import tsx scripts/bootstrap.ts",
+    "walkthrough": "node --import tsx scripts/ui-walkthrough.ts",
+    "format": "prettier --write \"apps/**/*.{ts,tsx,css}\" \"scripts/**/*.ts\" \"tests/**/*.ts\""
   },
   "overrides": {
     "effect": "^3.20.0",
     "deepmerge-ts": "^8.0.0",
-    "exceljs": {"uuid": "^11.1.1"}
+    "exceljs": {
+      "uuid": "^11.1.1"
+    }
   },
   "dependencies": {
     "@nestjs/common": "^11.1.0",
@@ -54,6 +59,8 @@
     "playwright-core": "^1.63.0",
     "prisma": "6.19.0",
     "tsx": "^4.20.0",
-    "typescript": "^5.9.0"
-  }
+    "typescript": "^5.9.0",
+    "prettier": "^3.8.1"
+  },
+  "description": "مَدار V0 — المساعد المحاسبي للمدارس"
 }

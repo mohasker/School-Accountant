@@ -1,32 +1,62 @@
-npm warn Unknown env config "http-proxy". This will stop working in the next major version of npm.
-
-> school-accounting@0.2.0 test
-> node --import tsx --test --test-concurrency=1 tests/*.test.ts
-
-✔ PEN: exact partial delivery and single cumulative cap (2971.443161ms)
-✔ AUTH: school isolation on list, search, dashboard and mutation (45.251366ms)
-✔ AUTH: CSRF rejected and logout revokes copied session (94.174849ms)
-✔ SUPPLIER: create/update conflict/delete/atomic duplicate import (115.61401ms)
-(node:239) DeprecationWarning: Calling client.query() when the client is already executing a query is deprecated and will be removed in pg@9.0. Use async/await or an external async flow control mechanism instead.
-(Use `node --trace-deprecation ...` to show where the warning was created)
-✔ WORKFLOW: create compare lowest, forbid self approval and reserve budget (358.90581ms)
-✔ WORKFLOW: cross-school case and attachment inaccessible (5.971619ms)
-✔ DELIVERY: idempotent partial acceptance, reject oversupply, rollback (92.96378ms)
-✔ DOCS: certificate blocked until verified; forged file rejected (651.611326ms)
-✔ FINANCE: partial certificate consumes only accepted quantity once (96.264158ms)
-✔ FINANCE: late remainder fine 200, final certificate, covering letter, completeness, ERP no double posting (396.781535ms)
-✔ ARCHIVE: old certificate stays unchanged after supplier rename (48.275419ms)
-✔ MINISTRY: independent direct order with no fabricated quote (184.579178ms)
-✔ BUDGET: competing orders cannot overcommit and cancellation releases residual (464.225146ms)
-✔ IMPREST: expense once, settlement no new expense, actual replenishment and close (169.288854ms)
-✔ REPORTS: headers include school accountant period and isolation (31.651578ms)
-✔ DATABASE: audit history immutable; invalid budget fails constraint (24.721369ms)
-✔ CLOSED YEAR: disallows new financial writes (14.835742ms)
-ℹ tests 17
-ℹ suites 0
-ℹ pass 17
-ℹ fail 0
-ℹ cancelled 0
-ℹ skipped 0
-ℹ todo 0
-ℹ duration_ms 6331.437149
+# Subtest: PEN: exact partial delivery and single cumulative cap
+ok 1 - PEN: exact partial delivery and single cumulative cap
+# Subtest: AUTH: school isolation on list, search, dashboard and mutation
+ok 2 - AUTH: school isolation on list, search, dashboard and mutation
+# Subtest: AUTH: CSRF rejected and logout revokes copied session
+ok 3 - AUTH: CSRF rejected and logout revokes copied session
+# Subtest: SUPPLIER: create/update conflict/delete/atomic duplicate import
+ok 4 - SUPPLIER: create/update conflict/delete/atomic duplicate import
+# (node:8002) DeprecationWarning: Calling client.query() when the client is already executing a query is deprecated and will be removed in pg@9.0. Use async/await or an external async flow control mechanism instead.
+# (Use `node --trace-deprecation ...` to show where the warning was created)
+# Subtest: WORKFLOW: create compare lowest, forbid self approval and reserve budget
+ok 5 - WORKFLOW: create compare lowest, forbid self approval and reserve budget
+# Subtest: WORKFLOW: cross-school case and attachment inaccessible
+ok 6 - WORKFLOW: cross-school case and attachment inaccessible
+# Subtest: DELIVERY: idempotent partial acceptance, reject oversupply, rollback
+ok 7 - DELIVERY: idempotent partial acceptance, reject oversupply, rollback
+# Subtest: DOCS: certificate blocked until verified; forged file rejected
+ok 8 - DOCS: certificate blocked until verified; forged file rejected
+# Subtest: FINANCE: partial certificate consumes only accepted quantity once
+ok 9 - FINANCE: partial certificate consumes only accepted quantity once
+# Subtest: FINANCE: late remainder fine 200, final certificate, covering letter, completeness, ERP no double posting
+ok 10 - FINANCE: late remainder fine 200, final certificate, covering letter, completeness, ERP no double posting
+# Subtest: ARCHIVE: old certificate stays unchanged after supplier rename
+ok 11 - ARCHIVE: old certificate stays unchanged after supplier rename
+# Subtest: MINISTRY: independent direct order with no fabricated quote
+ok 12 - MINISTRY: independent direct order with no fabricated quote
+# Subtest: BUDGET: competing orders cannot overcommit and cancellation releases residual
+ok 13 - BUDGET: competing orders cannot overcommit and cancellation releases residual
+# Subtest: IMPREST: 75% replenishment rule, petty invoice limit, settlement documents, replenishment and close
+ok 14 - IMPREST: 75% replenishment rule, petty invoice limit, settlement documents, replenishment and close
+# Subtest: IMPREST: book fair imprest is settled and closed, never replenished
+ok 15 - IMPREST: book fair imprest is settled and closed, never replenished
+# Subtest: REPORTS: headers include school accountant period and isolation
+ok 16 - REPORTS: headers include school accountant period and isolation
+# Subtest: DATABASE: audit history immutable; invalid budget fails constraint
+ok 17 - DATABASE: audit history immutable; invalid budget fails constraint
+# Subtest: CLOSED YEAR: disallows new financial writes
+ok 18 - CLOSED YEAR: disallows new financial writes
+# Subtest: TAFQEET: Qatari riyal amount in words
+ok 19 - TAFQEET: Qatari riyal amount in words
+# Subtest: PRINT: official templates carry the logo, order number, working-day terms and amount in words
+ok 20 - PRINT: official templates carry the logo, order number, working-day terms and amount in words
+# Subtest: PROCUREMENT: one quote up to 1000, three above it unless exclusive, tender above 200000
+ok 21 - PROCUREMENT: one quote up to 1000, three above it unless exclusive, tender above 200000
+# Subtest: HOLIDAYS: administrator maintains official holidays; others read only
+ok 22 - HOLIDAYS: administrator maintains official holidays; others read only
+# Subtest: POLICY: threshold changes are dated history and apply to new evaluations
+ok 23 - POLICY: threshold changes are dated history and apply to new evaluations
+# Subtest: REGISTRY: certificate register across own schools only, with Excel export
+ok 24 - REGISTRY: certificate register across own schools only, with Excel export
+# Subtest: BUDGET: catalog lines, school/kindergarten split, assumptions and estimate print
+ok 25 - BUDGET: catalog lines, school/kindergarten split, assumptions and estimate print
+# Subtest: DASHBOARD: late orders and replenishment alerts
+ok 26 - DASHBOARD: late orders and replenishment alerts
+# tests 26
+# suites 0
+# pass 26
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 10748.441764

@@ -6,15 +6,7 @@ import { fail } from '../common/validation';
  * Moves a budget line's commitment and expense atomically and records the ledger event.
  * The event key is unique, so the same business event can never post twice.
  */
-export async function posting(
-  t: Tx,
-  budgetId: string,
-  commit: Decimal,
-  expense: Decimal,
-  eventKey: string,
-  source: string,
-  actor: string,
-) {
+export async function posting(t: Tx, budgetId: string, commit: Decimal, expense: Decimal, eventKey: string, source: string, actor: string) {
   await t.$queryRaw`SELECT id FROM "Budget" WHERE id = ${budgetId}::uuid FOR UPDATE`;
   const b = await t.budget.findUniqueOrThrow({ where: { id: budgetId } }),
     committed = b.committed.plus(commit),

@@ -117,7 +117,16 @@ export async function readReportRuns({ school, rid, action, query }: ReadCtx) {
       base64: await workbook(
         'المعاملات',
         ['الرقم', 'الموضوع', 'المحاسب', 'المورد', 'أمر الشراء', 'القيمة', 'الحالة', 'ERP'],
-        data.rows.map((r: any) => [r.number, r.subject, r.accountantName, r.supplier?.name ?? '', r.orderNumber ?? '', Number(r.total), STATE_NAMES[r.state] ?? r.state, r.erp?.reference ?? '']),
+        data.rows.map((r: any) => [
+          r.number,
+          r.subject,
+          r.accountantName,
+          r.supplier?.name ?? '',
+          r.orderNumber ?? '',
+          Number(r.total),
+          STATE_NAMES[r.state] ?? r.state,
+          r.erp?.reference ?? '',
+        ]),
         [
           ['المدرسة', data.header.school, 'المحاسب', data.header.accountant],
           ['من', data.header.from, 'إلى', data.header.to],
@@ -167,8 +176,12 @@ export async function certificateRegistry(s: Identity, query: Record<string, any
   if (school && !allowed.includes(school)) fail('غير مصرح بهذه المدرسة');
   const from = query.from ? parse(date, query.from) : undefined,
     to = query.to ? parse(date, query.to) : undefined;
-  const q = String(query.q ?? '').trim().slice(0, 200),
-    supplier = String(query.supplier ?? '').trim().slice(0, 200);
+  const q = String(query.q ?? '')
+      .trim()
+      .slice(0, 200),
+    supplier = String(query.supplier ?? '')
+      .trim()
+      .slice(0, 200);
   const contains = (v: string) => ({ contains: v, mode: 'insensitive' as const });
   const certs = await db.certificate.findMany({
     where: {
@@ -177,7 +190,12 @@ export async function certificateRegistry(s: Identity, query: Record<string, any
         ...(supplier ? { supplier: { name: contains(supplier) } } : {}),
       },
       ...(from || to
-        ? { createdAt: { ...(from ? { gte: new Date(from + 'T00:00:00+03:00') } : {}), ...(to ? { lt: new Date(new Date(to + 'T00:00:00+03:00').getTime() + 86400000) } : {}) } }
+        ? {
+            createdAt: {
+              ...(from ? { gte: new Date(from + 'T00:00:00+03:00') } : {}),
+              ...(to ? { lt: new Date(new Date(to + 'T00:00:00+03:00').getTime() + 86400000) } : {}),
+            },
+          }
         : {}),
       ...(q
         ? {
@@ -223,7 +241,15 @@ export async function certificateRegistry(s: Identity, query: Record<string, any
     };
   });
   if (query.format === 'xlsx')
-    return { base64: await workbook('سجل شهادات الإنجاز', REGISTRY_HEADS, rows.map((r) => r.cells)), name: 'certificates-register.xlsx', mime: XLSX };
+    return {
+      base64: await workbook(
+        'سجل شهادات الإنجاز',
+        REGISTRY_HEADS,
+        rows.map((r) => r.cells),
+      ),
+      name: 'certificates-register.xlsx',
+      mime: XLSX,
+    };
   if (query.format === 'print')
     return {
       html: tableReport({

@@ -16,8 +16,7 @@ export function fine(total: string, portions: LatePortion[], previous = '0', rat
     raw = new D(0);
   for (const p of portions) {
     const v = new D(p.value);
-    if (!v.isFinite() || v.lt(0) || !Number.isSafeInteger(p.lateDays) || p.lateDays < 0)
-      fail('تفاصيل غرامة غير صالحة');
+    if (!v.isFinite() || v.lt(0) || !Number.isSafeInteger(p.lateDays) || p.lateDays < 0) fail('تفاصيل غرامة غير صالحة');
     value = value.plus(v);
     raw = raw.plus(v.mul(rate).mul(p.lateDays));
   }

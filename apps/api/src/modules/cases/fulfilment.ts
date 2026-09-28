@@ -31,9 +31,7 @@ export async function deliver({ s, school, t, body, c }: Ctx) {
         date,
         note: text,
         invoice: text,
-        lines: z
-          .array(z.object({ itemId: id, received: quantity, accepted: z.string().regex(/^\d{1,9}(\.\d{1,3})?$/) }))
-          .min(1),
+        lines: z.array(z.object({ itemId: id, received: quantity, accepted: z.string().regex(/^\d{1,9}(\.\d{1,3})?$/) })).min(1),
       })
       .strict(),
     body,
@@ -44,7 +42,15 @@ export async function deliver({ s, school, t, body, c }: Ctx) {
   const calendar = await loadCalendar(t, s.user.tenantId, weekend);
   const lateDays = calendar.workingDaysBetween(isoDay(c.dueDate!), p.date);
   const d = await t.delivery.create({
-    data: { caseId: c.id, schoolId: school, yearId: c.yearId, date: new Date(p.date), note: p.note, invoice: p.invoice, createdBy: s.user.id },
+    data: {
+      caseId: c.id,
+      schoolId: school,
+      yearId: c.yearId,
+      date: new Date(p.date),
+      note: p.note,
+      invoice: p.invoice,
+      createdBy: s.user.id,
+    },
   });
   for (const l of p.lines) {
     const i = c.items.find((i) => i.id === l.itemId);
@@ -95,7 +101,10 @@ export async function uploadEvidence({ s, school, t, body, c }: Ctx) {
   const p = parse(
     z
       .object({
-        code: z.number().int().refine((v) => v in EVIDENCE, 'نوع مستند غير معروف'),
+        code: z
+          .number()
+          .int()
+          .refine((v) => v in EVIDENCE, 'نوع مستند غير معروف'),
         name: text,
         mime: z.enum(['application/pdf', 'image/png', 'image/jpeg']),
         base64: z.string().max(7100000),
@@ -173,7 +182,9 @@ export async function issueCertificate({ s, school, t, body, c }: Ctx) {
         addressee: z.number().int().min(1).max(3).default(1),
         invoice: z.string().trim().max(200).optional(),
         notes: z.string().trim().max(1000).default(''),
-        ratings: z.object({ scope: rating, time: rating, supervision: rating }).default({ scope: 'EXCELLENT', time: 'EXCELLENT', supervision: 'EXCELLENT' }),
+        ratings: z
+          .object({ scope: rating, time: rating, supervision: rating })
+          .default({ scope: 'EXCELLENT', time: 'EXCELLENT', supervision: 'EXCELLENT' }),
       })
       .strict(),
     body,
@@ -191,7 +202,13 @@ export async function issueCertificate({ s, school, t, body, c }: Ctx) {
   const all = await t.portion.findMany({ where: { caseId: c.id, accepted: { gt: 0 } } });
   const { rate, cap } = orderPolicy(c);
   const prior = sum(c.certificates.map((x) => x.fine)),
-    calc = fine(c.total.toString(), all.map((r) => ({ value: r.value.toString(), lateDays: r.lateDays })), prior.toString(), rate, cap),
+    calc = fine(
+      c.total.toString(),
+      all.map((r) => ({ value: r.value.toString(), lateDays: r.lateDays })),
+      prior.toString(),
+      rate,
+      cap,
+    ),
     gross = sum(pending.map((r) => r.value)),
     net = gross.minus(calc.current);
   if (net.lt(0)) fail('الخصم أكبر من المستحق الحالي؛ يلزم مراجعة');
@@ -212,7 +229,10 @@ export async function issueCertificate({ s, school, t, body, c }: Ctx) {
     orderDate: isoDay(c.issueDate!),
     orderValue: num(c.total),
     invoice: p.invoice || [...new Set(pending.map((r) => r.delivery.invoice))].join('، '),
-    deliveryDate: pending.map((r) => isoDay(r.delivery.date)).sort().at(-1)!,
+    deliveryDate: pending
+      .map((r) => isoDay(r.delivery.date))
+      .sort()
+      .at(-1)!,
     gross: num(gross),
     hasFine: calc.current.gt(0),
     deliveryDays: c.deliveryDays,
@@ -304,4 +324,3 @@ export async function registerErp({ s, school, t, body, c }: Ctx) {
   await t.case.update({ where: { id: c.id }, data: { state: 'REGISTERED', version: { increment: 1 } } });
   return erp;
 }
-

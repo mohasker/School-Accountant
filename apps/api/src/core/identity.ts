@@ -15,8 +15,7 @@ const SESSION_HOURS = 8,
   IDLE_MINUTES = 30,
   COOKIE = 'sa_session';
 
-export const passwordHash = (p: string) =>
-  argon2.hash(p, { type: argon2.argon2id, memoryCost: 65536, timeCost: 3, parallelism: 1 });
+export const passwordHash = (p: string) => argon2.hash(p, { type: argon2.argon2id, memoryCost: 65536, timeCost: 3, parallelism: 1 });
 
 /** In-memory login throttling: 10 attempts per key per 10 minutes (single-instance deployment). */
 const buckets = new Map<string, { n: number; start: number }>();
@@ -66,12 +65,7 @@ export async function authenticate(req: Request) {
     include: { user: { include: { memberships: { include: { school: true } } } } },
   });
   const now = Date.now();
-  if (
-    !session ||
-    !session.user.active ||
-    session.expiresAt.getTime() < now ||
-    now - session.lastSeen.getTime() > IDLE_MINUTES * 60000
-  ) {
+  if (!session || !session.user.active || session.expiresAt.getTime() < now || now - session.lastSeen.getTime() > IDLE_MINUTES * 60000) {
     if (session) await db.session.deleteMany({ where: { tokenHash: session.tokenHash } });
     throw new UnauthorizedException('انتهت الجلسة');
   }

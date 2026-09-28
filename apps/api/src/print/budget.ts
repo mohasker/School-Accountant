@@ -51,7 +51,9 @@ export function budgetEstimate(d: { school: string; principal: string; year: str
               values[i].school,
             )}</td><td>${amount(values[i].kg)}</td><td>${amount(values[i].school.plus(values[i].kg))}</td><td></td></tr>`,
         )
-        .join('')}<tr class="bold"><td class="r">Subtotal</td><td class="r">${esc(g.subtotal)}</td><td>${amount(s)}</td><td>${amount(k)}</td><td>${amount(
+        .join(
+          '',
+        )}<tr class="bold"><td class="r">Subtotal</td><td class="r">${esc(g.subtotal)}</td><td>${amount(s)}</td><td>${amount(k)}</td><td>${amount(
         s.plus(k),
       )}</td><td></td></tr>`;
     })
@@ -66,7 +68,7 @@ ${assumption('Projected Number of Students', 'التسجيل المتوقع لل
 ${assumption('Proposed Number of Instructional Staff', 'عدد الهيئة التدريسية', p?.teachersSchool, p?.teachersKg)}
 ${assumption('Proposed Number of Administrational Staff', 'عدد الهيئة الإدارية', p?.adminSchool, p?.adminKg)}
 </table>
-<table><tr><th colspan="2">Operational Expenses — المصاريف التشغيلية</th><th>مبنى المدرسة</th><th>مبنى الروضة</th><th>الإجمالي</th><th>ملاحظات</th></tr>
+<table class="dense"><tr><th colspan="2">Operational Expenses — المصاريف التشغيلية</th><th>مبنى المدرسة</th><th>مبنى الروضة</th><th>الإجمالي</th><th>ملاحظات</th></tr>
 ${groups}
 <tr class="bold"><td class="r">Total Expenditures</td><td class="r">إجمالي المصروفات</td><td>${amount(grandSchool)}</td><td>${amount(grandKg)}</td><td>${amount(
     grandSchool.plus(grandKg),

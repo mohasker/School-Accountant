@@ -33,6 +33,7 @@ p{margin:6px 0;text-align:justify}
 table{border-collapse:collapse;width:100%;margin:10px 0}
 td,th{border:1px solid #444;padding:4px 8px;text-align:center;vertical-align:middle}
 th{background:#ececec;font-weight:bold}
+table.dense td,table.dense th{font-size:14px;line-height:1.5;padding:3px 5px}
 td.r,th.r{text-align:right}
 .grid td{text-align:right}
 .grid td.n{width:34px;text-align:center;font-weight:bold}

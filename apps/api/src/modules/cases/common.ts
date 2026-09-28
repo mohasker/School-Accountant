@@ -4,7 +4,18 @@ import { fail } from '../../common/validation';
 import { EVIDENCE, PRE_CERTIFICATE, waivable } from '../../core/documents';
 import type { Identity } from '../../core/identity';
 
-export const STATES = ['DRAFT', 'EVALUATED', 'APPROVED', 'ORDERED', 'PARTIAL', 'DELIVERED', 'CERTIFIED', 'COMPLETE', 'REGISTERED', 'CANCELLED'];
+export const STATES = [
+  'DRAFT',
+  'EVALUATED',
+  'APPROVED',
+  'ORDERED',
+  'PARTIAL',
+  'DELIVERED',
+  'CERTIFIED',
+  'COMPLETE',
+  'REGISTERED',
+  'CANCELLED',
+];
 
 export async function getCase(t: Tx, school: string, caseId: string) {
   const c = await t.case.findUnique({
@@ -60,5 +71,4 @@ export function checklist(c: FullCase) {
 }
 
 /** Verified (not waived) documents, used to pre-tick the certificate attachments. */
-export const verifiedCodes = (c: FullCase) =>
-  [...new Set(c.evidence.filter((e) => e.status === 'VERIFIED').map((e) => e.code))];
+export const verifiedCodes = (c: FullCase) => [...new Set(c.evidence.filter((e) => e.status === 'VERIFIED').map((e) => e.code))];
