@@ -1,7 +1,7 @@
 'use client';
 import { useWorkspace } from '../components/context';
 import type { Dialog } from '../components/FormDialog';
-import { Empty, Panel, Table } from '../components/ui';
+import { DocButtons, Empty, Panel, Table } from '../components/ui';
 import { useLoad } from '../components/useLoad';
 import type { Row } from '../lib/api';
 import { BUDGET_GROUPS, currency, day } from '../lib/format';
@@ -73,9 +73,7 @@ export function Budget() {
         title="بنود الموازنة التشغيلية"
         actions={
           <>
-            <button className="secondary" onClick={() => w.print(w.root('budget-estimate?year=' + w.year))}>
-              طباعة الموازنة التقديرية
-            </button>
+            <DocButtons path={w.root('budget-estimate?year=' + w.year)} label="الموازنة التقديرية" />
             {w.can('APPROVER', 'ACCOUNTANT') && (
               <button className="secondary" onClick={() => w.open(planDialog)}>
                 الافتراضات (الطلاب والهيئات)

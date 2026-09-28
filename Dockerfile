@@ -17,6 +17,9 @@ RUN if [ "$WITH_CLAMAV" = "true" ]; then \
       (freshclam --stdout || echo "freshclam failed: run it again after start") && \
       rm -rf /var/lib/apt/lists/*; \
     fi
+# Server-side PDF export of printed documents (fonts and logo are bundled in apps/web/public).
+RUN apt-get update && apt-get install -y --no-install-recommends chromium && rm -rf /var/lib/apt/lists/*
+ENV CHROMIUM_PATH=/usr/bin/chromium PRINT_ASSETS_DIR=/app/apps/web/public
 COPY --from=build --chown=node:node /app /app
 USER node
 EXPOSE 3000 3001

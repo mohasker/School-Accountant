@@ -1,7 +1,7 @@
 'use client';
 import { useWorkspace } from '../components/context';
 import type { Dialog } from '../components/FormDialog';
-import { Empty, Panel, Table } from '../components/ui';
+import { DocButtons, Empty, Panel, Table } from '../components/ui';
 import { useLoad } from '../components/useLoad';
 import type { Row } from '../lib/api';
 import { currency, dateNow, day, IMPREST_TYPES, percent } from '../lib/format';
@@ -46,10 +46,19 @@ export function Imprests() {
         name: 'budgetId',
         label: 'البند',
         type: 'select',
-        options: (w.setup.budgets || []).map((b: Row) => ({ value: b.id, label: `${b.name} (${b.code})` })),
+        options: (w.setup.budgets || []).map((b: Row) => ({
+          value: b.id,
+          label: `${b.name} (${b.code}${b.assetCode ? ' / أصل ' + b.assetCode : ''})`,
+        })),
       },
       { name: 'amount', label: 'المبلغ', type: 'number' },
       { name: 'note', label: 'ملاحظات (مثل: ليس لديهم فاتورة إلكترونية)', required: false },
+      {
+        name: 'asset',
+        label: 'شراء أصل على حساب الأصل للبند (مثل كتب المكتبة 110805)',
+        type: 'checkbox',
+        required: false,
+      },
     ],
     save: (v) => post(a, 'expense', v),
   });
@@ -219,21 +228,8 @@ export function Imprests() {
               </b>
               <span>{st.erpRef ? `ERP: ${st.erpRef}` : 'بانتظار ERP'}</span>
               {st.type === 'REPLENISH' && <span>{st.replenished ? 'استُلمت الاستعاضة' : 'بانتظار استلام الاستعاضة'}</span>}
-              <button className="link" onClick={() => w.print(w.root(`imprests/${a.id}/${st.id}`))}>
-                طباعة الكشف
-              </button>
-              <button
-                className="link"
-                onClick={async () => {
-                  try {
-                    w.printHtml((await w.api(w.root(`imprests/${a.id}/${st.id}`))).cover);
-                  } catch (e) {
-                    w.fail(e);
-                  }
-                }}
-              >
-                طباعة كتاب التغطية
-              </button>
+              <DocButtons link path={w.root(`imprests/${a.id}/${st.id}`)} label="الكشف" />
+              <DocButtons link path={w.root(`imprests/${a.id}/${st.id}`)} part="cover" label="كتاب التغطية" />
               {w.can('ERP') && !st.erpRef && (
                 <button
                   className="link"

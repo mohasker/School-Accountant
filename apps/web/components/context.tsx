@@ -15,7 +15,8 @@ export type View =
   | 'holidays'
   | 'policy'
   | 'settings'
-  | 'audit';
+  | 'audit'
+  | 'admin';
 
 export type Workspace = {
   me: Row;
@@ -33,6 +34,8 @@ export type Workspace = {
   /** Fetches `{ html }` from the path and opens it for printing. */
   print: (path: string) => Promise<void>;
   printHtml: (html: string) => void;
+  /** Downloads the document at `path` as a PDF rendered on the server (`part: 'cover'` for a covering letter). */
+  pdf: (path: string, part?: 'cover') => Promise<void>;
   fail: (e: unknown) => void;
   go: (view: View, caseId?: string) => void;
   /** Increments after every successful change so views reload their data. */

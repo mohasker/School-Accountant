@@ -130,6 +130,7 @@ export async function writeImprests(ctx: WriteCtx) {
           amount: money,
           note: optionalText(300),
           proof: optionalText(300),
+          asset: z.boolean().default(false),
         })
         .strict(),
       body,
@@ -145,9 +146,21 @@ export async function writeImprests(ctx: WriteCtx) {
     }
     if (p.invoice && a.expenses.some((e) => e.invoice === p.invoice && e.vendor === p.vendor && e.amount.eq(p.amount)))
       fail('الفاتورة مسجلة مسبقاً لنفس المورد والمبلغ');
-    if (!(await t.budget.findUnique({ where: { id: p.budgetId, schoolId: school, yearId: a.yearId } }))) fail('بند موازنة غير صالح');
+    const budget = await t.budget.findUnique({ where: { id: p.budgetId, schoolId: school, yearId: a.yearId } });
+    if (!budget) fail('بند موازنة غير صالح');
+    // Asset purchases (e.g. library books) keep the budget line but post to its asset account.
+    if (p.asset && !budget.assetCode) fail('هذا البند ليس له حساب أصل');
+    const { asset, ...fields } = p;
     const e = await t.expense.create({
-      data: { ...p, date: new Date(p.date), imprestId: a.id, schoolId: school, yearId: a.yearId, createdBy: s.user.id },
+      data: {
+        ...fields,
+        accountCode: asset ? budget.assetCode : budget.code,
+        date: new Date(p.date),
+        imprestId: a.id,
+        schoolId: school,
+        yearId: a.yearId,
+        createdBy: s.user.id,
+      },
     });
     await posting(t, p.budgetId, ZERO, new D(p.amount), 'expense:' + e.id, e.id, s.user.id);
     await t.imprest.update({ where: { id: a.id }, data: { balance: { decrement: p.amount } } });

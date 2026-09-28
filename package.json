@@ -41,6 +41,7 @@
     "helmet": "^8.1.0",
     "next": "^16.0.0",
     "pg": "^8.23.0",
+    "playwright-core": "^1.63.0",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
     "reflect-metadata": "^0.2.2",
@@ -56,11 +57,10 @@
     "@types/node": "^24.0.0",
     "@types/react": "^19.2.0",
     "@types/react-dom": "^19.2.0",
-    "playwright-core": "^1.63.0",
+    "prettier": "^3.8.1",
     "prisma": "6.19.0",
     "tsx": "^4.20.0",
-    "typescript": "^5.9.0",
-    "prettier": "^3.8.1"
+    "typescript": "^5.9.0"
   },
   "description": "مَدار V0 — المساعد المحاسبي للمدارس"
 }

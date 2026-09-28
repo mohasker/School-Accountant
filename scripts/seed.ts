@@ -56,6 +56,7 @@ async function main() {
           code: c.code,
           name: c.nameAr,
           nameEn: c.nameEn,
+          assetCode: c.assetCode ?? '',
           groupKey: c.groupKey,
           sort: i,
           approved: demoAmounts[c.code] ?? '0',

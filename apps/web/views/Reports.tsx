@@ -1,7 +1,7 @@
 'use client';
 import { useState } from 'react';
 import { useWorkspace } from '../components/context';
-import { Empty, Panel, Table } from '../components/ui';
+import { DocButtons, Empty, Panel, Table } from '../components/ui';
 import { useLoad } from '../components/useLoad';
 import type { Row } from '../lib/api';
 import { dateNow, day, downloadCsv, downloadFile, STATE_NAMES } from '../lib/format';
@@ -65,7 +65,7 @@ export function Reports() {
               {report.header.school} | إعداد: {report.header.accountant} | {report.header.from} — {report.header.to}
             </div>
             <div className="actions">
-              <button onClick={() => w.printHtml(report.html)}>طباعة / حفظ PDF</button>
+              <DocButtons path={w.root('report-runs/' + report.id)} label="التقرير" />
               <button
                 className="secondary"
                 onClick={async () => {
@@ -101,9 +101,7 @@ export function Reports() {
           <button className="secondary" onClick={() => w.go('registry')}>
             سجل شهادات الإنجاز والبحث
           </button>
-          <button className="secondary" onClick={() => w.print(w.root('budget-estimate?year=' + w.year))}>
-            الموازنة التقديرية
-          </button>
+          <DocButtons path={w.root('budget-estimate?year=' + w.year)} label="الموازنة التقديرية" />
           <button className="secondary" onClick={() => w.go('imprests')}>
             كشوف العهد
           </button>

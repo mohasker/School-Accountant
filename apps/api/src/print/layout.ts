@@ -1,7 +1,9 @@
+import { amount } from '../common/money';
+
 /**
- * Shared A4 letterhead for all printed documents. Documents are stored as HTML snapshots when
- * issued, so a later change to supplier or school data never rewrites an archived document.
- * The logo is referenced by URL (served by the web app at /brand/moehe-logo.png).
+ * Shared A4 letterhead and typography for every printed document. Documents are stored as HTML
+ * snapshots when issued, so a later change to supplier or school data never rewrites an archived
+ * document. Logo and fonts are served by the web app (/brand, /fonts) and embedded by the PDF renderer.
  */
 export const LOGO_URL = '/brand/moehe-logo.png';
 
@@ -16,52 +18,111 @@ export function fmtDate(v: Date | string | null | undefined) {
   return `${day}/${m}/${y}`;
 }
 
-const STYLE = `
-@page{size:A4;margin:14mm 16mm 16mm}
+/** Numbers, dates and references keep left-to-right order inside Arabic sentences (e.g. «2%», «RYD/2026-0901»). */
+export const num = (v: unknown) => `<span class="num">${esc(v)}</span>`;
+export const money = (v: unknown) => num(amount(v));
+
+/** Arabic counted noun for working days: يوم عمل واحد، يومي عمل، 5 أيام عمل، 15 يوم عمل. */
+export function workingDays(n: number | null | undefined) {
+  if (n === null || n === undefined) return '—';
+  if (n === 1) return 'يوم عمل واحد';
+  if (n === 2) return 'يومي عمل';
+  return `${num(n)} ${n % 100 >= 3 && n % 100 <= 10 ? 'أيام' : 'يوم'} عمل`;
+}
+export const dateHtml = (v: Date | string | null | undefined) => num(fmtDate(v));
+
+const face = (family: string, file: string, weight: number, range: string) =>
+  `@font-face{font-family:"${family}";src:url(/fonts/${file}-${weight}-normal.woff2) format("woff2");font-weight:${weight};font-display:block;unicode-range:${range}}`;
+const ARABIC = 'U+0600-06FF,U+0750-077F,U+0870-08FF,U+200C-200E,U+2010-2011,U+204F,U+2E41,U+FB50-FDFF,U+FE70-FE74,U+FE76-FEFC';
+const LATIN =
+  'U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+2000-206F,U+2074,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD';
+const FONTS = [400, 700]
+  .flatMap((w) => [
+    face('Naskh', 'noto-naskh-arabic-arabic', w, ARABIC),
+    face('Naskh', 'noto-naskh-arabic-latin', w, LATIN),
+    face('Kufi', 'noto-kufi-arabic-arabic', w, ARABIC),
+    face('Kufi', 'noto-kufi-arabic-latin', w, LATIN),
+  ])
+  .join('');
+
+const STYLE = `${FONTS}
+@page{size:A4;margin:12mm 14mm 15mm}
 *{box-sizing:border-box}
-body{font-family:"Traditional Arabic","Simplified Arabic","Sakkal Majalla",Tahoma,Arial,sans-serif;font-size:17px;line-height:1.85;color:#111;margin:0 auto;max-width:190mm;padding:8px}
-.letterhead{display:flex;justify-content:space-between;align-items:flex-end;border-bottom:2.5px solid #8a1538;padding-bottom:8px;margin-bottom:14px}
-.letterhead img{height:74px;width:auto}
-.letterhead .meta{font-size:14px;text-align:left;color:#333;line-height:1.6}
-h1{font-size:21px;text-align:center;margin:10px 0 14px;color:#000;text-decoration:underline;text-underline-offset:6px}
-.to{font-weight:bold;display:flex;justify-content:space-between}
-.subject{font-weight:bold;margin:10px 0;text-decoration:underline;text-underline-offset:5px}
-p{margin:6px 0;text-align:justify}
-.indent{text-indent:28px}
+html{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+body{font-family:Naskh,"Traditional Arabic",Tahoma,sans-serif;font-size:12pt;line-height:1.6;color:#1a1a1a;margin:0 auto;max-width:180mm;padding:0}
+.letterhead{display:grid;grid-template-columns:1fr auto;align-items:end;gap:10mm;padding-bottom:3mm;border-bottom:1.6pt solid #8a1538;margin-bottom:1mm}
+.letterhead img{height:21mm;width:auto}
+.rule{border-top:.5pt solid #b98a98;margin-bottom:4mm}
+.meta{border-collapse:collapse;width:auto;margin:0;font-size:10pt;line-height:1.5}
+.meta th,.meta td{border:.6pt solid #9a9a9a;padding:1.2mm 3mm;text-align:right;background:none;color:#1a1a1a}
+.meta th{background:#f6eef1;font-family:Kufi,sans-serif;font-weight:700;color:#5c0f27}
+h1{font-family:Kufi,sans-serif;font-size:15pt;font-weight:700;text-align:center;margin:2mm auto 4mm;color:#1a1a1a;width:fit-content;padding:0 6mm 1.5mm;border-bottom:1.6pt solid #8a1538}
+h2{font-family:Kufi,sans-serif;font-size:12pt;font-weight:700;margin:5mm 0 2mm;color:#5c0f27}
+.to{font-weight:700;display:flex;justify-content:space-between;margin-bottom:2mm}
+.subject{font-family:Kufi,sans-serif;font-weight:700;font-size:11.5pt;margin:3mm 0;padding:1.5mm 4mm;background:#f6eef1;border-right:3pt solid #8a1538}
+p{margin:1.2mm 0;text-align:justify}
+.indent{text-indent:8mm}
 .center{text-align:center}
-.bold{font-weight:bold}
-table{border-collapse:collapse;width:100%;margin:10px 0}
-td,th{border:1px solid #444;padding:4px 8px;text-align:center;vertical-align:middle}
-th{background:#ececec;font-weight:bold}
-table.dense td,table.dense th{font-size:14px;line-height:1.5;padding:3px 5px}
+.bold{font-weight:700}
+.num{direction:ltr;unicode-bidi:isolate;font-variant-numeric:tabular-nums lining-nums}
+table{border-collapse:collapse;width:100%;margin:3mm 0;font-size:11pt;line-height:1.5}
+thead{display:table-header-group}
+tr{break-inside:avoid;page-break-inside:avoid}
+td,th{border:.6pt solid #7a7a7a;padding:1.6mm 2.2mm;text-align:center;vertical-align:middle}
+th{background:#f3e7eb;color:#4d0c20;font-family:Kufi,sans-serif;font-weight:700;font-size:10pt}
+tbody tr:nth-child(even) td{background:#fbf9fa}
 td.r,th.r{text-align:right}
+tr.total td{font-weight:700;background:#f3e7eb!important;border-top:1.2pt solid #4d0c20}
+table.dense{font-size:9.5pt}
+table.dense td,table.dense th{padding:1.2mm 1.5mm}
 .grid td{text-align:right}
-.grid td.n{width:34px;text-align:center;font-weight:bold}
-.grid td.k{width:44%;background:#f7f7f7;font-weight:bold}
-.words{font-weight:bold;margin:4px 0 10px}
-ol,ul{margin:4px 22px;padding:0}
-.signs{display:flex;justify-content:space-between;gap:24px;margin-top:34px}
-.signs>div{flex:1;text-align:center;line-height:2.1}
-.signs .role{font-weight:bold}
-.stamp{margin-top:36px;text-align:center;font-weight:bold}
-.checks{display:grid;grid-template-columns:1fr 1fr;gap:2px 20px;margin:6px 10px;font-size:15px}
-.checks span:before{content:"☐ ";font-size:17px}
-.checks span.on:before{content:"☒ "}
-.rating td{font-size:15px}
-.muted{color:#555;font-size:13px}
-.demo{border:2px dashed #b00;color:#b00;text-align:center;padding:4px;margin:8px 0;font-weight:bold}
-.footer{margin-top:24px;border-top:1px solid #bbb;padding-top:4px;font-size:12px;color:#555;display:flex;justify-content:space-between}
-.page-break{page-break-before:always}
-@media print{body{padding:0}.no-print{display:none}}
+.grid td.n{width:9mm;text-align:center;font-family:Kufi,sans-serif;font-weight:700;background:#f3e7eb;color:#4d0c20}
+.grid td.k{width:42%;background:#faf6f7;font-weight:700}
+.words{font-weight:700;margin:1mm 0 3mm;padding:2mm 3mm;border:.6pt dashed #8a1538;border-radius:1.5mm;background:#fffdfd}
+ol,ul{margin:1mm 7mm;padding:0}
+li{margin:.8mm 0}
+.signs{display:flex;justify-content:space-around;align-items:stretch;gap:10mm;margin-top:6mm;break-inside:avoid;page-break-inside:avoid}
+.signs>div{flex:1;max-width:75mm;text-align:center;line-height:1.7;display:flex;flex-direction:column}
+.signs .role{font-family:Kufi,sans-serif;font-weight:700;font-size:11pt}
+.signs .line{margin-top:auto;padding-top:10mm}
+.signs .line span{display:block;border-top:.6pt solid #1a1a1a;padding-top:1mm;font-size:9.5pt;color:#555}
+.checks{display:grid;grid-template-columns:1fr 1fr;gap:.5mm 8mm;margin:2mm 3mm;font-size:10.5pt}
+.checks span:before{content:"☐";margin-left:2mm;font-size:12pt}
+.checks span.on:before{content:"☒";color:#4d0c20}
+.rating td{font-size:10.5pt}
+.muted{color:#555;font-size:9.5pt}
+.keep{break-inside:avoid;page-break-inside:avoid}
+.watermark{position:fixed;top:45%;left:0;right:0;text-align:center;transform:rotate(-30deg);font-family:Kufi,sans-serif;font-size:40pt;color:rgba(160,0,0,.08);pointer-events:none;z-index:0}
+.doc-end{margin-top:6mm;border-top:.5pt solid #bbb;padding-top:1mm;font-size:8.5pt;color:#777;display:flex;justify-content:space-between}
+@media screen{body{padding:10mm;background:#fff}}
+/* One-page forms (completion certificate): tighter rhythm so the whole form fits a single A4 page. */
+body.compact{font-size:10.5pt;line-height:1.4}
+.compact .letterhead img{height:18mm}
+.compact h1{margin:0 auto 2.5mm;font-size:14pt}
+.compact p{margin:.8mm 0}
+.compact table{margin:1.5mm 0;font-size:10pt;line-height:1.3}
+.compact .signs>div{max-width:88mm;line-height:1.5}
+.compact .grid td{padding:1mm 2mm}
+.compact .grid .words{margin:1mm 0 0;padding:.8mm 2mm}
+.compact h2,.compact .section{margin:2mm 0 1mm}
+.compact .checks{font-size:9.5pt;gap:0 8mm}
+.compact .signs{margin-top:3mm}
+.compact .signs .line{padding-top:5mm}
+.compact .signs .role{font-size:10pt}
+.compact .letterhead{padding-bottom:2mm}
+.compact .rule{margin-bottom:2.5mm}
+.compact .rating td{padding:.8mm 2mm}
+.compact .doc-end{margin-top:3mm}
 `;
 
-export function printDocument(opts: { title: string; ref: string; body: string; date?: Date | string | null }) {
+export function printDocument(opts: { title: string; ref: string; body: string; date?: Date | string | null; compact?: boolean }) {
   const demo = process.env.DEMO_MODE === 'true';
-  return `<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8"><title>${esc(opts.title)}</title><style>${STYLE}</style></head><body>
-<div class="letterhead"><img src="${LOGO_URL}" alt="وزارة التربية والتعليم والتعليم العالي"><div class="meta">${opts.date ? `التاريخ: ${fmtDate(opts.date)}<br>` : ''}المرجع: ${esc(opts.ref)}</div></div>
-${demo ? '<div class="demo">نسخة تجريبية — بيانات اختبار</div>' : ''}
+  return `<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8"><title>${esc(opts.title)} — ${esc(opts.ref)}</title><style>${STYLE}</style></head><body${opts.compact ? ' class="compact"' : ''}>
+<header class="letterhead"><img src="${LOGO_URL}" alt="وزارة التربية والتعليم والتعليم العالي"><table class="meta"><tr><th>التاريخ</th><td>${dateHtml(opts.date ?? new Date())}</td></tr><tr><th>المرجع</th><td>${num(opts.ref)}</td></tr></table></header>
+<div class="rule"></div>
+${demo ? '<div class="watermark">نسخة تجريبية — بيانات اختبار</div>' : ''}
 ${opts.body}
-<div class="footer"><span>${esc(opts.title)} — ${esc(opts.ref)}</span><span>أُعد إلكترونياً بتاريخ ${fmtDate(new Date())}</span></div>
+<div class="doc-end"><span>${esc(opts.title)} — ${num(opts.ref)}</span><span>أُعد إلكترونياً بتاريخ ${dateHtml(new Date())}</span></div>
 </body></html>`;
 }
 
@@ -69,13 +130,13 @@ export function signatures(items: { role: string; name?: string | null; extra?: 
   return `<div class="signs">${items
     .map(
       (i) =>
-        `<div><div class="role">${esc(i.role)}</div>${i.extra ? `<div>${esc(i.extra)}</div>` : ''}<div>${esc(i.name || '')}</div><div>التوقيع / ....................</div></div>`,
+        `<div><div class="role">${esc(i.role)}</div>${i.extra ? `<div>${esc(i.extra)}</div>` : ''}<div>${esc(i.name || '')}</div><div class="line"><span>التوقيع</span></div></div>`,
     )
     .join('')}</div>`;
 }
 
 export const GREETING = '<p class="bold">السلام عليكم ورحمة الله وبركاته،،،</p>';
-export const CLOSING = '<p class="center bold">وتفضلوا بقبول فائق الاحترام والتقدير،،،</p>';
+export const CLOSING = '<p class="center bold" style="margin-top:3mm">وتفضلوا بقبول فائق الاحترام والتقدير،،،</p>';
 export const FINANCE = 'إدارة الشؤون المالية والإدارية';
 
 /** Addressees offered on the completion certificate (matches the Excel template choices). */

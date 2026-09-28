@@ -1,5 +1,6 @@
 import React from 'react';
 import { EVIDENCE_STATUS, STATE_NAMES } from '../lib/format';
+import { useWorkspace } from './context';
 
 export function Table({ heads, children }: { heads: string[]; children: React.ReactNode }) {
   return (
@@ -45,9 +46,12 @@ export function Panel({ title, actions, children }: { title?: React.ReactNode; a
   );
 }
 
-export function Logo({ small }: { small?: boolean }) {
-  return (
-    <img className={small ? 'logo small' : 'logo'} src="/brand/moehe-logo.png" alt="وزارة التربية والتعليم والتعليم العالي — دولة قطر" />
+/** Screen logo (the letterhead banner is used only on printed documents). */
+export function Logo({ variant = 'full' }: { variant?: 'full' | 'emblem' }) {
+  return variant === 'emblem' ? (
+    <img className="logo emblem" src="/brand/moehe-emblem.png" alt="شعار وزارة التربية والتعليم والتعليم العالي" />
+  ) : (
+    <img className="logo full" src="/brand/moehe-logo-full.png" alt="وزارة التربية والتعليم والتعليم العالي — دولة قطر" />
   );
 }
 
@@ -58,5 +62,31 @@ export function Stat({ label, value, hint, onClick }: { label: string; value: Re
       <strong>{value}</strong>
       {hint && <small>{hint}</small>}
     </button>
+  );
+}
+
+/** Print (browser) and PDF (server-rendered) buttons for a stored document. */
+export function DocButtons({ path, label, part, link }: { path: string; label: string; part?: 'cover'; link?: boolean }) {
+  const w = useWorkspace();
+  const cls = link ? 'link' : 'secondary';
+  return (
+    <span className="doc-buttons">
+      <button
+        className={cls}
+        onClick={async () => {
+          if (!part) return w.print(path);
+          try {
+            w.printHtml((await w.api(path))[part]);
+          } catch (e) {
+            w.fail(e);
+          }
+        }}
+      >
+        طباعة {label}
+      </button>
+      <button className={cls + ' pdf'} disabled={w.busy} onClick={() => w.pdf(path, part)} title={'تنزيل ' + label + ' PDF'}>
+        PDF
+      </button>
+    </span>
   );
 }

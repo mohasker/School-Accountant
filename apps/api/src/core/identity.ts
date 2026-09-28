@@ -38,6 +38,7 @@ export async function login(username: string, password: string, req: Request, re
   dummy ??= passwordHash(randomBytes(30).toString('hex'));
   const valid = await argon2.verify(user?.passwordHash ?? (await dummy), password).catch(() => false);
   if (!valid || !user?.active) throw new UnauthorizedException('بيانات الدخول غير صحيحة');
+  await db.user.update({ where: { id: user.id }, data: { lastLoginAt: new Date() } });
   const token = randomBytes(32).toString('hex'),
     csrf = randomBytes(32).toString('hex');
   await db.session.create({
@@ -76,10 +77,33 @@ export async function authenticate(req: Request) {
   }
   if (now - session.lastSeen.getTime() > 60000)
     await db.session.update({ where: { tokenHash: session.tokenHash }, data: { lastSeen: new Date() } });
+  if (session.user.isTenantAdmin) await withAllSchools(session);
   return session;
 }
 
 export type Identity = Awaited<ReturnType<typeof authenticate>>;
+
+/**
+ * The system administrator sees every school of the tenant: school administration and audit
+ * (ADMIN, AUDITOR) everywhere. Financial roles (prepare / approve / ERP) still come only from an
+ * explicit membership, so segregation of duties is kept.
+ */
+async function withAllSchools(session: { user: { tenantId: string; id: string; memberships: any[] } }) {
+  const schools = await db.school.findMany({ where: { tenantId: session.user.tenantId } });
+  for (const school of schools) {
+    const m = session.user.memberships.find((x) => x.schoolId === school.id);
+    if (m) m.roles = [...new Set([...m.roles, 'ADMIN', 'AUDITOR'])];
+    else
+      session.user.memberships.push({
+        id: 'tenant-admin:' + school.id,
+        tenantId: school.tenantId,
+        userId: session.user.id,
+        schoolId: school.id,
+        roles: ['ADMIN', 'AUDITOR'],
+        school,
+      });
+  }
+}
 export type Membership = Identity['user']['memberships'][number];
 
 /** Membership of the user in an active school of their tenant, optionally requiring one of `roles`. */

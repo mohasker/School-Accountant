@@ -1,5 +1,5 @@
-import { D, amount, sum } from '../common/money';
-import { esc, printDocument, signatures } from './layout';
+import { D, sum } from '../common/money';
+import { esc, money, printDocument, signatures } from './layout';
 
 /** Budget groups of the operational budget template, in print order. */
 export const BUDGET_GROUPS: { key: string; ar: string; en: string; subtotal: string }[] = [
@@ -27,7 +27,7 @@ export function budgetEstimate(d: { school: string; principal: string; year: str
   const n = (v?: number) => (v ?? 0).toString();
   const assumption = (en: string, ar: string, a?: number, b?: number) =>
     `<tr><td class="r">${en}</td><td class="r">${ar}</td><td>${n(a)}</td><td>${n(b)}</td><td>${(a ?? 0) + (b ?? 0)}</td></tr>`;
-  const money = (l: Line) => {
+  const split = (l: Line) => {
     const school = new D(String(l.schoolAmount ?? 0)),
       kg = new D(String(l.kgAmount ?? 0));
     // Lines entered without a building split are shown under the school building.
@@ -39,7 +39,7 @@ export function budgetEstimate(d: { school: string; principal: string; year: str
     .map((g) => {
       const lines = d.lines.filter((l) => (g.key ? l.groupKey === g.key : !BUDGET_GROUPS.some((x) => x.key === l.groupKey)));
       if (!lines.length) return '';
-      const values = lines.map(money),
+      const values = lines.map(split),
         s = sum(values.map((v) => v.school)),
         k = sum(values.map((v) => v.kg));
       grandSchool = grandSchool.plus(s);
@@ -47,13 +47,13 @@ export function budgetEstimate(d: { school: string; principal: string; year: str
       return `<tr><th colspan="2" class="r">${esc(g.en)}</th><th colspan="4">${esc(g.ar)}</th></tr>${lines
         .map(
           (l, i) =>
-            `<tr><td class="r">${esc(l.nameEn)}</td><td class="r">${esc(l.name)} <span class="muted">(${esc(l.code)})</span></td><td>${amount(
+            `<tr><td class="r">${esc(l.nameEn)}</td><td class="r">${esc(l.name)} <span class="muted">(${esc(l.code)})</span></td><td>${money(
               values[i].school,
-            )}</td><td>${amount(values[i].kg)}</td><td>${amount(values[i].school.plus(values[i].kg))}</td><td></td></tr>`,
+            )}</td><td>${money(values[i].kg)}</td><td>${money(values[i].school.plus(values[i].kg))}</td><td></td></tr>`,
         )
         .join(
           '',
-        )}<tr class="bold"><td class="r">Subtotal</td><td class="r">${esc(g.subtotal)}</td><td>${amount(s)}</td><td>${amount(k)}</td><td>${amount(
+        )}<tr class="total"><td class="r">Subtotal</td><td class="r">${esc(g.subtotal)}</td><td>${money(s)}</td><td>${money(k)}</td><td>${money(
         s.plus(k),
       )}</td><td></td></tr>`;
     })
@@ -70,7 +70,7 @@ ${assumption('Proposed Number of Administrational Staff', 'عدد الهيئة �
 </table>
 <table class="dense"><tr><th colspan="2">Operational Expenses — المصاريف التشغيلية</th><th>مبنى المدرسة</th><th>مبنى الروضة</th><th>الإجمالي</th><th>ملاحظات</th></tr>
 ${groups}
-<tr class="bold"><td class="r">Total Expenditures</td><td class="r">إجمالي المصروفات</td><td>${amount(grandSchool)}</td><td>${amount(grandKg)}</td><td>${amount(
+<tr class="total"><td class="r">Total Expenditures</td><td class="r">إجمالي المصروفات</td><td>${money(grandSchool)}</td><td>${money(grandKg)}</td><td>${money(
     grandSchool.plus(grandKg),
   )}</td><td></td></tr></table>
 ${signatures([{ role: 'يعتمد: مدير المدرسة', name: d.principal }])}`;

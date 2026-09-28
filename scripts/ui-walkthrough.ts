@@ -4,7 +4,7 @@
  *   DEMO_PASSWORD=... node --import tsx scripts/ui-walkthrough.ts
  */
 import { chromium, type Page } from 'playwright-core';
-import { mkdirSync } from 'node:fs';
+import { mkdirSync, writeFileSync } from 'node:fs';
 
 const BASE = process.env.BASE_URL || 'http://localhost:3000';
 const OUT = process.env.OUT_DIR || 'docs/screenshots';
@@ -194,6 +194,38 @@ async function main() {
   await printed(acc, stDocs.html, '24-print-petty-statement');
   await printed(acc, stDocs.cover, '25-print-petty-cover');
   await printed(acc, (await api(acc, root(`budget-estimate?year=${year}`))).html, '26-print-budget-estimate');
+  // Server-rendered PDF files of the official documents.
+  const pdfDir = OUT + '/pdf';
+  mkdirSync(pdfDir, { recursive: true });
+  const savePdf = async (path: string, name: string) => {
+    const r = await api(acc, path + (path.includes('?') ? '&' : '?') + 'pdf=1');
+    writeFileSync(`${pdfDir}/${name}.pdf`, Buffer.from(r.base64, 'base64'));
+  };
+  await savePdf(root(`cases/${c.id}/report-print`), '1-quote-study');
+  await savePdf(root(`cases/${c.id}/order-print`), '2-order-letter');
+  await savePdf(root(`certificates/${cert.id}`), '3-certificate');
+  await savePdf(root(`certificates/${cert.id}/cover`), '4-certificate-cover');
+  await savePdf(root(`imprests/${imp.id}/${st.id}`), '5-petty-statement');
+  await savePdf(root(`imprests/${imp.id}/${st.id}?part=cover`), '6-petty-cover');
+  await savePdf(root(`budget-estimate?year=${year}`), '7-budget-estimate');
+
+  // System administrator console and account report.
+  const adminPage = await ctx
+    .browser()!
+    .newContext({ viewport: { width: 1440, height: 900 }, locale: 'ar-QA' })
+    .then((x) => x.newPage());
+  await login(adminPage, 'admin');
+  await adminPage.waitForSelector('text=كل الحسابات');
+  await shot(adminPage, '11-admin-console');
+  await adminPage.click('tr:has-text("accountant") >> text=تقرير الأعمال');
+  await adminPage.waitForSelector('text=المعاملات التي أعدها');
+  await shot(adminPage, '12-admin-account-report');
+  const accounts = (await api(adminPage, 'admin/overview')).accounts;
+  const accountant = accounts.find((a: any) => a.username === 'accountant');
+  writeFileSync(
+    `${pdfDir}/8-account-report.pdf`,
+    Buffer.from((await api(adminPage, `admin/users/${accountant.id}/report?format=print&pdf=1`)).base64, 'base64'),
+  );
   await browser.close();
   console.log('Screenshots written to', OUT);
 }

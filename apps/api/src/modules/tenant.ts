@@ -5,13 +5,20 @@ import { isoDay, today } from '../common/dates';
 import { date, fail, id, optionalText, parse, text } from '../common/validation';
 import { passwordHash, requireTenantAdmin, ROLES, schoolIds, type Identity } from '../core/identity';
 import { loadPolicy, POLICY, policyKeys, type PolicyKey } from '../core/policy';
+import { adminOverview, manageUser, userReport } from './admin';
 
 /**
  * Tenant-wide settings under /api/admin/…: official holidays, financial policy, the official
  * budget catalog, schools and user memberships. Reading is open to every signed-in user of the
  * tenant (screens need them); changes are for the system administrator only.
  */
-export async function readTenant(s: Identity, resource: string, query: Record<string, any>) {
+export async function readTenant(
+  s: Identity,
+  resource: string,
+  rid: string | undefined,
+  action: string | undefined,
+  query: Record<string, any>,
+) {
   const tenantId = s.user.tenantId;
   switch (resource) {
     case 'holidays': {
@@ -43,7 +50,10 @@ export async function readTenant(s: Identity, resource: string, query: Record<st
         where: { tenantId, ...(s.user.isTenantAdmin ? {} : { id: { in: schoolIds(s) } }) },
         orderBy: { name: 'asc' },
       });
+    case 'overview':
+      return adminOverview(s);
     case 'users':
+      if (rid && action === 'report') return userReport(s, rid, query);
       requireTenantAdmin(s);
       return db.user.findMany({
         where: { tenantId },
@@ -61,7 +71,15 @@ export async function readTenant(s: Identity, resource: string, query: Record<st
   throw new NotFoundException();
 }
 
-export async function writeTenant(s: Identity, t: Tx, resource: string, rid: string | undefined, method: string, body: any) {
+export async function writeTenant(
+  s: Identity,
+  t: Tx,
+  resource: string,
+  rid: string | undefined,
+  action: string | undefined,
+  method: string,
+  body: any,
+) {
   requireTenantAdmin(s);
   const tenantId = s.user.tenantId;
   switch (resource) {
@@ -112,6 +130,7 @@ export async function writeTenant(s: Identity, t: Tx, resource: string, rid: str
             code: text,
             nameAr: text,
             nameEn: optionalText(150),
+            assetCode: z.string().trim().max(30).default(''),
             groupKey: z.enum(['INSTRUCTIONAL', 'NON_INSTRUCTIONAL', 'MAINTENANCE', 'STUDENT', 'OTHER']),
             note: optionalText(500),
             sort: z.number().int().min(0).max(1000).default(0),
@@ -158,6 +177,8 @@ export async function writeTenant(s: Identity, t: Tx, resource: string, rid: str
       });
       return created;
     }
+    case 'users':
+      return manageUser(s, t, rid, action, body);
     case 'memberships': {
       const p = parse(
         z
@@ -166,7 +187,7 @@ export async function writeTenant(s: Identity, t: Tx, resource: string, rid: str
             name: z.string().trim().max(150).optional(),
             password: z.string().min(12).max(128).optional(),
             schoolId: id,
-            roles: z.array(z.enum(ROLES)).min(1),
+            roles: z.array(z.enum(ROLES)),
           })
           .strict(),
         body,
@@ -175,6 +196,12 @@ export async function writeTenant(s: Identity, t: Tx, resource: string, rid: str
       if (!school) throw new NotFoundException('المدرسة غير موجودة');
       let user = await t.user.findUnique({ where: { username: p.username } });
       if (user && user.tenantId !== tenantId) fail('اسم المستخدم محجوز');
+      if (!p.roles.length) {
+        // No roles: the user is removed from the school; the account and its history stay.
+        if (!user) throw new NotFoundException();
+        await t.membership.deleteMany({ where: { userId: user.id, schoolId: p.schoolId } });
+        return { id: user.id, removed: true };
+      }
       if (!user) {
         if (!p.name || !p.password) fail('مستخدم جديد: الاسم وكلمة المرور (12 حرفاً على الأقل) مطلوبان');
         user = await t.user.create({

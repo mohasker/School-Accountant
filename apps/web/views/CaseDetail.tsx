@@ -1,7 +1,7 @@
 'use client';
 import { useWorkspace } from '../components/context';
 import type { Dialog, Field } from '../components/FormDialog';
-import { Badge, Empty, Panel, Table } from '../components/ui';
+import { Badge, DocButtons, Empty, Panel, Table } from '../components/ui';
 import { useLoad } from '../components/useLoad';
 import type { Row } from '../lib/api';
 import { currency, dateNow, day, downloadFile, EVIDENCE, EVIDENCE_ORDER, METHOD_NAMES, readBase64 } from '../lib/format';
@@ -350,16 +350,8 @@ export function CaseDetail({ id }: { id: string }) {
             تسجيل ERP
           </button>
         )}
-        {c.evaluationHtml && (
-          <button className="secondary" onClick={() => w.print(w.root(`cases/${c.id}/report-print`))}>
-            طباعة تقرير الدراسة
-          </button>
-        )}
-        {c.orderHtml && (
-          <button className="secondary" onClick={() => w.print(w.root(`cases/${c.id}/order-print`))}>
-            طباعة كتاب التكليف
-          </button>
-        )}
+        {c.evaluationHtml && <DocButtons path={w.root(`cases/${c.id}/report-print`)} label="تقرير الدراسة" />}
+        {c.orderHtml && <DocButtons path={w.root(`cases/${c.id}/order-print`)} label="كتاب التكليف" />}
         {['ORDERED', 'PARTIAL'].includes(c.state) && w.can('APPROVER') && (
           <button
             className="secondary"
@@ -542,13 +534,9 @@ export function CaseDetail({ id }: { id: string }) {
                 <td>{currency(x.net)}</td>
                 <td>
                   <div className="actions">
-                    <button className="link" onClick={() => w.print(w.root('certificates/' + x.id))}>
-                      طباعة الشهادة
-                    </button>
+                    <DocButtons link path={w.root('certificates/' + x.id)} label="الشهادة" />
                     {x.coverHtml ? (
-                      <button className="link" onClick={() => w.print(w.root(`certificates/${x.id}/cover`))}>
-                        طباعة كتاب التغطية
-                      </button>
+                      <DocButtons link path={w.root(`certificates/${x.id}/cover`)} label="كتاب التغطية" />
                     ) : (
                       w.can('ACCOUNTANT') && (
                         <button className="link" onClick={() => w.open(coverDialog(x))}>

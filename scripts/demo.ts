@@ -60,6 +60,7 @@ async function main() {
     stopping = true;
     web.kill('SIGTERM');
     await api.close();
+    await (await import('../apps/api/src/core/pdf')).closePdf();
     const { db } = await import('../apps/api/src/common/db');
     await db.$disconnect();
     await socket.stop();

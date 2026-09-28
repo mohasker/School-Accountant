@@ -1,7 +1,7 @@
 'use client';
 import { useState } from 'react';
 import { useWorkspace } from '../components/context';
-import { Empty, Panel, Table } from '../components/ui';
+import { DocButtons, Empty, Panel, Table } from '../components/ui';
 import { useLoad } from '../components/useLoad';
 import type { Row } from '../lib/api';
 import { downloadFile } from '../lib/format';
@@ -22,9 +22,7 @@ export function Registry() {
       title="البحث في شهادات الإنجاز"
       actions={
         <>
-          <button className="secondary" onClick={() => w.print(withFormat('print'))}>
-            طباعة النتائج
-          </button>
+          <DocButtons path={withFormat('print')} label="النتائج" />
           <button
             className="secondary"
             onClick={async () => {
@@ -93,12 +91,8 @@ export function Registry() {
               <td>{r.cells[16]}</td>
               <td>
                 <div className="actions">
-                  <button className="link" onClick={() => w.print(`schools/${r.schoolId}/certificates/${r.id}`)}>
-                    إعادة طباعة الشهادة
-                  </button>
-                  <button className="link" onClick={() => w.print(`schools/${r.schoolId}/certificates/${r.id}/cover`)}>
-                    كتاب التغطية
-                  </button>
+                  <DocButtons link path={`schools/${r.schoolId}/certificates/${r.id}`} label="الشهادة" />
+                  <DocButtons link path={`schools/${r.schoolId}/certificates/${r.id}/cover`} label="التغطية" />
                 </div>
               </td>
             </tr>

@@ -1,10 +1,11 @@
 'use client';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { request, type Row } from '../lib/api';
-import { ROLE_NAMES, showPrint } from '../lib/format';
+import { downloadFile, ROLE_NAMES, showPrint } from '../lib/format';
 import { WorkspaceContext, type View, type Workspace } from './context';
 import { FormDialog, type Dialog } from './FormDialog';
 import { Logo } from './ui';
+import { AdminConsole } from '../views/AdminConsole';
 import { Audit } from '../views/Audit';
 import { Budget } from '../views/Budget';
 import { CaseDetail } from '../views/CaseDetail';
@@ -19,6 +20,7 @@ import { Settings } from '../views/Settings';
 import { Suppliers } from '../views/Suppliers';
 
 const NAV: { view: View; icon: string; label: string; show?: (w: { can: Workspace['can']; me: Row }) => boolean }[] = [
+  { view: 'admin', icon: '♛', label: 'لوحة مدير النظام', show: ({ me }) => me.user.isTenantAdmin },
   { view: 'dashboard', icon: '◫', label: 'نظرة عامة' },
   { view: 'cases', icon: '▤', label: 'المعاملات' },
   { view: 'registry', icon: '⌕', label: 'شهادات الإنجاز' },
@@ -45,6 +47,7 @@ const TITLES: Record<View, string> = {
   policy: 'السياسة المالية',
   settings: 'الإعدادات',
   audit: 'سجل التدقيق',
+  admin: 'لوحة مدير النظام',
 };
 
 export default function App() {
@@ -82,6 +85,7 @@ export default function App() {
       .then((m) => {
         setMe(m);
         setSchool(m.schools[0]?.id || '');
+        if (m.user.isTenantAdmin) setView('admin');
       })
       .catch(() => {})
       .finally(() => setLoading(false));
@@ -143,6 +147,16 @@ export default function App() {
             fail(e);
           }
         },
+        pdf: async (path, part) => {
+          setBusy(true);
+          try {
+            downloadFile(await api(path + (path.includes('?') ? '&' : '?') + 'pdf=1' + (part ? '&part=' + part : '')));
+          } catch (e) {
+            fail(e);
+          } finally {
+            setBusy(false);
+          }
+        },
         printHtml: (html) => {
           if (!showPrint(html)) setError('اسمح بالنوافذ المنبثقة لفتح نسخة الطباعة');
         },
@@ -158,7 +172,8 @@ export default function App() {
   );
 
   if (loading) return <main className="center">جارٍ تحميل مساحة العمل…</main>;
-  if (!me || !workspace) return <Login onLogin={(m) => (setMe(m), setSchool(m.schools[0]?.id || ''))} />;
+  if (!me || !workspace)
+    return <Login onLogin={(m) => (setMe(m), setSchool(m.schools[0]?.id || ''), setView(m.user.isTenantAdmin ? 'admin' : 'dashboard'))} />;
 
   const current = me.schools.find((s: Row) => s.id === school);
   return (
@@ -166,7 +181,7 @@ export default function App() {
       <div className="app">
         <aside>
           <div className="brand">
-            <Logo small />
+            <Logo variant="emblem" />
             <div>
               <b>مَدار</b>
               <small>المساعد المحاسبي للمدارس</small>
@@ -273,6 +288,7 @@ export default function App() {
                 {view === 'policy' && <Policy />}
                 {view === 'settings' && <Settings />}
                 {view === 'audit' && <Audit />}
+                {view === 'admin' && <AdminConsole />}
               </>
             ) : (
               <p>لا يوجد عام مالي لهذه المدرسة؛ يفتحه مسؤول المدرسة من الإعدادات.</p>

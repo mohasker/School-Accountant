@@ -29,6 +29,7 @@ model User {
   memberships   Membership[]
   sessions      Session[]
   isTenantAdmin Boolean      @default(false)
+  lastLoginAt   DateTime?
 
   @@unique([id, tenantId])
 }
@@ -126,6 +127,7 @@ model Budget {
   items        Item[]
   expenses     Expense[]
   nameEn       String     @default("")
+  assetCode    String     @default("")
   groupKey     String     @default("")
   schoolAmount Decimal    @default(0) @db.Decimal(18, 2)
   kgAmount     Decimal    @default(0) @db.Decimal(18, 2)
@@ -362,6 +364,7 @@ model Expense {
   settlementId String?     @db.Uuid
   settlement   Settlement? @relation(fields: [settlementId, imprestId], references: [id, imprestId])
   vendor       String      @default("")
+  accountCode  String      @default("")
   note         String      @default("")
 
   @@index([imprestId])
@@ -463,16 +466,17 @@ model PolicySetting {
 }
 
 model BudgetCatalog {
-  id       String  @id @default(uuid()) @db.Uuid
-  tenantId String  @db.Uuid
-  tenant   Tenant  @relation(fields: [tenantId], references: [id])
-  code     String
-  nameAr   String
-  nameEn   String  @default("")
-  groupKey String
-  note     String  @default("")
-  sort     Int     @default(0)
-  active   Boolean @default(true)
+  id        String  @id @default(uuid()) @db.Uuid
+  tenantId  String  @db.Uuid
+  tenant    Tenant  @relation(fields: [tenantId], references: [id])
+  code      String
+  nameAr    String
+  nameEn    String  @default("")
+  assetCode String  @default("")
+  groupKey  String
+  note      String  @default("")
+  sort      Int     @default(0)
+  active    Boolean @default(true)
 
   @@unique([tenantId, code])
 }

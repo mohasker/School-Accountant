@@ -83,6 +83,7 @@ async function initFromCatalog({ s, school, t, body }: WriteCtx) {
       code: c.code,
       name: c.nameAr,
       nameEn: c.nameEn,
+      assetCode: c.assetCode,
       groupKey: c.groupKey,
       sort: c.sort,
       approved: 0,

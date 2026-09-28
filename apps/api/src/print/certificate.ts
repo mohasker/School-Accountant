@@ -1,7 +1,6 @@
-import { amount } from '../common/money';
 import { EVIDENCE, COVER_ATTACHMENTS, PRE_CERTIFICATE } from '../core/documents';
 import { tafqeet } from '../core/tafqeet';
-import { ADDRESSEES, CLOSING, GREETING, esc, fmtDate, printDocument, signatures } from './layout';
+import { ADDRESSEES, CLOSING, GREETING, dateHtml, esc, money, printDocument, signatures, num, workingDays } from './layout';
 
 export const RATINGS = { EXCELLENT: 'ممتاز', AVERAGE: 'متوسط', POOR: 'رديء' } as const;
 export type Rating = keyof typeof RATINGS;
@@ -45,12 +44,12 @@ export function certificateDocument(d: CertificateData) {
   const row = (n: number, label: string, value: string) =>
     `<tr><td class="n">${n}</td><td class="k">${esc(label)}</td><td>${value}</td></tr>`;
   const delay = d.hasFine
-    ? `نعم — مدة التوريد ${d.deliveryDays ?? '—'} يوم عمل — عدد أيام التأخير ${d.lateDays} يوم عمل`
-    : `لا${d.deliveryDays ? ` — مدة التوريد ${d.deliveryDays} يوم عمل` : ''}`;
+    ? `نعم — مدة التوريد ${workingDays(d.deliveryDays)} — عدد أيام التأخير ${workingDays(d.lateDays)}`
+    : `لا${d.deliveryDays ? ` — مدة التوريد ${workingDays(d.deliveryDays)}` : ''}`;
   const fineLine =
-    `${amount(d.fine)} ر.ق — ${d.finePct}%` +
+    `${money(d.fine)} ر.ق — ${num(d.finePct + '%')}` +
     (Number(d.priorFine) > 0
-      ? ` <span class="muted">(غرامات سابقة ${amount(d.priorFine)}، المتراكمة ${amount(d.cumulativeFine)})</span>`
+      ? ` <span class="muted">(غرامات سابقة ${money(d.priorFine)}، المتراكمة ${money(d.cumulativeFine)})</span>`
       : '');
   const attachments = PRE_CERTIFICATE.map(
     (code) => `<span class="${d.attachments.includes(code) ? 'on' : ''}">${esc(EVIDENCE[code].print)}</span>`,
@@ -63,29 +62,29 @@ export function certificateDocument(d: CertificateData) {
 <table class="grid">
 ${row(1, 'رقم أمر التوريد / كتاب التكليف / العقد', esc(d.orderNumber))}
 ${row(2, 'رقم الفاتورة', esc(d.invoice))}
-${row(3, 'قيمة أمر التوريد / التكليف الإجمالية / العقد', amount(d.orderValue) + ' ر.ق')}
-${row(4, 'تاريخ أمر التوريد / العقد', fmtDate(d.orderDate))}
-${row(5, 'تاريخ التوريد الفعلي للأصناف', fmtDate(d.deliveryDate))}
-${row(6, 'قيمة البنود والأصناف التي تم توريدها فعلياً', amount(d.gross) + ' ر.ق')}
+${row(3, 'قيمة أمر التوريد / التكليف الإجمالية / العقد', money(d.orderValue) + ' ر.ق')}
+${row(4, 'تاريخ أمر التوريد / العقد', dateHtml(d.orderDate))}
+${row(5, 'تاريخ التوريد الفعلي للأصناف', dateHtml(d.deliveryDate))}
+${row(6, 'قيمة البنود والأصناف التي تم توريدها فعلياً', money(d.gross) + ' ر.ق')}
 ${row(7, 'غرامات تأخير / مدة التوريد / عدد أيام التأخير', delay)}
 ${row(8, 'قيمة غرامات التأخير / ونسبتها %', fineLine)}
-${row(9, 'قيمة الفاتورة بعد خصم قيمة غرامة التأخير', `<b>${amount(d.net)} ر.ق</b><div class="words">${tafqeet(d.net)}</div>`)}
+${row(9, 'قيمة الفاتورة بعد خصم قيمة غرامة التأخير', `<b>${money(d.net)} ر.ق</b><div class="words">${tafqeet(d.net)}</div>`)}
 ${row(10, 'ملاحظات', esc(d.notes || '—'))}
 </table>
-<p class="bold">تقييم المدرسة لأداء المورد</p>
+<p class="bold section">تقييم المدرسة لأداء المورد</p>
 <table class="rating">
 <tr>${ratingRow('1- الالتزام بنطاق العمل', d.ratings.scope)}</tr>
 <tr>${ratingRow('2- الالتزام بالمدة الزمنية للعقد', d.ratings.time)}</tr>
 <tr>${ratingRow('3- الالتزام بتعليمات جهة الإشراف', d.ratings.supervision)}</tr>
 </table>
-<p class="bold">** مرفقات مع تقرير (شهادة) الإنجاز:</p>
+<p class="bold section">** مرفقات مع تقرير (شهادة) الإنجاز:</p>
 <div class="checks">${attachments}</div>
 ${CLOSING}
 ${signatures([
   { role: 'تم الاستلام والمراجعة بواسطة محاسب المدرسة', name: d.accountant },
   { role: 'مدير المدرسة', name: d.principal, extra: d.school },
 ])}`;
-  return printDocument({ title: 'شهادة إنجاز أعمال', ref: d.number, date: d.date, body });
+  return printDocument({ title: 'شهادة إنجاز أعمال', ref: d.number, date: d.date, body, compact: true });
 }
 
 /** كتاب التغطية: طلب صرف مستحقات الشركة — template «Cover Let». */
@@ -99,7 +98,7 @@ ${GREETING}
 <p class="indent">تتقدم إليكم مدرسة / ${esc(d.school)} بأخلص التحيات،</p>
 <p class="indent">بالإشارة إلى الموضوع أعلاه، وحيث أن شركة / ${esc(d.supplier)} قد أتمت المعاملة من توريد / ${esc(
     d.subject,
-  )}، إلى المدرسة حسب الموافقات والتكليف الصادر لها (أمر التوريد ${esc(d.orderNumber)}، شهادة الإنجاز ${esc(d.number)}، صافي المستحق ${amount(d.net)} ر.ق).</p>
+  )}، إلى المدرسة حسب الموافقات والتكليف الصادر لها (أمر التوريد ${esc(d.orderNumber)}، شهادة الإنجاز ${esc(d.number)}، صافي المستحق ${money(d.net)} ر.ق).</p>
 <p class="indent">وعليه فيرجى التكرم بإجراء اللازم لصرف مستحقات الشركة للفاتورة المرفقة.</p>
 ${CLOSING}
 ${signatures([{ role: 'مدير المدرسة', name: d.principal, extra: d.school }])}

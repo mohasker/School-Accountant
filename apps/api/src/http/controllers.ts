@@ -1,10 +1,11 @@
-import { All, Body, Controller, Get, Param, Post, Query, Req, Res, UnauthorizedException } from '@nestjs/common';
+import { All, Body, Controller, Get, NotFoundException, Param, Post, Query, Req, Res, UnauthorizedException } from '@nestjs/common';
 import type { Request, Response } from 'express';
 import * as argon2 from 'argon2';
 import { z } from 'zod';
 import { db } from '../common/db';
 import { parse } from '../common/validation';
 import { authenticate, clearSessionCookie, login, passwordHash } from '../core/identity';
+import { htmlToPdf } from '../core/pdf';
 import { transact } from '../core/transaction';
 import { certificateRegistry } from '../modules/reports';
 import { mutate, read } from '../modules/router';
@@ -12,6 +13,14 @@ import { readTenant, writeTenant } from '../modules/tenant';
 
 const segments = (path: string | string[]) => (Array.isArray(path) ? path : path.split('/'));
 const idempotencyKey = (req: Request) => String(req.headers['idempotency-key'] ?? '');
+
+/** `?pdf=1` on any printable GET returns the document as a PDF file (`part=cover` for a covering letter). */
+async function maybePdf(query: any, result: any) {
+  if (query?.pdf !== '1') return result;
+  const html = query.part === 'cover' ? result?.cover : result?.html;
+  if (typeof html !== 'string') throw new NotFoundException('لا يوجد مستند للطباعة');
+  return htmlToPdf(html);
+}
 
 @Controller('api')
 export class AuthController {
@@ -71,22 +80,24 @@ export class WorkspaceController {
   ) {
     const s = await authenticate(req);
     return req.method === 'GET'
-      ? read(s, school, segments(path), query)
+      ? maybePdf(query, await read(s, school, segments(path), query))
       : mutate(s, school, segments(path), b ?? {}, idempotencyKey(req), req.method);
   }
 
   /** Completion certificates across the user's schools. */
   @Get('registry/certificates') async registry(@Req() req: Request, @Query() query: any) {
-    return certificateRegistry(await authenticate(req), query);
+    const s = await authenticate(req);
+    if (query.pdf === '1') return maybePdf(query, await certificateRegistry(s, { ...query, format: 'print' }));
+    return certificateRegistry(s, query);
   }
 
   /** Tenant-wide settings: holidays, policy, budget catalog, schools, memberships. */
   @All('admin/*path') async admin(@Param('path') path: string | string[], @Req() req: Request, @Body() b: any, @Query() query: any) {
     const s = await authenticate(req);
-    const [resource, rid] = segments(path);
-    if (req.method === 'GET') return readTenant(s, resource, query);
+    const [resource, rid, action] = segments(path);
+    if (req.method === 'GET') return maybePdf(query, await readTenant(s, resource, rid, action, query));
     return transact(s, s.user.tenantId, `${req.method}:admin/${segments(path).join('/')}`, b ?? {}, idempotencyKey(req), (t) =>
-      writeTenant(s, t, resource, rid, req.method, b ?? {}),
+      writeTenant(s, t, resource, rid, action, req.method, b ?? {}),
     );
   }
 }

@@ -6,7 +6,7 @@ ok 2 - AUTH: school isolation on list, search, dashboard and mutation
 ok 3 - AUTH: CSRF rejected and logout revokes copied session
 # Subtest: SUPPLIER: create/update conflict/delete/atomic duplicate import
 ok 4 - SUPPLIER: create/update conflict/delete/atomic duplicate import
-# (node:8002) DeprecationWarning: Calling client.query() when the client is already executing a query is deprecated and will be removed in pg@9.0. Use async/await or an external async flow control mechanism instead.
+# (node:15371) DeprecationWarning: Calling client.query() when the client is already executing a query is deprecated and will be removed in pg@9.0. Use async/await or an external async flow control mechanism instead.
 # (Use `node --trace-deprecation ...` to show where the warning was created)
 # Subtest: WORKFLOW: create compare lowest, forbid self approval and reserve budget
 ok 5 - WORKFLOW: create compare lowest, forbid self approval and reserve budget
@@ -52,11 +52,19 @@ ok 24 - REGISTRY: certificate register across own schools only, with Excel expor
 ok 25 - BUDGET: catalog lines, school/kindergarten split, assumptions and estimate print
 # Subtest: DASHBOARD: late orders and replenishment alerts
 ok 26 - DASHBOARD: late orders and replenishment alerts
-# tests 26
+# Subtest: LIBRARY: expense account 510201 with books on asset account 110805
+ok 27 - LIBRARY: expense account 510201 with books on asset account 110805
+# Subtest: ADMIN: system administrator sees every school, account overview and per-account report
+ok 28 - ADMIN: system administrator sees every school, account overview and per-account report
+# Subtest: ADMIN: password reset, deactivation, role removal
+ok 29 - ADMIN: password reset, deactivation, role removal
+# Subtest: PDF: server-side export of a stored document
+ok 30 - PDF: server-side export of a stored document
+# tests 30
 # suites 0
-# pass 26
+# pass 30
 # fail 0
 # cancelled 0
 # skipped 0
 # todo 0
-# duration_ms 10748.441764
+# duration_ms 15667.436656

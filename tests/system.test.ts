@@ -139,10 +139,16 @@ before(
   { timeout: 120000 },
 );
 after(async () => {
-  await app?.close();
-  await db?.$disconnect();
-  await server?.stop();
-  await engine?.close();
+  const step = async (name: string, fn: () => Promise<unknown>) => {
+    const t = Date.now();
+    await fn();
+    if (process.env.DEBUG_TEARDOWN) console.error('teardown', name, Date.now() - t);
+  };
+  await step('app', () => app?.close());
+  await step('pdf', async () => (await import('../apps/api/src/core/pdf')).closePdf());
+  await step('db', () => db?.$disconnect());
+  await step('server', () => server?.stop());
+  await step('engine', () => engine?.close());
 });
 test('PEN: exact partial delivery and single cumulative cap', () => {
   assert.equal(
@@ -483,19 +489,20 @@ test('TAFQEET: Qatari riyal amount in words', async () => {
 });
 test('PRINT: official templates carry the logo, order number, working-day terms and amount in words', async () => {
   const full = await load(c.id);
-  const order = (await req(acc, route(`cases/${c.id}/order-print`))).body.html;
-  assert.ok(order.includes('/brand/moehe-logo.png'));
+  const text = (html: string) => html.replace(/<[^>]+>/g, '');
+  const order = text((await req(acc, route(`cases/${c.id}/order-print`))).body.html);
+  assert.ok((await req(acc, route(`cases/${c.id}/order-print`))).body.html.includes('/brand/moehe-logo.png'));
   assert.ok(order.includes('رقم أمر الشراء المحلي: ' + full.orderNumber));
   assert.ok(order.includes('فقط عشرة آلاف ريال قطري لا غير'));
   assert.ok(order.includes('1% عن كل يوم عمل تأخير وبحد أقصى 10%'));
-  const report = (await req(acc, route(`cases/${c.id}/report-print`))).body.html;
+  const report = text((await req(acc, route(`cases/${c.id}/report-print`))).body.html);
   assert.ok(report.includes('تقرير دراسة عروض أسعار الشركات'));
   const final = full.certificates.find((x: any) => x.kind === 'FINAL');
-  const cert = (await req(acc, route('certificates/' + final.id))).body.html;
+  const cert = text((await req(acc, route('certificates/' + final.id))).body.html);
   assert.ok(cert.includes('شهادة إنجاز أعمال'));
-  assert.ok(cert.includes('عدد أيام التأخير 5 يوم عمل'));
+  assert.ok(cert.includes('عدد أيام التأخير 5 أيام عمل'));
   assert.ok(cert.includes('فقط ثلاثة آلاف و ثمانمائة ريال قطري لا غير'));
-  const cover = (await req(acc, route(`certificates/${final.id}/cover`))).body.html;
+  const cover = text((await req(acc, route(`certificates/${final.id}/cover`))).body.html);
   assert.ok(cover.includes('صرف مستحقات شركة'));
 });
 async function draftWithQuotes(prices: string[], subject = 'اختبار سياسة الشراء') {
@@ -641,4 +648,96 @@ test('DASHBOARD: late orders and replenishment alerts', async () => {
   const d = (await req(acc, route('dashboard?year=' + year))).body;
   assert.ok(Array.isArray(d.alerts.replenish));
   assert.ok(Array.isArray(d.alerts.lateOrders));
+});
+test('LIBRARY: expense account 510201 with books on asset account 110805', async () => {
+  const setup = (await req(approver, route('setup?year=' + year))).body;
+  const library = setup.budgets.find((b: any) => b.code === '510201');
+  assert.equal(library.assetCode, '110805');
+  await ok(
+    approver,
+    'budgets/' + library.id,
+    { yearId: year, code: '510201', name: library.name, amount: '3000', reason: 'اعتماد المكتبة' },
+    'PATCH',
+  );
+  const a = await ok(approver, 'imprests', {
+    yearId: year,
+    name: 'نثرية المكتبة',
+    custodian: 'أمين',
+    type: 'PETTY',
+    amount: '2000',
+    reference: 'LIB',
+  });
+  const base = { budgetId: library.id, date: '2026-09-20', description: 'مكتبة', vendor: 'مكتبة تجريبية' };
+  await ok(acc, `imprests/${a.id}/expense`, { ...base, invoice: 'L-1', amount: '800', asset: true });
+  await ok(acc, `imprests/${a.id}/expense`, { ...base, invoice: 'L-2', amount: '700' });
+  const rows = await db.expense.findMany({ where: { imprestId: a.id }, orderBy: { invoice: 'asc' } });
+  assert.deepEqual(
+    rows.map((r: any) => r.accountCode),
+    ['110805', '510201'],
+  );
+  const other = setup.budgets.find((b: any) => b.code === '520601');
+  assert.equal(
+    (await req(acc, route(`imprests/${a.id}/expense`), 'POST', { ...base, budgetId: other.id, invoice: 'L-3', amount: '10', asset: true }))
+      .status,
+    400,
+  );
+  const st = await ok(approver, `imprests/${a.id}/settle`, { type: 'CLOSE' });
+  const html = (await req(acc, route(`imprests/${a.id}/${st.id}`))).body.html;
+  assert.ok(html.includes('110805') && html.includes('510201') && html.includes('المكتبة (أصول)'));
+});
+test('ADMIN: system administrator sees every school, account overview and per-account report', async () => {
+  const me = (await req(admin, 'auth/me')).body;
+  assert.ok(me.user.isTenantAdmin);
+  assert.equal((await req(acc, 'admin/overview')).status, 403);
+  const o = (await req(admin, 'admin/overview')).body;
+  assert.equal(o.totals.schools, 2);
+  const accountant = o.accounts.find((a: any) => a.username === 'accountant');
+  assert.ok(accountant.cases.done >= 1, JSON.stringify(accountant.cases));
+  assert.ok(accountant.cases.open >= 0 && accountant.pettyInvoices >= 5);
+  assert.ok(accountant.lastLoginAt);
+  const approverRow = o.accounts.find((a: any) => a.username === 'approver');
+  assert.ok(approverRow.approvals >= 1 && approverRow.certificates >= 2);
+  const r = (await req(admin, `admin/users/${accountant.id}/report`)).body;
+  assert.ok(r.prepared.some((c: any) => c.status === 'منجزة'));
+  assert.equal(r.summary.done, r.prepared.filter((c: any) => c.status === 'منجزة').length);
+  const printed = (await req(admin, `admin/users/${accountant.id}/report?format=print`)).body.html;
+  assert.ok(printed.includes('تقرير أعمال الحساب'));
+  assert.ok((await req(admin, `admin/users/${accountant.id}/report?format=xlsx`)).body.base64.length > 100);
+  // Full visibility without financial roles: the administrator reads a school's cases but cannot approve.
+  assert.equal((await req(admin, route('cases?year=' + year))).status, 200);
+  const draft = await ok(acc, 'cases', {
+    yearId: year,
+    subject: 'فحص صلاحيات المسؤول',
+    origin: 'SCHOOL',
+    items: [{ name: 'x', unit: 'عدد', qty: '1', budgetId: budget }],
+  });
+  assert.equal((await req(admin, route(`cases/${draft.id}/cancel`), 'POST', { reason: 'x' })).status, 403);
+  await ok(approver, `cases/${draft.id}/cancel`, { reason: 'تنظيف' });
+});
+test('ADMIN: password reset, deactivation, role removal', async () => {
+  const o = (await req(admin, 'admin/overview')).body;
+  const target = o.accounts.find((a: any) => a.username === 'other');
+  const session = await log('other');
+  assert.ok((await req(admin, `admin/users/${target.id}/password`, 'POST', { password: 'Brand-New-Password-1' })).status < 300);
+  assert.equal((await req(session, 'auth/me')).status, 401, 'reset signs out existing sessions');
+  const r = await req(null, 'auth/login', 'POST', { username: 'other', password: 'Brand-New-Password-1' });
+  assert.equal(r.status, 201);
+  assert.ok((await req(admin, `admin/users/${target.id}/status`, 'POST', { active: false })).status < 300);
+  assert.equal((await req(null, 'auth/login', 'POST', { username: 'other', password: 'Brand-New-Password-1' })).status, 401);
+  await req(admin, `admin/users/${target.id}/status`, 'POST', { active: true });
+  const self = o.accounts.find((a: any) => a.username === 'admin');
+  assert.equal((await req(admin, `admin/users/${self.id}/status`, 'POST', { active: false })).status, 400);
+  const otherSchool = o.schools.find((x: any) => x.id !== school).id;
+  assert.equal((await req(admin, 'admin/memberships', 'POST', { username: 'other', schoolId: otherSchool, roles: [] })).body.removed, true);
+  await req(admin, 'admin/memberships', 'POST', { username: 'other', schoolId: otherSchool, roles: ['ACCOUNTANT'] });
+});
+test('PDF: server-side export of a stored document', async () => {
+  const full = await load(c.id);
+  const r = await req(acc, route(`cases/${c.id}/order-print?pdf=1`));
+  assert.equal(r.status, 200, JSON.stringify(r.body).slice(0, 300));
+  assert.equal(r.body.mime, 'application/pdf');
+  assert.equal(Buffer.from(r.body.base64, 'base64').subarray(0, 5).toString(), '%PDF-');
+  assert.ok(r.body.name.includes(full.orderNumber.replace(/\//g, '-')));
+  const cover = await req(acc, route(`certificates/${full.certificates[0].id}/cover?pdf=1`));
+  assert.equal(cover.body.mime, 'application/pdf');
 });

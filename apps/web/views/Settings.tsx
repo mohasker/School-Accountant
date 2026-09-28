@@ -55,6 +55,7 @@ export function Settings() {
       { name: 'code', label: 'رقم الحساب', value: row?.code },
       { name: 'nameAr', label: 'اسم البند', value: row?.nameAr },
       { name: 'nameEn', label: 'الاسم بالإنجليزية', value: row?.nameEn, required: false },
+      { name: 'assetCode', label: 'حساب الأصل (إن وجد، مثل 110805 للمكتبة)', value: row?.assetCode, required: false },
       {
         name: 'groupKey',
         label: 'المجموعة',
@@ -245,10 +246,11 @@ export function Settings() {
             </Table>
           </Panel>
           <Panel title="دليل بنود الموازنة الرسمية" actions={<button onClick={() => w.open(catalogDialog())}>＋ بند</button>}>
-            <Table heads={['رقم الحساب', 'البند', 'المجموعة', 'ملاحظة', '']}>
+            <Table heads={['رقم الحساب', 'حساب الأصل', 'البند', 'المجموعة', 'ملاحظة', '']}>
               {(catalog || []).map((c) => (
                 <tr key={c.id}>
                   <td className="mono">{c.code}</td>
+                  <td className="mono">{c.assetCode || '—'}</td>
                   <td>
                     {c.nameAr}
                     <small>{c.nameEn}</small>

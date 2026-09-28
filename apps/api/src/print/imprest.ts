@@ -1,6 +1,6 @@
-import { D, amount, sum } from '../common/money';
+import { D, sum } from '../common/money';
 import { tafqeet } from '../core/tafqeet';
-import { CLOSING, FINANCE, GREETING, esc, fmtDate, printDocument, signatures } from './layout';
+import { CLOSING, FINANCE, GREETING, dateHtml, esc, money, printDocument, signatures } from './layout';
 
 export const IMPREST_TYPES: Record<string, string> = {
   PETTY: 'العهدة النثرية',
@@ -21,6 +21,7 @@ type ExpenseRow = {
   description: string;
   amount: unknown;
   note: string;
+  accountCode?: string;
   budget: { code: string; name: string };
 };
 
@@ -45,15 +46,16 @@ export function imprestStatement(d: ImprestStatement) {
   const rows = d.expenses
     .map(
       (e, i) =>
-        `<tr><td>${i + 1}</td><td class="r">${esc(e.vendor)}</td><td>${esc(e.invoice || '—')}</td><td>${fmtDate(e.date)}</td><td class="r">${esc(
+        `<tr><td>${i + 1}</td><td class="r">${esc(e.vendor)}</td><td>${esc(e.invoice || '—')}</td><td>${dateHtml(e.date)}</td><td class="r">${esc(
           e.description,
-        )}</td><td class="r">${esc(e.budget.name)}</td><td>${amount(e.amount)}</td><td class="r">${esc(e.note)}</td></tr>`,
+        )}</td><td class="r">${esc(e.budget.name)}</td><td>${money(e.amount)}</td><td class="r">${esc(e.note)}</td></tr>`,
     )
     .join('');
   const byBudget = new Map<string, { name: string; code: string; total: InstanceType<typeof D> }>();
   for (const e of d.expenses) {
-    const key = e.budget.code;
-    const row = byBudget.get(key) ?? { name: e.budget.name, code: e.budget.code, total: new D(0) };
+    const key = e.accountCode || e.budget.code;
+    const name = key === e.budget.code ? e.budget.name : `${e.budget.name} (أصول)`;
+    const row = byBudget.get(key) ?? { name, code: key, total: new D(0) };
     row.total = row.total.plus(String(e.amount));
     byBudget.set(key, row);
   }
@@ -65,10 +67,10 @@ export function imprestStatement(d: ImprestStatement) {
 <p class="center bold">مدرسة ${esc(d.school)} — للسنة الدراسية ${esc(d.year)}</p>
 <h1>${esc(title)}</h1>
 <table><tr><th>مبلغ العهدة</th><th>المنصرف</th><th>الرصيد</th><th>مسؤول العهدة</th></tr>
-<tr><td>${amount(d.imprestAmount)}</td><td>${amount(total)}</td><td>${amount(balance)}</td><td>${esc(d.custodian)}</td></tr></table>
+<tr><td>${money(d.imprestAmount)}</td><td>${money(total)}</td><td>${money(balance)}</td><td>${esc(d.custodian)}</td></tr></table>
 <table class="dense"><tr><th style="width:32px">م</th><th>المورد</th><th>رقم الفاتورة</th><th>تاريخ الفاتورة</th><th>البيان (التفاصيل)</th><th>البند</th><th>المبلغ</th><th>ملاحظات</th></tr>
 ${rows}
-<tr><td colspan="6" class="bold">الإجمالي</td><td class="bold">${amount(total)}</td><td></td></tr></table>
+<tr class="total"><td colspan="6">الإجمالي</td><td class="bold">${money(total)}</td><td></td></tr></table>
 <p class="words">${tafqeet(total)}</p>
 <table style="margin-top:18px"><tr><th>الوظيفة</th><th>الاسم</th><th style="width:34%">التوقيع</th></tr>
 <tr><td>مدير / ة المدرسة</td><td>${esc(d.principal)}</td><td></td></tr>
@@ -76,8 +78,8 @@ ${rows}
 <tr><td>محاسب / ة المدرسة</td><td>${esc(d.accountant)}</td><td></td></tr></table>
 <p class="bold">ملخص المنصرف حسب بنود الموازنة</p>
 <table><tr><th>البند</th><th>رقم الحساب</th><th>المبلغ المنصرف</th></tr>
-${[...byBudget.values()].map((b) => `<tr><td class="r">${esc(b.name)}</td><td>${esc(b.code)}</td><td>${amount(b.total)}</td></tr>`).join('')}
-<tr><td colspan="2" class="bold">الإجمالي</td><td class="bold">${amount(total)}</td></tr></table>`;
+${[...byBudget.values()].map((b) => `<tr><td class="r">${esc(b.name)}</td><td>${esc(b.code)}</td><td>${money(b.total)}</td></tr>`).join('')}
+<tr class="total"><td colspan="2">الإجمالي</td><td class="bold">${money(total)}</td></tr></table>`;
   return printDocument({ title, ref: `IMP-${d.number}`, date: d.date, body });
 }
 
@@ -90,7 +92,7 @@ ${GREETING}
 <p class="subject">الموضوع / طلب ${esc(SETTLEMENT_TYPES[d.settlementType])} ${esc(IMPREST_TYPES[d.type])}.</p>
 <p class="indent">تتقدم إليكم مدرسة / ${esc(d.school)} بأخلص التحيات، بالإشارة للموضوع أعلاه، يرجى من سيادتكم الموافقة على تسوية ${esc(
     SETTLEMENT_TYPES[d.settlementType],
-  )} ( ${esc(IMPREST_TYPES[d.type])} ) بإجمالي قيمة الفواتير: ( ${amount(total)} ) ريال قطري — ${tafqeet(
+  )} ( ${esc(IMPREST_TYPES[d.type])} ) بإجمالي قيمة الفواتير: ( ${money(total)} ) ريال قطري — ${tafqeet(
     total,
   )}، ومرفق لسيادتكم المستندات الثبوتية للتسوية${d.settlementType === 'REPLENISH' ? ' والاستعاضة' : ''} فيما يلي:</p>
 <ol><li>فاتورة مؤيدة لكل عمليات الصرف، معتمدة ومختومة.</li><li>كشف تفريغي لكافة الفواتير (كشف رقم ${d.number}).</li>${

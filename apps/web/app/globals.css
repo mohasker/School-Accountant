@@ -1097,3 +1097,53 @@ nav button {
 aside .brand {
   margin-bottom: 14px;
 }
+/* Screen logos: emblem on the dark sidebar, full logo on a white card at sign-in. */
+.logo.emblem {
+  height: 54px;
+  width: 54px;
+  object-fit: contain;
+  background: #fff;
+  border-radius: 12px;
+  padding: 5px;
+}
+.login .logo.full {
+  height: auto;
+  width: min(250px, 100%);
+  background: #fff;
+  border-radius: 14px;
+  padding: 14px 18px;
+  margin-bottom: 18px;
+}
+.doc-buttons {
+  display: inline-flex;
+  gap: 4px;
+  align-items: center;
+}
+button.pdf {
+  font-size: 12px;
+  padding: 6px 10px;
+  border: 1px solid #b3261e33;
+  color: #9a1c14;
+}
+button.link.pdf {
+  padding: 2px 8px;
+  border-radius: 6px;
+}
+input.search {
+  width: 240px;
+}
+tr.inactive td {
+  opacity: 0.55;
+}
+td small + small {
+  margin-top: 2px;
+}
+label.inline {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 600;
+}
+label.inline input {
+  width: auto;
+}
