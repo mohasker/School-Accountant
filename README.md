@@ -21,7 +21,11 @@ V0 هو إعادة هيكلة النسخة التجريبية 0.2.0 مع الإ�
 
 لقطات الشاشات والنماذج المطبوعة: [`docs/screenshots`](docs/screenshots)، ونماذج PDF: [`docs/screenshots/pdf`](docs/screenshots/pdf).
 
-## أسرع تجربة أونلاين: GitHub Codespaces
+## أسهل تجربة: على جهاز Windows بضغطة واحدة
+
+ثبّت Node.js (LTS) من nodejs.org مرة واحدة، ثم اضغط مرتين على **`Start-Madar.bat`**؛ يفتح النظام في المتصفح على `http://localhost:3000` (كلمة المرور `Madar-Trial-2026`).
+
+## تجربة أونلاين: GitHub Codespaces
 
 من صفحة المستودع: **Code ← Codespaces ← Create codespace**. يثبّت ويشغّل النظام تلقائياً ببيانات تجريبية ويفتح الرابط. التفاصيل في [`docs/deployment-guide-ar.md`](docs/deployment-guide-ar.md).
 

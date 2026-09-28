@@ -14,6 +14,14 @@ const TYPES: Record<string, string> = { '.png': 'image/png', '.woff2': 'font/wof
 
 function chromiumPath() {
   const candidates = [process.env.CHROMIUM_PATH, '/usr/bin/chromium', '/usr/bin/chromium-browser'];
+  // Local trial on Windows: the Edge or Chrome already installed on the computer.
+  if (process.platform === 'win32')
+    for (const base of [process.env['ProgramFiles(x86)'], process.env.ProgramFiles, process.env.LOCALAPPDATA])
+      if (base)
+        candidates.push(
+          join(base, 'Microsoft', 'Edge', 'Application', 'msedge.exe'),
+          join(base, 'Google', 'Chrome', 'Application', 'chrome.exe'),
+        );
   const pw = '/opt/pw-browsers';
   if (existsSync(pw))
     for (const d of readdirSync(pw)
