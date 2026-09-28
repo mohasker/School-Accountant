@@ -4,22 +4,10 @@ import { db } from '../common/db';
 import { hash } from '../common/crypto';
 import { D, amount, num } from '../common/money';
 import { date, fail, id, parse, plain } from '../common/validation';
+import { STATE_NAMES } from '../core/documents';
 import { schoolIds, scope, type Identity } from '../core/identity';
 import { fmtDate, tableReport } from '../print/reports';
 import type { ReadCtx } from './context';
-
-const STATE_NAMES: Record<string, string> = {
-  DRAFT: 'مسودة',
-  EVALUATED: 'بانتظار الاعتماد',
-  APPROVED: 'معتمد للتكليف',
-  ORDERED: 'قيد التوريد',
-  PARTIAL: 'توريد جزئي',
-  DELIVERED: 'مستلم بالكامل',
-  CERTIFIED: 'صدرت الشهادة',
-  COMPLETE: 'جاهزة لـ ERP',
-  REGISTERED: 'مسجلة في ERP',
-  CANCELLED: 'ملغاة',
-};
 
 async function workbook(sheetName: string, heads: string[], rows: (string | number | null)[][], preface: (string | number)[][] = []) {
   const wb = new ExcelJS.Workbook();

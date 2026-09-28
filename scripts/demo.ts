@@ -39,13 +39,21 @@ async function main() {
   const socket = new PGLiteSocketServer({ db: engine, host: '127.0.0.1', port: 55432, maxConnections: 20 });
   await socket.start();
   const count = await engine.query<{ n: number }>('SELECT count(*)::int as n FROM "Tenant"');
-  if (count.rows[0].n === 0) {
+  const fresh = count.rows[0].n === 0;
+  if (fresh) {
     if (!process.env.DEMO_PASSWORD || process.env.DEMO_PASSWORD.length < 12)
       throw Error('Set DEMO_PASSWORD (12+ characters) before the first run.');
     await promisify(execFile)(process.execPath, ['--import', 'tsx', 'scripts/seed.ts'], { env: process.env });
   }
   const { start } = await import('../apps/api/src/main');
   const api = await start();
+  if (fresh && process.env.DEMO_SCENARIO !== 'false') {
+    console.log('Preparing the trial files (quote reports, assignments, certificates, imprests)…');
+    const { runScenario } = await import('./demo-scenario');
+    await runScenario('http://127.0.0.1:3001/api', process.env.WEB_ORIGIN!, process.env.DEMO_PASSWORD!).catch((e) =>
+      console.error('Trial files were not completed:', e.message),
+    );
+  }
   const web = spawn(
     process.execPath,
     [
@@ -67,7 +75,7 @@ async function main() {
       },
     },
   );
-  console.log(`Demo: ${process.env.WEB_ORIGIN} | Accounts: accountant, approver, admin, other. Use your DEMO_PASSWORD.`);
+  console.log(`Demo: ${process.env.WEB_ORIGIN} | Accounts: admin, accountant, other. Use your DEMO_PASSWORD.`);
   let stopping = false;
   const stop = async () => {
     if (stopping) return;

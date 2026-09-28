@@ -35,7 +35,7 @@ echo.
 echo  ============================================================
 echo    Madar is starting. The browser opens by itself when ready.
 echo    Address : http://localhost:3000
-echo    Users   : admin / accountant / approver / other
+echo    Users   : accountant / admin / other
 echo    Password: %DEMO_PASSWORD%
 echo    To stop : close this window
 echo  ============================================================

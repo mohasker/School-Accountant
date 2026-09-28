@@ -186,7 +186,6 @@ export async function writeImprests(ctx: WriteCtx) {
     );
     const expenses = a.expenses.filter((e) => !e.settlementId);
     if (!expenses.length) fail('لا توجد مصروفات غير مسواة');
-    if (expenses.some((e) => e.createdBy === s.user.id)) fail('يلزم مراجع مستقل للمصروفات');
     const info = await status(t, s.user.tenantId, a);
     if (p.type === 'REPLENISH') {
       if (a.type !== 'PETTY') fail(`${IMPREST_TYPES[a.type]} تُسوّى وتُغلق ولا تُستعاض`);
@@ -237,7 +236,7 @@ export async function writeImprests(ctx: WriteCtx) {
   if (action === 'close') {
     scope(s, school, APPROVE);
     const p = parse(z.object({ returnReference: text }).strict(), body);
-    if (a.expenses.some((e) => !e.settlementId) || a.settlements.some((e) => !e.erpRef)) fail('توجد مصروفات غير مسواة أو تسويات غير مسجلة');
+    if (a.expenses.some((e) => !e.settlementId)) fail('توجد فواتير غير مسواة؛ أصدر كشف التسوية أولاً');
     await t.cashMovement.create({
       data: { imprestId: a.id, amount: a.balance.neg(), kind: 'RETURN', reference: p.returnReference, actor: s.user.id },
     });

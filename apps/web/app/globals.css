@@ -1,3 +1,47 @@
+/* Interface font: Calibri for Latin text and figures, Arial for Arabic; metric-compatible open fallbacks. */
+@font-face {
+  font-family: 'UI';
+  src:
+    local('Calibri'),
+    url(/fonts/carlito-latin-400-normal.woff2) format('woff2');
+  font-weight: 400;
+  font-display: swap;
+  unicode-range:
+    U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+2000-206F, U+2074, U+20AC, U+2122, U+2191, U+2193, U+2212,
+    U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: 'UI';
+  src:
+    local('Calibri Bold'),
+    local('Calibri-Bold'),
+    url(/fonts/carlito-latin-700-normal.woff2) format('woff2');
+  font-weight: 700;
+  font-display: swap;
+  unicode-range:
+    U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+2000-206F, U+2074, U+20AC, U+2122, U+2191, U+2193, U+2212,
+    U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: 'UI';
+  src:
+    local('Arial'),
+    local('ArialMT'),
+    url(/fonts/noto-sans-arabic-arabic-400-normal.woff2) format('woff2');
+  font-weight: 400;
+  font-display: swap;
+  unicode-range: U+0600-06FF, U+0750-077F, U+0870-08FF, U+FB50-FDFF, U+FE70-FE74, U+FE76-FEFC;
+}
+@font-face {
+  font-family: 'UI';
+  src:
+    local('Arial Bold'),
+    local('Arial-BoldMT'),
+    url(/fonts/noto-sans-arabic-arabic-700-normal.woff2) format('woff2');
+  font-weight: 700;
+  font-display: swap;
+  unicode-range: U+0600-06FF, U+0750-077F, U+0870-08FF, U+FB50-FDFF, U+FE70-FE74, U+FE76-FEFC;
+}
 :root {
   --wine: #861b3a;
   --wine-dark: #67112b;
@@ -7,6 +51,7 @@
   --line: #dde4e9;
   --bg: #f3f6f8;
   --green: #21745d;
+  --track: #e3e8ec;
 }
 * {
   box-sizing: border-box;
@@ -15,7 +60,7 @@ body {
   margin: 0;
   background: var(--bg);
   color: var(--ink);
-  font-family: Tahoma, Arial, sans-serif;
+  font-family: 'UI', Calibri, Arial, sans-serif;
   font-size: 16px;
   line-height: 1.65;
 }
@@ -1146,4 +1191,216 @@ label.inline {
 }
 label.inline input {
   width: auto;
+}
+
+/* Round 2: home screen, charts and the four-document transaction file */
+.section-title {
+  font-size: 17px;
+  margin: 6px 0 12px;
+  color: var(--navy);
+}
+.cards.six {
+  grid-template-columns: repeat(6, 1fr);
+}
+.cards.six .metric strong {
+  font-size: 28px;
+}
+.period {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+.period h2,
+.period p {
+  margin: 0;
+}
+.period-controls {
+  display: flex;
+  gap: 8px;
+  align-items: flex-end;
+  flex-wrap: wrap;
+}
+.period-controls label {
+  margin: 0;
+  font-size: 12px;
+}
+.period-controls input {
+  width: 150px;
+  padding: 7px 10px;
+}
+.period-controls button {
+  padding: 8px 14px;
+}
+.chart {
+  position: relative;
+}
+.legend {
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+  font-size: 13px;
+  color: var(--muted);
+  margin-bottom: 10px;
+}
+.legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.legend i {
+  width: 12px;
+  height: 12px;
+  border-radius: 3px;
+  display: inline-block;
+}
+.chart-box {
+  position: relative;
+  direction: ltr;
+}
+.chart-box svg {
+  width: 100%;
+  height: auto;
+  display: block;
+}
+.chart-box .grid {
+  stroke: #e8edf1;
+  stroke-width: 1;
+}
+.chart-box .axis {
+  stroke: #b9c6cf;
+  stroke-width: 1;
+}
+.chart-box .tick {
+  font-size: 11px;
+  fill: var(--muted);
+  font-family: 'UI', Calibri, Arial, sans-serif;
+}
+.chart-box .hit {
+  fill: transparent;
+}
+.chart-box .hit.on {
+  fill: #14283608;
+}
+.chart-tip {
+  position: absolute;
+  top: 6px;
+  transform: translateX(-50%);
+  background: white;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 8px 12px;
+  font-size: 12px;
+  box-shadow: 0 6px 18px #14283622;
+  pointer-events: none;
+  direction: rtl;
+  white-space: nowrap;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.chart-tip i {
+  display: inline-block;
+  width: 9px;
+  height: 9px;
+  border-radius: 2px;
+  margin-left: 6px;
+}
+.hbar {
+  padding: 8px 0;
+  border-bottom: 1px solid #eef2f5;
+}
+.hbar:last-child {
+  border-bottom: 0;
+}
+.hbar-label {
+  display: flex;
+  justify-content: space-between;
+  font-size: 14px;
+  margin-bottom: 5px;
+}
+.hbar-label small {
+  display: inline;
+}
+.hbar-track {
+  display: flex;
+  gap: 2px;
+  height: 12px;
+  background: var(--track);
+  border-radius: 4px;
+  overflow: hidden;
+}
+.hbar-track span {
+  height: 100%;
+}
+.hbar-track span:first-child {
+  border-radius: 0 4px 4px 0;
+}
+.hbar-tip {
+  margin-top: 4px;
+}
+tr.clickable {
+  cursor: pointer;
+}
+tr.clickable:hover td {
+  background: #fdf9fa;
+}
+.stepper.four > div {
+  flex: 1;
+}
+.doc-list {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+  margin-bottom: 12px;
+}
+.doc-list > div {
+  border: 1px dashed #cbd6dd;
+  border-radius: 10px;
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  background: #fafcfd;
+}
+.doc-list > div.ready {
+  border-style: solid;
+  border-color: #9bc9b8;
+  background: #f3faf7;
+}
+.doc-list > div > span:first-child {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: white;
+  border: 1px solid #d2dce3;
+  font-size: 12px;
+  font-weight: 700;
+}
+.doc-list > div.ready > span:first-child {
+  background: var(--green);
+  border-color: var(--green);
+  color: white;
+}
+@media (max-width: 1100px) {
+  .cards.six {
+    grid-template-columns: repeat(3, 1fr);
+  }
+  .doc-list {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+@media (max-width: 640px) {
+  .cards.six {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .doc-list {
+    grid-template-columns: 1fr;
+  }
+  .period-controls input {
+    width: 130px;
+  }
 }

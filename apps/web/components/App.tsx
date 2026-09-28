@@ -21,7 +21,7 @@ import { Suppliers } from '../views/Suppliers';
 
 const NAV: { view: View; icon: string; label: string; show?: (w: { can: Workspace['can']; me: Row }) => boolean }[] = [
   { view: 'admin', icon: '♛', label: 'لوحة مدير النظام', show: ({ me }) => me.user.isTenantAdmin },
-  { view: 'dashboard', icon: '◫', label: 'نظرة عامة' },
+  { view: 'dashboard', icon: '◫', label: 'الرئيسية' },
   { view: 'cases', icon: '▤', label: 'المعاملات' },
   { view: 'registry', icon: '⌕', label: 'شهادات الإنجاز' },
   { view: 'imprests', icon: '▣', label: 'العهد والتسويات' },
@@ -29,14 +29,14 @@ const NAV: { view: View; icon: string; label: string; show?: (w: { can: Workspac
   { view: 'suppliers', icon: '◈', label: 'الموردون' },
   { view: 'reports', icon: '▧', label: 'التقارير' },
   { view: 'holidays', icon: '☾', label: 'الإجازات الرسمية' },
-  { view: 'policy', icon: '§', label: 'السياسة المالية' },
+  { view: 'policy', icon: '§', label: 'السياسة المالية', show: ({ me }) => me.user.isTenantAdmin },
   { view: 'settings', icon: '⚙', label: 'الإعدادات' },
-  { view: 'audit', icon: '↺', label: 'سجل التدقيق', show: ({ can }) => can('APPROVER', 'AUDITOR', 'ADMIN') },
+  { view: 'audit', icon: '↺', label: 'سجل التدقيق', show: ({ me }) => me.user.isTenantAdmin },
 ];
 
 const TITLES: Record<View, string> = {
-  dashboard: 'نظرة عامة',
-  cases: 'المعاملات والتكليفات',
+  dashboard: 'الرئيسية',
+  cases: 'المعاملات: تقرير العروض ← التكليف ← الشهادة والتغطية',
   case: 'المعاملة',
   suppliers: 'دليل الموردين',
   budget: 'الموازنة التشغيلية',
@@ -44,7 +44,7 @@ const TITLES: Record<View, string> = {
   reports: 'التقارير',
   registry: 'سجل شهادات الإنجاز',
   holidays: 'الإجازات والعطل الرسمية',
-  policy: 'السياسة المالية',
+  policy: 'السياسة المالية ودليل البنود',
   settings: 'الإعدادات',
   audit: 'سجل التدقيق',
   admin: 'لوحة مدير النظام',
@@ -209,7 +209,7 @@ export default function App() {
             <div className="context">
               <label>
                 المدرسة
-                <select value={school} onChange={(e) => (setSchool(e.target.value), workspace.go('dashboard'))}>
+                <select value={school} onChange={(e) => (setYear(''), setSchool(e.target.value), workspace.go('dashboard'))}>
                   {me.schools.map((s: Row) => (
                     <option key={s.id} value={s.id}>
                       {s.name}
@@ -234,8 +234,9 @@ export default function App() {
               <div>
                 {me.user.name}
                 <small>
-                  {(current?.roles || []).map((r: string) => ROLE_NAMES[r] || r).join(' · ')}
-                  {me.user.isTenantAdmin ? ' · مسؤول النظام' : ''}
+                  {me.user.isTenantAdmin
+                    ? 'مدير النظام — كامل الصلاحيات'
+                    : (current?.roles || []).map((r: string) => ROLE_NAMES[r] || r).join(' · ')}
                 </small>
               </div>
               <button
@@ -291,7 +292,7 @@ export default function App() {
                 {view === 'admin' && <AdminConsole />}
               </>
             ) : (
-              <p>لا يوجد عام مالي لهذه المدرسة؛ يفتحه مسؤول المدرسة من الإعدادات.</p>
+              <p>{setup.school?.id === school ? 'لا يوجد عام مالي لهذه المدرسة؛ أضفه من الإعدادات.' : 'جارٍ التحميل…'}</p>
             )}
           </main>
           <footer className="page-footer">

@@ -1,18 +1,19 @@
 import type { Row } from './api';
 
 export const STATE_NAMES: Row = {
-  DRAFT: 'مسودة',
+  DRAFT: 'تقرير العروض قيد الإعداد',
   EVALUATED: 'بانتظار الاعتماد',
-  APPROVED: 'معتمد للتكليف',
-  ORDERED: 'قيد التوريد',
+  APPROVED: 'جاهزة لإصدار التكليف',
+  ORDERED: 'صدر التكليف — قيد التنفيذ',
   PARTIAL: 'توريد جزئي',
-  DELIVERED: 'مستلم بالكامل',
-  CERTIFIED: 'صدرت الشهادة',
-  COMPLETE: 'جاهزة لـ ERP',
-  REGISTERED: 'مسجلة في ERP',
+  DELIVERED: 'تم الاستلام',
+  CERTIFIED: 'منجزة — صدرت الشهادة والتغطية',
+  COMPLETE: 'منجزة',
+  REGISTERED: 'منجزة ومسجلة في ERP',
   CANCELLED: 'ملغاة',
 };
-export const STATES = Object.keys(STATE_NAMES);
+/** States offered in the transaction filter (legacy intermediate states are still displayed). */
+export const STATES = ['DRAFT', 'APPROVED', 'ORDERED', 'CERTIFIED', 'REGISTERED', 'CANCELLED'];
 
 export const EVIDENCE_STATUS: Row = { VERIFIED: 'متحقق منه', PENDING: 'بانتظار المراجعة', REJECTED: 'مرفوض', NA: 'لا ينطبق' };
 
@@ -50,12 +51,14 @@ export const IMPREST_TYPES: Row = {
   OTHER: 'عهدة خاصة',
 };
 
+/** Roles offered when assigning a user to a school: the accountant does every step; the auditor only reads. */
+export const ROLE_CHOICES = ['ACCOUNTANT', 'AUDITOR'];
 export const ROLE_NAMES: Row = {
-  ACCOUNTANT: 'محاسب',
+  ACCOUNTANT: 'محاسب (كل الأعمال)',
   REVIEWER: 'مراجع',
   APPROVER: 'معتمد',
   ERP: 'مسجل ERP',
-  AUDITOR: 'مدقق',
+  AUDITOR: 'اطلاع فقط',
   ADMIN: 'مسؤول المدرسة',
 };
 

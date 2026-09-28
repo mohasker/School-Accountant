@@ -82,9 +82,9 @@ export function DocButtons({ path, label, part, link }: { path: string; label: s
           }
         }}
       >
-        طباعة {label}
+        طباعة{label ? ' ' + label : ''}
       </button>
-      <button className={cls + ' pdf'} disabled={w.busy} onClick={() => w.pdf(path, part)} title={'تنزيل ' + label + ' PDF'}>
+      <button className={cls + ' pdf'} disabled={w.busy} onClick={() => w.pdf(path, part)} title={'تنزيل ' + (label || 'المستند') + ' PDF'}>
         PDF
       </button>
     </span>

@@ -1,5 +1,6 @@
 'use client';
 import { useWorkspace } from '../components/context';
+import { openImprestDialog } from '../components/dialogs';
 import type { Dialog } from '../components/FormDialog';
 import { DocButtons, Empty, Panel, Table } from '../components/ui';
 import { useLoad } from '../components/useLoad';
@@ -12,24 +13,6 @@ export function Imprests() {
   const policy = w.setup.policy || {};
   const school = w.setup.school || {};
   const post = (a: Row, action: string, body: Row) => w.api(w.root(`imprests/${a.id}/${action}`), 'POST', body);
-
-  const openDialog: Dialog = {
-    title: 'فتح عهدة',
-    intro: <p>قيمة العهدة تُطلب في كل مرة لأنها تتغير حسب السياسة المالية. عهدة يوم التعليم ومعرض الكتاب تُسوّى وتُغلق ولا تُستعاض.</p>,
-    fields: [
-      {
-        name: 'type',
-        label: 'نوع العهدة',
-        type: 'select',
-        options: Object.entries(IMPREST_TYPES).map(([value, label]) => ({ value, label: String(label) })),
-      },
-      { name: 'name', label: 'اسم العهدة', value: 'العهدة النثرية ' + (w.setup.years?.find((y: Row) => y.id === w.year)?.label ?? '') },
-      { name: 'custodian', label: 'مسؤول / أمين العهدة', value: school.pettyCustodian },
-      { name: 'amount', label: 'قيمة العهدة المستلمة (ر.ق)', type: 'number' },
-      { name: 'reference', label: 'مرجع التمويل / الشيك' },
-    ],
-    save: (v) => w.api(w.root('imprests'), 'POST', { ...v, yearId: w.year }),
-  };
 
   const expenseDialog = (a: Row): Dialog => ({
     title: 'تسجيل فاتورة مصروفة من العهدة',
@@ -139,8 +122,8 @@ export function Imprests() {
 
   return (
     <>
-      <div className="actions">{w.can('APPROVER') && <button onClick={() => w.open(openDialog)}>＋ فتح عهدة</button>}</div>
-      {rows && !rows.length && <Empty text="لا توجد عهد لهذا العام" />}
+      <div className="actions">{w.can('ACCOUNTANT') && <button onClick={() => w.open(openImprestDialog(w))}>＋ عهدة جديدة</button>}</div>
+      {rows && !rows.length && <Empty text="لا توجد عهد لهذا العام — اضغط «عهدة جديدة» وحدد نوعها وقيمتها" />}
       {rows?.map((a) => (
         <Panel
           key={a.id}
@@ -180,17 +163,17 @@ export function Imprests() {
               )}
               <div className="actions">
                 {w.can('ACCOUNTANT') && <button onClick={() => w.open(expenseDialog(a))}>＋ فاتورة</button>}
-                {w.can('APPROVER') && (
+                {w.can('ACCOUNTANT') && (
                   <>
                     <button className="secondary" onClick={() => w.open(settleDialog(a))}>
-                      تسوية / استعاضة / إغلاق
+                      تسوية / استعاضة + كتاب التغطية
                     </button>
                     <button
                       className="secondary"
                       onClick={() =>
                         w.open({
                           title: 'إغلاق العهدة وإعادة الرصيد المتبقي',
-                          intro: <p>يتطلب تسوية كل الفواتير وتسجيل التسويات في ERP. الرصيد المتبقي: {currency(a.balance)} ر.ق.</p>,
+                          intro: <p>يتطلب تسوية كل الفواتير بكشف تسوية. الرصيد المتبقي: {currency(a.balance)} ر.ق.</p>,
                           fields: [{ name: 'returnReference', label: 'مرجع إيصال إعادة الرصيد' }],
                           save: (v) => post(a, 'close', v),
                         })
@@ -221,16 +204,32 @@ export function Imprests() {
               </tr>
             ))}
           </Table>
+          {w.me.user.isTenantAdmin && (
+            <button
+              className="link danger"
+              onClick={() =>
+                w.open({
+                  title: 'حذف العهدة نهائياً',
+                  intro: <p className="warn">تُحذف العهدة وفواتيرها وتسوياتها، وتُعاد مبالغ الفواتير إلى أرصدة البنود. لا يمكن التراجع.</p>,
+                  fields: [{ name: 'confirm', label: 'اكتب كلمة «حذف» للتأكيد' }],
+                  submit: 'حذف نهائي',
+                  save: (v) => w.api('admin/purge', 'POST', { scope: 'imprest', id: a.id, confirm: v.confirm }),
+                })
+              }
+            >
+              حذف العهدة (مدير النظام)
+            </button>
+          )}
           {a.settlements.map((st: Row) => (
             <div className="settlement" key={st.id}>
               <b>
                 كشف رقم {st.number} — {st.type === 'REPLENISH' ? 'استعاضة' : 'تسوية وإغلاق'} — {currency(st.amount)} ر.ق
               </b>
-              <span>{st.erpRef ? `ERP: ${st.erpRef}` : 'بانتظار ERP'}</span>
+              {st.erpRef && <span>ERP: {st.erpRef}</span>}
               {st.type === 'REPLENISH' && <span>{st.replenished ? 'استُلمت الاستعاضة' : 'بانتظار استلام الاستعاضة'}</span>}
               <DocButtons link path={w.root(`imprests/${a.id}/${st.id}`)} label="الكشف" />
               <DocButtons link path={w.root(`imprests/${a.id}/${st.id}`)} part="cover" label="كتاب التغطية" />
-              {w.can('ERP') && !st.erpRef && (
+              {w.can('ACCOUNTANT') && !st.erpRef && (
                 <button
                   className="link"
                   onClick={() =>
@@ -244,7 +243,7 @@ export function Imprests() {
                   إثبات ERP
                 </button>
               )}
-              {w.can('APPROVER') && !st.replenished && st.type === 'REPLENISH' && !a.closed && (
+              {w.can('ACCOUNTANT') && !st.replenished && st.type === 'REPLENISH' && !a.closed && (
                 <button
                   className="link"
                   onClick={() =>

@@ -17,7 +17,6 @@ let engine: PGlite,
   budget: string,
   suppliers: any[],
   acc: any,
-  approver: any,
   other: any,
   admin: any,
   c: any;
@@ -78,14 +77,13 @@ async function makeCase(amount = '10000.00') {
   return load(row.id);
 }
 async function issue(row: any) {
-  await ok(approver, `cases/${row.id}/approve`, {});
   await ok(acc, `cases/${row.id}/issue`, { trigger: '2026-09-01', days: 10, policyConfirmed: true });
   return load(row.id);
 }
 async function docs(row: any) {
   for (const code of [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 15]) {
     if ([11, 12, 15].includes(code)) {
-      await ok(approver, `cases/${row.id}/not-applicable`, {
+      await ok(acc, `cases/${row.id}/not-applicable`, {
         code,
         reason: 'لا ينطبق على المعاملة وفق الاعتماد التجريبي',
       });
@@ -97,7 +95,7 @@ async function docs(row: any) {
       mime: 'application/pdf',
       base64: Buffer.from('%PDF-1.4\nSYNTHETIC TEST DOCUMENT\n%%EOF').toString('base64'),
     });
-    await ok(approver, `cases/${row.id}/verify`, {
+    await ok(acc, `cases/${row.id}/verify`, {
       evidenceId: file.id,
       decision: 'VERIFIED',
       reason: 'تمت مراجعة الدليل التجريبي',
@@ -126,14 +124,13 @@ before(
     app = await api.start();
     db = (await import('../apps/api/src/common/db')).db;
     acc = await log('accountant');
-    approver = await log('approver');
     other = await log('other');
     admin = await log('admin');
     const me = await req(acc, 'auth/me');
     school = me.body.schools[0].id;
     const setup = await req(acc, route('setup'));
     year = setup.body.years[0].id;
-    budget = setup.body.budgets[0].id;
+    budget = setup.body.budgets.find((b: any) => b.code === '510401').id;
     suppliers = setup.body.suppliers;
   },
   { timeout: 120000 },
@@ -221,10 +218,11 @@ test('SUPPLIER: create/update conflict/delete/atomic duplicate import', async ()
   );
   assert.equal(await db.supplier.count(), count);
 });
-test('WORKFLOW: create compare lowest, forbid self approval and reserve budget', async () => {
+test('WORKFLOW: quote report awards the lowest, the accountant issues the assignment and reserves budget', async () => {
   c = await makeCase();
   assert.equal(c.total, '10000');
-  assert.equal((await req(acc, route(`cases/${c.id}/approve`), 'POST', {})).status, 403);
+  assert.equal(c.state, 'APPROVED');
+  assert.ok(c.evaluationHtml && c.reportDate);
   c = await issue(c);
   const b = await db.budget.findUnique({ where: { id: budget } });
   assert.equal(b.committed.toFixed(2), '10000.00');
@@ -232,7 +230,7 @@ test('WORKFLOW: create compare lowest, forbid self approval and reserve budget',
   // 10 working days after Tuesday 1 September 2026 (Fri/Sat excluded).
   assert.equal(day(c.dueDate), '2026-09-15');
   assert.equal(c.method, 'THREE_QUOTES');
-  assert.match(c.orderNumber, /^RYD\/2026-0901/);
+  assert.match(c.orderNumber, /^SHFI\/2026-0901/);
 });
 const day = (v: string) => v.slice(0, 10);
 test('WORKFLOW: cross-school case and attachment inaccessible', async () => {
@@ -258,8 +256,7 @@ test('DELIVERY: idempotent partial acceptance, reject oversupply, rollback', asy
   assert.equal(bad.status, 400);
   assert.equal((await load(c.id)).deliveries.length, 1);
 });
-test('DOCS: certificate blocked until verified; forged file rejected', async () => {
-  assert.equal((await req(approver, route(`cases/${c.id}/certificate`), 'POST', { kind: 'PARTIAL' })).status, 400);
+test('DOCS: attachments are optional; forged file rejected', async () => {
   assert.equal(
     (
       await req(acc, route(`cases/${c.id}/evidence`), 'POST', {
@@ -274,11 +271,11 @@ test('DOCS: certificate blocked until verified; forged file rejected', async () 
   await docs(c);
 });
 test('FINANCE: partial certificate consumes only accepted quantity once', async () => {
-  const cert = await ok(approver, `cases/${c.id}/certificate`, { kind: 'PARTIAL' });
+  const cert = await ok(acc, `cases/${c.id}/certificate`, { kind: 'PARTIAL' });
   assert.equal(cert.gross, '6000');
   assert.equal(cert.fine, '0');
   await ok(acc, `cases/${c.id}/cover`, { certificateId: cert.id });
-  assert.equal((await req(approver, route(`cases/${c.id}/certificate`), 'POST', { kind: 'PARTIAL' })).status, 400);
+  assert.equal((await req(acc, route(`cases/${c.id}/certificate`), 'POST', { kind: 'PARTIAL' })).status, 400);
   const b = await db.budget.findUnique({ where: { id: budget } });
   assert.equal(b.committed.toString(), '4000');
   assert.equal(b.spent.toString(), '6000');
@@ -290,7 +287,7 @@ test('FINANCE: late remainder fine 200, final certificate, covering letter, comp
     invoice: 'INV-02',
     lines: [{ itemId: c.items[0].id, received: '40', accepted: '40' }],
   });
-  const cert = await ok(approver, `cases/${c.id}/certificate`, { kind: 'FINAL' });
+  const cert = await ok(acc, `cases/${c.id}/certificate`, { kind: 'FINAL' });
   assert.equal(cert.gross, '4000');
   assert.equal(cert.fine, '200');
   assert.equal(cert.net, '3800');
@@ -304,15 +301,15 @@ test('FINANCE: late remainder fine 200, final certificate, covering letter, comp
         mime: 'application/pdf',
         base64: Buffer.from('%PDF-1.4\nSIGNED DEMO\n%%EOF').toString('base64'),
       });
-      await ok(approver, `cases/${c.id}/verify`, {
+      await ok(acc, `cases/${c.id}/verify`, {
         evidenceId: e.id,
         decision: 'VERIFIED',
         reason: 'تمت مراجعة النسخة الموقعة',
       });
     }
-  await ok(approver, `cases/${c.id}/complete`, {});
+  await ok(acc, `cases/${c.id}/complete`, {});
   const before = await db.ledger.count();
-  await ok(approver, `cases/${c.id}/erp`, {
+  await ok(acc, `cases/${c.id}/erp`, {
     reference: 'ERP-TEST-01',
     date: '2026-09-20',
     evidence: 'دليل قيد تجريبي',
@@ -348,13 +345,12 @@ test('MINISTRY: independent direct order with no fabricated quote', async () => 
   const direct = await issue(await load(row.id));
   assert.equal(direct.quotes.length, 0);
   assert.equal(direct.orderNumber, 'MIN-001');
-  await ok(approver, `cases/${row.id}/cancel`, { reason: 'إلغاء تجريبي قبل الاستلام' });
+  await ok(acc, `cases/${row.id}/cancel`, { reason: 'إلغاء تجريبي قبل الاستلام' });
 });
 test('BUDGET: competing orders cannot overcommit and cancellation releases residual', async () => {
-  const a = await makeCase('25000'),
-    b = await makeCase('25000');
-  await ok(approver, `cases/${a.id}/approve`, {});
-  await ok(approver, `cases/${b.id}/approve`, {});
+  // 50,000 remain on the line after the first file: two files of 30,000 cannot both be assigned.
+  const a = await makeCase('30000'),
+    b = await makeCase('30000');
   const results = await Promise.all(
     [a, b].map((x) =>
       req(acc, route(`cases/${x.id}/issue`), 'POST', {
@@ -367,11 +363,11 @@ test('BUDGET: competing orders cannot overcommit and cancellation releases resid
   assert.equal(results.filter((r) => r.status < 300).length, 1);
   assert.equal(results.filter((r) => r.status === 400).length, 1);
   const winner = results[0].status < 300 ? a : b;
-  await ok(approver, `cases/${winner.id}/cancel`, { reason: 'اختبار تحرير الارتباط' });
+  await ok(acc, `cases/${winner.id}/cancel`, { reason: 'اختبار تحرير الارتباط' });
   assert.equal((await db.budget.findUnique({ where: { id: budget } })).committed.toString(), '0');
 });
 test('IMPREST: 75% replenishment rule, petty invoice limit, settlement documents, replenishment and close', async () => {
-  const a = await ok(approver, 'imprests', {
+  const a = await ok(acc, 'imprests', {
     yearId: year,
     name: 'العهدة النثرية',
     custodian: 'مسؤول تجريبي',
@@ -391,7 +387,7 @@ test('IMPREST: 75% replenishment rule, petty invoice limit, settlement documents
   assert.equal((await expense(0, '1200')).status, 400, 'petty invoice above the single-quote limit');
   assert.ok((await expense(1, '1000')).status < 300);
   assert.equal(
-    (await req(approver, route(`imprests/${a.id}/settle`), 'POST', { type: 'REPLENISH' })).status,
+    (await req(acc, route(`imprests/${a.id}/settle`), 'POST', { type: 'REPLENISH' })).status,
     400,
     'replenishment before reaching 75%',
   );
@@ -412,26 +408,23 @@ test('IMPREST: 75% replenishment rule, petty invoice limit, settlement documents
   );
   assert.equal((await db.imprest.findUnique({ where: { id: a.id } })).balance.toString(), '1000');
   const before = await db.ledger.count();
-  const st = await ok(approver, `imprests/${a.id}/settle`, { type: 'REPLENISH', date: '2026-09-21' });
+  const st = await ok(acc, `imprests/${a.id}/settle`, { type: 'REPLENISH', date: '2026-09-21' });
   assert.equal(st.number, 1);
   const docs = (await req(acc, route(`imprests/${a.id}/${st.id}`))).body;
   assert.ok(docs.html.includes('كشف استعاضة النثرية رقم ( 1 )'));
   assert.ok(docs.html.includes('510401'));
   assert.ok(docs.cover.includes('فقط ثلاثة آلاف ريال قطري لا غير'));
   assert.equal((await db.imprest.findUnique({ where: { id: a.id } })).balance.toString(), '1000');
-  await ok(approver, `imprests/${a.id}/replenish`, { settlementId: st.id, reference: 'RECEIPT-1' });
+  await ok(acc, `imprests/${a.id}/replenish`, { settlementId: st.id, reference: 'RECEIPT-1' });
   assert.equal((await db.imprest.findUnique({ where: { id: a.id } })).balance.toString(), '4000');
   assert.equal(await db.ledger.count(), before);
-  assert.equal(
-    (await req(approver, route(`imprests/${a.id}/replenish`), 'POST', { settlementId: st.id, reference: 'REPEAT' })).status,
-    400,
-  );
-  await ok(approver, `imprests/${a.id}/erp`, { settlementId: st.id, reference: 'ERP-IMP-1' });
-  await ok(approver, `imprests/${a.id}/close`, { returnReference: 'CASH-RETURN-1' });
+  assert.equal((await req(acc, route(`imprests/${a.id}/replenish`), 'POST', { settlementId: st.id, reference: 'REPEAT' })).status, 400);
+  await ok(acc, `imprests/${a.id}/erp`, { settlementId: st.id, reference: 'ERP-IMP-1' });
+  await ok(acc, `imprests/${a.id}/close`, { returnReference: 'CASH-RETURN-1' });
   assert.equal((await db.imprest.findUnique({ where: { id: a.id } })).balance.toString(), '0');
 });
 test('IMPREST: book fair imprest is settled and closed, never replenished', async () => {
-  const a = await ok(approver, 'imprests', {
+  const a = await ok(acc, 'imprests', {
     yearId: year,
     name: 'معرض الكتاب',
     custodian: 'أمين المكتبة',
@@ -447,8 +440,8 @@ test('IMPREST: book fair imprest is settled and closed, never replenished', asyn
     description: 'كتب',
     amount: '2500',
   });
-  assert.equal((await req(approver, route(`imprests/${a.id}/settle`), 'POST', { type: 'REPLENISH' })).status, 400);
-  const st = await ok(approver, `imprests/${a.id}/settle`, { type: 'CLOSE' });
+  assert.equal((await req(acc, route(`imprests/${a.id}/settle`), 'POST', { type: 'REPLENISH' })).status, 400);
+  const st = await ok(acc, `imprests/${a.id}/settle`, { type: 'CLOSE' });
   assert.ok((await req(acc, route(`imprests/${a.id}/${st.id}`))).body.cover.includes('تسوية وإغلاق'));
 });
 test('REPORTS: headers include school accountant period and isolation', async () => {
@@ -526,10 +519,10 @@ async function draftWithQuotes(prices: string[], subject = 'اختبار سيا�
 }
 test('PROCUREMENT: one quote up to 1000, three above it unless exclusive, tender above 200000', async () => {
   const small = await draftWithQuotes(['950']);
-  await ok(acc, `cases/${small.id}/evaluate`, { quoteId: small.quotes[0].id, reason: 'ضمن حد العرض الواحد' });
-  assert.equal((await load(small.id)).method, 'SINGLE_QUOTE');
-  const preview = await req(approver, route(`cases/${small.id}/report-print`));
+  const preview = await req(acc, route(`cases/${small.id}/report-print`));
   assert.equal(preview.body.preview, true);
+  await ok(acc, `cases/${small.id}/evaluate`, {});
+  assert.equal((await load(small.id)).method, 'SINGLE_QUOTE');
 
   const mid = await draftWithQuotes(['1500']);
   const refused = await req(acc, route(`cases/${mid.id}/evaluate`), 'POST', { quoteId: mid.quotes[0].id, reason: 'عرض واحد' });
@@ -548,19 +541,18 @@ test('PROCUREMENT: one quote up to 1000, three above it unless exclusive, tender
   const blocked = await req(acc, route(`cases/${tender.id}/evaluate`), 'POST', { quoteId: tender.quotes[0].id, reason: 'الأقل' });
   assert.equal(blocked.status, 400);
   assert.match(blocked.body.message, /إدارة المشتريات والمناقصات/);
-  for (const x of [small, mid, tender]) await ok(approver, `cases/${x.id}/cancel`, { reason: 'تنظيف بيانات الاختبار' });
+  for (const x of [small, mid, tender]) await ok(acc, `cases/${x.id}/cancel`, { reason: 'تنظيف بيانات الاختبار' });
 });
-test('HOLIDAYS: administrator maintains official holidays; others read only', async () => {
-  assert.equal((await req(acc, 'admin/holidays', 'POST', { from: '2027-03-21', to: '2027-03-25', name: 'إجازة الربيع' })).status, 403);
-  const r = await req(admin, 'admin/holidays', 'POST', { from: '2027-03-21', to: '2027-03-25', name: 'إجازة الربيع' });
+test('HOLIDAYS: every user maintains the official holidays', async () => {
+  const r = await req(acc, 'admin/holidays', 'POST', { from: '2027-03-21', to: '2027-03-25', name: 'إجازة الربيع' });
   assert.ok(r.status < 300, JSON.stringify(r.body));
   assert.equal(r.body.created, 5);
-  const again = await req(admin, 'admin/holidays', 'POST', { from: '2027-03-25', to: '2027-03-26', name: 'إجازة الربيع' });
+  const again = await req(acc, 'admin/holidays', 'POST', { from: '2027-03-25', to: '2027-03-26', name: 'إجازة الربيع' });
   assert.equal(again.body.skipped, 1);
   const list = (await req(acc, 'admin/holidays?year=2027')).body;
   assert.ok(list.some((h: any) => h.date.startsWith('2027-03-23')));
   const del = list.find((h: any) => h.date.startsWith('2027-03-26'));
-  assert.equal((await req(admin, 'admin/holidays/' + del.id, 'DELETE', {})).status, 200);
+  assert.equal((await req(acc, 'admin/holidays/' + del.id, 'DELETE', {})).status, 200);
 });
 test('POLICY: threshold changes are dated history and apply to new evaluations', async () => {
   const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Qatar' }).format(new Date());
@@ -583,11 +575,12 @@ test('POLICY: threshold changes are dated history and apply to new evaluations',
     reason: 'تعميم السياسة المالية',
   });
   assert.ok(r.status < 300, JSON.stringify(r.body));
-  assert.equal((await req(acc, 'admin/policy')).body.current.singleQuoteLimit, '2000');
+  assert.equal((await req(acc, 'admin/policy')).status, 403, 'the financial policy is for the system administrator');
+  assert.equal((await req(admin, 'admin/policy')).body.current.singleQuoteLimit, '2000');
   const x = await draftWithQuotes(['1500'], 'بعد تعديل السياسة');
   await ok(acc, `cases/${x.id}/evaluate`, { quoteId: x.quotes[0].id, reason: 'ضمن الحد الجديد' });
   assert.equal((await load(x.id)).method, 'SINGLE_QUOTE');
-  await ok(approver, `cases/${x.id}/cancel`, { reason: 'تنظيف' });
+  await ok(acc, `cases/${x.id}/cancel`, { reason: 'تنظيف' });
   await assert.rejects(() => db.$executeRawUnsafe('DELETE FROM "PolicySetting"'));
 });
 test('REGISTRY: certificate register across own schools only, with Excel export', async () => {
@@ -605,11 +598,11 @@ test('REGISTRY: certificate register across own schools only, with Excel export'
   assert.ok(x.base64?.length > 100, JSON.stringify(x));
 });
 test('BUDGET: catalog lines, school/kindergarten split, assumptions and estimate print', async () => {
-  const setup = (await req(approver, route('setup?year=' + year))).body;
+  const setup = (await req(acc, route('setup?year=' + year))).body;
   const career = setup.budgets.find((b: any) => b.code === '10001');
   assert.equal(
     (
-      await req(approver, route('budgets/' + career.id), 'PATCH', {
+      await req(acc, route('budgets/' + career.id), 'PATCH', {
         yearId: year,
         code: '10001',
         name: career.name,
@@ -622,7 +615,7 @@ test('BUDGET: catalog lines, school/kindergarten split, assumptions and estimate
     400,
   );
   await ok(
-    approver,
+    acc,
     'budgets/' + career.id,
     { yearId: year, code: '10001', name: career.name, amount: '800', schoolAmount: '500', kgAmount: '300', reason: 'اعتماد' },
     'PATCH',
@@ -638,7 +631,7 @@ test('BUDGET: catalog lines, school/kindergarten split, assumptions and estimate
     adminSchool: 12,
     adminKg: 3,
   });
-  assert.equal((await ok(approver, 'budgets/init', { yearId: year })).count, 0);
+  assert.equal((await ok(acc, 'budgets/init', { yearId: year })).count, 0);
   const html = (await req(acc, route('budget-estimate?year=' + year))).body.html;
   assert.ok(html.includes('الموازنة التقديرية 2026'));
   assert.ok(html.includes('مواد مسار مهني'));
@@ -650,16 +643,16 @@ test('DASHBOARD: late orders and replenishment alerts', async () => {
   assert.ok(Array.isArray(d.alerts.lateOrders));
 });
 test('LIBRARY: expense account 510201 with books on asset account 110805', async () => {
-  const setup = (await req(approver, route('setup?year=' + year))).body;
+  const setup = (await req(acc, route('setup?year=' + year))).body;
   const library = setup.budgets.find((b: any) => b.code === '510201');
   assert.equal(library.assetCode, '110805');
   await ok(
-    approver,
+    acc,
     'budgets/' + library.id,
     { yearId: year, code: '510201', name: library.name, amount: '3000', reason: 'اعتماد المكتبة' },
     'PATCH',
   );
-  const a = await ok(approver, 'imprests', {
+  const a = await ok(acc, 'imprests', {
     yearId: year,
     name: 'نثرية المكتبة',
     custodian: 'أمين',
@@ -681,7 +674,7 @@ test('LIBRARY: expense account 510201 with books on asset account 110805', async
       .status,
     400,
   );
-  const st = await ok(approver, `imprests/${a.id}/settle`, { type: 'CLOSE' });
+  const st = await ok(acc, `imprests/${a.id}/settle`, { type: 'CLOSE' });
   const html = (await req(acc, route(`imprests/${a.id}/${st.id}`))).body.html;
   assert.ok(html.includes('110805') && html.includes('510201') && html.includes('المكتبة (أصول)'));
 });
@@ -690,20 +683,19 @@ test('ADMIN: system administrator sees every school, account overview and per-ac
   assert.ok(me.user.isTenantAdmin);
   assert.equal((await req(acc, 'admin/overview')).status, 403);
   const o = (await req(admin, 'admin/overview')).body;
-  assert.equal(o.totals.schools, 2);
+  assert.equal(o.totals.schools, 7);
   const accountant = o.accounts.find((a: any) => a.username === 'accountant');
   assert.ok(accountant.cases.done >= 1, JSON.stringify(accountant.cases));
   assert.ok(accountant.cases.open >= 0 && accountant.pettyInvoices >= 5);
   assert.ok(accountant.lastLoginAt);
-  const approverRow = o.accounts.find((a: any) => a.username === 'approver');
-  assert.ok(approverRow.approvals >= 1 && approverRow.certificates >= 2);
+  assert.ok(accountant.approvals >= 1 && accountant.certificates >= 2);
   const r = (await req(admin, `admin/users/${accountant.id}/report`)).body;
   assert.ok(r.prepared.some((c: any) => c.status === 'منجزة'));
   assert.equal(r.summary.done, r.prepared.filter((c: any) => c.status === 'منجزة').length);
   const printed = (await req(admin, `admin/users/${accountant.id}/report?format=print`)).body.html;
   assert.ok(printed.includes('تقرير أعمال الحساب'));
   assert.ok((await req(admin, `admin/users/${accountant.id}/report?format=xlsx`)).body.base64.length > 100);
-  // Full visibility without financial roles: the administrator reads a school's cases but cannot approve.
+  // The system administrator has full rights in every school.
   assert.equal((await req(admin, route('cases?year=' + year))).status, 200);
   const draft = await ok(acc, 'cases', {
     yearId: year,
@@ -711,8 +703,7 @@ test('ADMIN: system administrator sees every school, account overview and per-ac
     origin: 'SCHOOL',
     items: [{ name: 'x', unit: 'عدد', qty: '1', budgetId: budget }],
   });
-  assert.equal((await req(admin, route(`cases/${draft.id}/cancel`), 'POST', { reason: 'x' })).status, 403);
-  await ok(approver, `cases/${draft.id}/cancel`, { reason: 'تنظيف' });
+  assert.equal((await req(admin, route(`cases/${draft.id}/cancel`), 'POST', { reason: 'إلغاء من مدير النظام' })).status, 200);
 });
 test('ADMIN: password reset, deactivation, role removal', async () => {
   const o = (await req(admin, 'admin/overview')).body;
@@ -740,4 +731,110 @@ test('PDF: server-side export of a stored document', async () => {
   assert.ok(r.body.name.includes(full.orderNumber.replace(/\//g, '-')));
   const cover = await req(acc, route(`certificates/${full.certificates[0].id}/cover?pdf=1`));
   assert.equal(cover.body.mime, 'application/pdf');
+});
+test('FLOW: four documents — quote report (lowest wins), assignment, certificate and covering letter in one step', async () => {
+  const row = await ok(acc, 'cases', {
+    yearId: year,
+    subject: 'توريد أقلام سبورة تفاعلية',
+    origin: 'SCHOOL',
+    items: [
+      { name: 'قلم سبورة تفاعلية', unit: 'عدد', qty: '10', budgetId: budget },
+      { name: 'بطارية احتياطية', unit: 'عدد', qty: '5', budgetId: budget },
+    ],
+  });
+  let f = await load(row.id);
+  assert.deepEqual(
+    f.items.map((i: any) => i.name),
+    ['قلم سبورة تفاعلية', 'بطارية احتياطية'],
+    'items keep their entry order',
+  );
+  const quote = (supplierName: string, a: string, b: string) =>
+    ok(acc, `cases/${row.id}/quotes`, {
+      supplierName,
+      quoteDate: '2026-09-01',
+      prices: [
+        { itemId: f.items[0].id, price: a },
+        { itemId: f.items[1].id, price: b },
+      ],
+    });
+  await quote('شركة جديدة للتجارة', '300', '40');
+  await quote('المؤيد للخدمات التجارية ذ. م. م.', '250', '20');
+  await quote('SMARTQAT TRADING', '280', '30');
+  assert.equal((await req(acc, route(`cases/${row.id}/quotes`), 'POST', { supplierName: 'SMARTQAT TRADING', prices: [] })).status, 400);
+  const created = await db.supplier.findFirst({ where: { schoolId: school, name: 'شركة جديدة للتجارة' } });
+  assert.ok(created && created.cr === null, 'a company typed in a quote joins the supplier list');
+  await ok(acc, `cases/${row.id}/evaluate`, { date: '2026-09-02' });
+  f = await load(row.id);
+  assert.equal(f.state, 'APPROVED');
+  assert.equal(f.supplier.name, 'المؤيد للخدمات التجارية ذ. م. م.');
+  assert.equal(f.total, '2600');
+  assert.ok(f.evaluationHtml.includes('نوصي بتكليف شركة / المؤيد للخدمات التجارية'));
+  await ok(acc, `cases/${row.id}/issue`, { trigger: '2026-09-03', days: 5, policyConfirmed: true });
+  f = await load(row.id);
+  assert.equal(day(f.dueDate), '2026-09-10');
+  // Completed 2 working days late (Fri/Sat excluded): 2% of 2600 = 52.
+  const cert = await ok(acc, `cases/${row.id}/finish`, { completionDate: '2026-09-14', invoice: 'INV-77', date: '2026-09-15' });
+  assert.equal(cert.fine, '52');
+  assert.equal(cert.net, '2548');
+  f = await load(row.id);
+  assert.equal(f.state, 'CERTIFIED');
+  assert.ok(f.certificates[0].coverHtml, 'the covering letter is issued with the certificate');
+  const cover = (await req(acc, route(`certificates/${cert.id}/cover`))).body.html;
+  assert.ok(cover.includes('شهادة إنجاز الأعمال') && cover.includes('فاتورة بالمبلغ المستحق'));
+  const d = (await req(acc, route(`dashboard?year=${year}&from=2026-09-01&to=2026-09-30`))).body;
+  assert.ok(d.documents.reports.count >= 1 && d.documents.orders.count >= 1 && d.documents.certificates.count >= 1);
+  assert.ok(d.monthly.length === 1 && Number(d.monthly[0].certificates) >= 2548);
+  assert.ok(Number(d.budget.approved) > 0 && d.budget.lines.length > 0);
+  c = f;
+});
+test('PERMISSIONS: accountants add schools and fiscal years; policy and purge are for the administrator', async () => {
+  const sc = await req(acc, 'admin/schools', 'POST', {
+    name: 'مدرسة أضافها المحاسب',
+    principal: 'مدير تجريبي',
+    purchasingOfficer: 'مسؤول مشتريات',
+    orderPrefix: 'NEW',
+  });
+  assert.ok(sc.status < 300, JSON.stringify(sc.body));
+  const session = await log('accountant');
+  const me = (await req(session, 'auth/me')).body;
+  assert.ok(me.schools.some((x: any) => x.id === sc.body.id));
+  const setup = (await req(session, `schools/${sc.body.id}/setup`)).body;
+  assert.equal(setup.years.length, 1);
+  assert.ok(
+    setup.budgets.some((b: any) => b.code === '510401'),
+    'the new school starts with the official budget lines',
+  );
+  const y = await req(session, `schools/${sc.body.id}/years`, 'POST', { label: '2027', start: '2027-01-01', end: '2027-12-31' });
+  assert.ok(y.status < 300, JSON.stringify(y.body));
+  assert.equal((await req(acc, 'admin/purge', 'POST', { scope: 'transactions', confirm: 'حذف' })).status, 403);
+  assert.equal((await req(acc, 'admin/budget-catalog', 'POST', { code: '1', nameAr: 'x', groupKey: 'OTHER' })).status, 403);
+});
+test('PURGE: the administrator deletes a file or an imprest and the budget balances are restored', async () => {
+  const before = await db.budget.findUnique({ where: { id: budget } });
+  assert.equal((await req(admin, 'admin/purge', 'POST', { scope: 'case', id: c.id, confirm: 'نعم' })).status, 400);
+  const r = await req(admin, 'admin/purge', 'POST', { scope: 'case', id: c.id, confirm: 'حذف' });
+  assert.ok(r.status < 300, JSON.stringify(r.body));
+  const after = await db.budget.findUnique({ where: { id: budget } });
+  assert.equal(after.spent.toString(), before.spent.minus('2600').toString());
+  assert.equal(await db.case.count({ where: { id: c.id } }), 0);
+  const a = await ok(acc, 'imprests', {
+    yearId: year,
+    name: 'عهدة للحذف',
+    custodian: 'أمين',
+    type: 'OTHER',
+    amount: '500',
+    reference: 'DEL',
+  });
+  await ok(acc, `imprests/${a.id}/expense`, {
+    budgetId: budget,
+    vendor: 'مورد',
+    invoice: 'D-1',
+    date: '2026-09-20',
+    description: 'بند',
+    amount: '100',
+  });
+  const spent = (await db.budget.findUnique({ where: { id: budget } })).spent;
+  assert.ok((await req(admin, 'admin/purge', 'POST', { scope: 'imprest', id: a.id, confirm: 'حذف' })).status < 300);
+  assert.equal((await db.budget.findUnique({ where: { id: budget } })).spent.toString(), spent.minus(100).toString());
+  await assert.rejects(() => db.$executeRawUnsafe('DELETE FROM "Ledger"'), 'history stays protected outside a purge');
 });

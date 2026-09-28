@@ -6,11 +6,12 @@ import { date, fail, id, optionalText, parse, text } from '../common/validation'
 import { passwordHash, requireTenantAdmin, ROLES, schoolIds, type Identity } from '../core/identity';
 import { loadPolicy, POLICY, policyKeys, type PolicyKey } from '../core/policy';
 import { adminOverview, manageUser, userReport } from './admin';
+import { purge } from './purge';
 
 /**
- * Tenant-wide settings under /api/admin/…: official holidays, financial policy, the official
- * budget catalog, schools and user memberships. Reading is open to every signed-in user of the
- * tenant (screens need them); changes are for the system administrator only.
+ * Tenant-wide settings under /api/admin/…. Every user may maintain the official holidays and add
+ * schools (with their principal and custodians); the financial policy, the budget catalog, user
+ * accounts and data purges belong to the system administrator.
  */
 export async function readTenant(
   s: Identity,
@@ -32,6 +33,7 @@ export async function readTenant(
       });
     }
     case 'policy': {
+      requireTenantAdmin(s);
       const history = await db.policySetting.findMany({
         where: { tenantId },
         orderBy: [{ effectiveFrom: 'desc' }, { createdAt: 'desc' }],
@@ -80,8 +82,8 @@ export async function writeTenant(
   method: string,
   body: any,
 ) {
-  requireTenantAdmin(s);
   const tenantId = s.user.tenantId;
+  if (!['holidays', 'schools'].includes(resource)) requireTenantAdmin(s);
   switch (resource) {
     case 'holidays': {
       if (method === 'DELETE') {
@@ -150,15 +152,19 @@ export async function writeTenant(
       const p = parse(
         z
           .object({
-            code: z.string().trim().min(1).max(30),
+            code: z.string().trim().max(30).optional(),
             name: text,
             principal: text,
             pettyCustodian: optionalText(100),
+            educationCustodian: optionalText(100),
+            bookCustodian: optionalText(100),
+            purchasingOfficer: optionalText(100),
             orderPrefix: z
               .string()
-              .regex(/^[A-Za-z0-9]{0,12}$/)
+              .trim()
+              .regex(/^[A-Za-z0-9]{0,12}$/, 'رمز أوامر الشراء: حروف إنجليزية وأرقام فقط')
               .default(''),
-            active: z.boolean().default(true),
+            active: z.boolean().optional(),
           })
           .strict(),
         body,
@@ -166,17 +172,40 @@ export async function writeTenant(
       if (rid) {
         const row = await t.school.findFirst({ where: { id: parse(id, rid), tenantId } });
         if (!row) throw new NotFoundException();
-        return t.school.update({ where: { id: row.id }, data: p });
+        // Members edit their own schools; suspending a school is for the system administrator.
+        if (!s.user.isTenantAdmin && (!schoolIds(s).includes(row.id) || p.active !== undefined)) requireTenantAdmin(s);
+        return t.school.update({ where: { id: row.id }, data: { ...p, code: p.code || row.code } });
       }
-      const created = await t.school.create({ data: { ...p, tenantId } });
-      // The creating administrator gets the ADMIN role so the school appears in their workspace.
-      await t.membership.create({ data: { tenantId, schoolId: created.id, userId: s.user.id, roles: ['ADMIN'] } });
+      const code = p.code || `SCH-${String((await t.school.count({ where: { tenantId } })) + 1).padStart(3, '0')}`;
+      if (await t.school.findFirst({ where: { tenantId, code } })) fail('رمز المدرسة مستخدم');
+      const created = await t.school.create({ data: { ...p, code, active: p.active ?? true, tenantId } });
+      // The user who adds a school works in it right away; the current fiscal year is opened for it.
+      await t.membership.create({
+        data: { tenantId, schoolId: created.id, userId: s.user.id, roles: s.user.isTenantAdmin ? ['ACCOUNTANT', 'ADMIN'] : ['ACCOUNTANT'] },
+      });
       const year = new Date().getFullYear();
       await t.fiscalYear.create({
         data: { schoolId: created.id, label: String(year), startDate: new Date(`${year}-01-01`), endDate: new Date(`${year}-12-31`) },
       });
+      const catalog = await t.budgetCatalog.findMany({ where: { tenantId, active: true }, orderBy: [{ sort: 'asc' }, { code: 'asc' }] });
+      const y = await t.fiscalYear.findFirstOrThrow({ where: { schoolId: created.id } });
+      await t.budget.createMany({
+        data: catalog.map((c, i) => ({
+          schoolId: created.id,
+          yearId: y.id,
+          code: c.code,
+          name: c.nameAr,
+          nameEn: c.nameEn,
+          assetCode: c.assetCode,
+          groupKey: c.groupKey,
+          sort: i,
+          approved: 0,
+        })),
+      });
       return created;
     }
+    case 'purge':
+      return purge(s, t, body);
     case 'users':
       return manageUser(s, t, rid, action, body);
     case 'memberships': {

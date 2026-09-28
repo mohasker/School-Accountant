@@ -6,10 +6,16 @@ import { db } from '../common/db';
 import { hash } from '../common/crypto';
 
 export const ROLES = ['ACCOUNTANT', 'REVIEWER', 'APPROVER', 'ERP', 'AUDITOR', 'ADMIN'] as const;
-export const ACCOUNT = ['ACCOUNTANT'],
-  REVIEW = ['REVIEWER', 'APPROVER'],
-  APPROVE = ['APPROVER'],
-  ERP = ['ERP'];
+/**
+ * The accountant prepares and issues the whole file (quote report, assignment, completion certificate,
+ * covering letter) and runs the imprests, so every working role may do every step in its schools.
+ * AUDITOR alone is read-only.
+ */
+export const WORK = ['ACCOUNTANT', 'REVIEWER', 'APPROVER', 'ERP', 'ADMIN'];
+export const ACCOUNT = WORK,
+  REVIEW = WORK,
+  APPROVE = WORK,
+  ERP = WORK;
 
 const SESSION_HOURS = 8,
   IDLE_MINUTES = 30,
@@ -83,23 +89,20 @@ export async function authenticate(req: Request) {
 
 export type Identity = Awaited<ReturnType<typeof authenticate>>;
 
-/**
- * The system administrator sees every school of the tenant: school administration and audit
- * (ADMIN, AUDITOR) everywhere. Financial roles (prepare / approve / ERP) still come only from an
- * explicit membership, so segregation of duties is kept.
- */
+/** The system administrator has full rights in every school of the tenant. */
+const ADMIN_ROLES = ['ACCOUNTANT', 'ADMIN', 'AUDITOR'];
 async function withAllSchools(session: { user: { tenantId: string; id: string; memberships: any[] } }) {
   const schools = await db.school.findMany({ where: { tenantId: session.user.tenantId } });
   for (const school of schools) {
     const m = session.user.memberships.find((x) => x.schoolId === school.id);
-    if (m) m.roles = [...new Set([...m.roles, 'ADMIN', 'AUDITOR'])];
+    if (m) m.roles = [...new Set([...m.roles, ...ADMIN_ROLES])];
     else
       session.user.memberships.push({
         id: 'tenant-admin:' + school.id,
         tenantId: school.tenantId,
         userId: session.user.id,
         schoolId: school.id,
-        roles: ['ADMIN', 'AUDITOR'],
+        roles: [...ADMIN_ROLES],
         school,
       });
   }
@@ -114,7 +117,7 @@ export function scope(s: Identity, schoolId: string, roles: string[] = []): Memb
   return m;
 }
 
-/** Tenant-wide settings (holidays, policy, budget catalog, schools) are managed by the system administrator. */
+/** Financial policy, the budget catalog, user accounts and data purges belong to the system administrator. */
 export function requireTenantAdmin(s: Identity) {
   if (!s.user.isTenantAdmin) throw new ForbiddenException('هذا الإجراء لمسؤول النظام فقط');
 }

@@ -8,7 +8,7 @@ import { hash } from '../../common/crypto';
 import { isoDay, today } from '../../common/dates';
 import { D, num, round, sum } from '../../common/money';
 import { date, fail, id, parse, plain, quantity, text } from '../../common/validation';
-import { COVER_ATTACHMENTS, EVIDENCE, SIGNED, waivable } from '../../core/documents';
+import { COVER_ATTACHMENTS, DEFAULT_COVER, EVIDENCE, SIGNED, waivable } from '../../core/documents';
 import { ACCOUNT, APPROVE, ERP, REVIEW, scope } from '../../core/identity';
 import { posting } from '../../core/ledger';
 import { fine } from '../../core/penalty';
@@ -16,7 +16,7 @@ import { loadCalendar } from '../../core/policy';
 import { formatNumber, nextNumber } from '../../core/transaction';
 import { certificateCover, certificateDocument, RATINGS, type CertificateData } from '../../print/certificate';
 import type { WriteCtx } from '../context';
-import { checklist, independent, requireState, verifiedCodes, type FullCase } from './common';
+import { getCase, requireState, verifiedCodes, type FullCase } from './common';
 import { orderPolicy } from './procurement';
 
 type Ctx = WriteCtx & { c: FullCase };
@@ -140,7 +140,6 @@ export async function verifyEvidence({ s, school, t, body, c }: Ctx) {
   const p = parse(z.object({ evidenceId: id, decision: z.enum(['VERIFIED', 'REJECTED']), reason: text }).strict(), body);
   const e = await t.evidence.findUnique({ where: { id: p.evidenceId, caseId: c.id } });
   if (!e) throw new NotFoundException();
-  if (e.uploadedBy === s.user.id) fail('المراجع يجب أن يختلف عن رافع المستند');
   if (c.state === 'REGISTERED') fail('المعاملة مسجلة؛ يلزم تصحيح مستقل');
   if (p.decision === 'VERIFIED' && process.env.DEMO_MODE !== 'true' && e.scanStatus !== 'CLEAN') fail('يلزم فحص الملف');
   return t.evidence.update({ where: { id: e.id }, data: { status: p.decision, verifiedBy: s.user.id, reason: p.reason } });
@@ -148,7 +147,6 @@ export async function verifyEvidence({ s, school, t, body, c }: Ctx) {
 
 export async function notApplicable({ s, school, t, body, c }: Ctx) {
   scope(s, school, APPROVE);
-  independent(s, c);
   const p = parse(z.object({ code: z.number().int(), reason: text }).strict(), body);
   if (!waivable(p.code, c.origin, c.method)) fail('لا يمكن إعفاء هذا المستند');
   return t.evidence.create({
@@ -172,7 +170,6 @@ const rating = z.enum(Object.keys(RATINGS) as [keyof typeof RATINGS, ...(keyof t
 /** Completion certificate for all accepted, not yet certified quantities (partial or final). */
 export async function issueCertificate({ s, school, t, body, c }: Ctx) {
   scope(s, school, APPROVE);
-  independent(s, c);
   requireState(c, ['PARTIAL', 'DELIVERED']);
   const p = parse(
     z
@@ -191,12 +188,12 @@ export async function issueCertificate({ s, school, t, body, c }: Ctx) {
   );
   if (p.kind === 'PARTIAL' && c.state === 'DELIVERED') fail('اختر الشهادة النهائية بعد اكتمال التوريد');
   if (p.kind === 'FINAL' && c.state !== 'DELIVERED') fail('يلزم اكتمال التوريد للشهادة النهائية');
-  if (checklist(c).some((r) => !r.complete)) fail('مستندات ما قبل الشهادة غير مستوفاة');
   const on = p.date ?? today();
   if (on > today()) fail('تاريخ مستقبلي');
   const pending = await t.portion.findMany({
     where: { caseId: c.id, certificateId: null, accepted: { gt: 0 } },
     include: { item: true, delivery: true },
+    orderBy: { item: { position: 'asc' } },
   });
   if (!pending.length) fail('لا توجد كميات جديدة للشهادة');
   const all = await t.portion.findMany({ where: { caseId: c.id, accepted: { gt: 0 } } });
@@ -287,7 +284,8 @@ export async function coverLetter({ s, school, t, body, c }: Ctx) {
   if (!cert) throw new NotFoundException();
   if (cert.coverHtml) return cert;
   const verified = verifiedCodes(c);
-  const attachments = p.attachments ?? COVER_ATTACHMENTS.filter((a) => a.evidence && verified.includes(a.evidence)).map((a) => a.key);
+  const fromDocuments = COVER_ATTACHMENTS.filter((a) => a.evidence && verified.includes(a.evidence)).map((a) => a.key);
+  const attachments = p.attachments ?? (fromDocuments.length ? fromDocuments : DEFAULT_COVER(c.origin, c.method));
   const details = (cert.details ?? cert.snapshot) as CertificateData;
   const coverDate = p.date ?? today();
   return t.certificate.update({
@@ -299,23 +297,73 @@ export async function coverLetter({ s, school, t, body, c }: Ctx) {
   });
 }
 
+/** Legacy step kept for files issued before the single-step completion: marks the file complete. */
 export async function completeFile({ s, school, t, c }: Ctx) {
   scope(s, school, APPROVE);
-  independent(s, c);
   requireState(c, ['CERTIFIED']);
-  if (!c.certificates.length || c.certificates.some((x) => !x.coverHtml) || checklist(c).some((x) => !x.complete)) fail('الملف غير مستوفٍ');
-  for (const cert of c.certificates)
-    for (const code of SIGNED)
-      if (!c.evidence.some((e) => e.code === code && e.certificateId === cert.id && e.status === 'VERIFIED'))
-        fail('أرفق النسخ الموقعة لكل شهادة وتغطيتها وتحقق منها');
+  if (!c.certificates.length || c.certificates.some((x) => !x.coverHtml)) fail('أصدر الشهادة وكتاب التغطية أولاً');
   await t.certificate.updateMany({ where: { caseId: c.id }, data: { finalized: true } });
   return t.case.update({ where: { id: c.id }, data: { state: 'COMPLETE', version: { increment: 1 } } });
+}
+
+/**
+ * Completion in one step after the work is done: the remaining quantities are received on the
+ * completion date (delay in working days after the due date), the final completion certificate is
+ * issued, and the payment covering letter is issued with it.
+ */
+export async function finish(ctx: Ctx) {
+  const { s, school, t, body } = ctx;
+  scope(s, school, ACCOUNT);
+  requireState(ctx.c, ['ORDERED', 'PARTIAL', 'DELIVERED']);
+  const p = parse(
+    z
+      .object({
+        completionDate: date,
+        invoice: z.string().trim().min(1).max(200),
+        note: z.string().trim().max(200).optional(),
+        date: date.optional(),
+        addressee: z.number().int().min(1).max(3).default(1),
+        notes: z.string().trim().max(1000).default(''),
+        ratings: z
+          .object({ scope: rating, time: rating, supervision: rating })
+          .default({ scope: 'EXCELLENT', time: 'EXCELLENT', supervision: 'EXCELLENT' }),
+        attachments: z.array(z.enum(COVER_ATTACHMENTS.map((a) => a.key) as [string, ...string[]])).optional(),
+      })
+      .strict(),
+    body,
+  );
+  let c = ctx.c;
+  const remaining = c.items.filter((i) => i.acceptedQty.lt(i.qty));
+  if (remaining.length) {
+    await deliver({
+      ...ctx,
+      c,
+      body: {
+        date: p.completionDate,
+        note: p.note || 'استلام نهائي',
+        invoice: p.invoice,
+        lines: remaining.map((i) => {
+          const rest = i.qty.minus(i.acceptedQty).toString();
+          return { itemId: i.id, received: rest, accepted: rest };
+        }),
+      },
+    });
+    c = await getCase(t, school, c.id);
+  }
+  const cert = await issueCertificate({
+    ...ctx,
+    c,
+    body: { kind: 'FINAL', date: p.date, addressee: p.addressee, invoice: p.invoice, notes: p.notes, ratings: p.ratings },
+  });
+  c = await getCase(t, school, c.id);
+  await coverLetter({ ...ctx, c, body: { certificateId: cert.id, date: p.date, attachments: p.attachments } });
+  return cert;
 }
 
 /** Manual, documented ERP registration — there is no live integration with the ministry system. */
 export async function registerErp({ s, school, t, body, c }: Ctx) {
   scope(s, school, ERP);
-  requireState(c, ['COMPLETE']);
+  requireState(c, ['CERTIFIED', 'COMPLETE']);
   const p = parse(z.object({ reference: text, date, evidence: text }).strict(), body);
   if (p.date > today()) fail('تاريخ مستقبلي');
   const erp = await t.erp.create({

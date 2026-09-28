@@ -12,6 +12,8 @@ export type Field = {
   help?: string;
   step?: string;
   min?: string;
+  /** id of a <datalist> with suggestions (free text is still accepted). */
+  list?: string;
 };
 
 export type Dialog = {
@@ -83,6 +85,8 @@ export function FormDialog({ dialog, onClose, onSaved }: { dialog: Dialog; onClo
                     required={f.required !== false}
                     step={f.step ?? (f.type === 'number' ? '0.01' : undefined)}
                     min={f.min ?? (f.type === 'number' ? '0' : undefined)}
+                    list={f.list}
+                    autoComplete={f.list ? 'off' : undefined}
                   />
                 )}
                 {f.help && <small>{f.help}</small>}

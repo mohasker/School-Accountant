@@ -1,6 +1,7 @@
 import { NotFoundException } from '@nestjs/common';
 import ExcelJS from 'exceljs';
 import { z } from 'zod';
+import { STATE_NAMES } from '../core/documents';
 import { db, type Tx } from '../common/db';
 import { D, num } from '../common/money';
 import { date, fail, id, parse, text } from '../common/validation';
@@ -8,21 +9,9 @@ import { passwordHash, requireTenantAdmin, type Identity } from '../core/identit
 import { dateHtml, esc, money, num as numHtml, printDocument } from '../print/layout';
 
 /** Case states counted as completed work; cancelled cases are reported separately. */
-const DONE = ['COMPLETE', 'REGISTERED'];
-const OPEN = ['DRAFT', 'EVALUATED', 'APPROVED', 'ORDERED', 'PARTIAL', 'DELIVERED', 'CERTIFIED'];
+const DONE = ['CERTIFIED', 'COMPLETE', 'REGISTERED'];
+const OPEN = ['DRAFT', 'EVALUATED', 'APPROVED', 'ORDERED', 'PARTIAL', 'DELIVERED'];
 
-const STATE_NAMES: Record<string, string> = {
-  DRAFT: 'مسودة',
-  EVALUATED: 'بانتظار الاعتماد',
-  APPROVED: 'معتمد للتكليف',
-  ORDERED: 'قيد التوريد',
-  PARTIAL: 'توريد جزئي',
-  DELIVERED: 'مستلم بالكامل',
-  CERTIFIED: 'صدرت الشهادة',
-  COMPLETE: 'جاهزة لـ ERP',
-  REGISTERED: 'مسجلة في ERP',
-  CANCELLED: 'ملغاة',
-};
 const ROLE_NAMES: Record<string, string> = {
   ACCOUNTANT: 'محاسب',
   REVIEWER: 'مراجع',
@@ -287,7 +276,7 @@ function userReportDocument(r: Report) {
 <tr><td class="k">المدارس والصلاحيات</td><td colspan="3">${r.user.schools.map((m: any) => `${esc(m.name)} (${esc(m.roles.join('، '))})`).join('<br>') || '—'}</td></tr>
 </table>
 <h2>الملخص</h2>
-<table><thead><tr><th>معاملات منجزة</th><th>قيد الإعداد</th><th>ملغاة</th><th>اعتمادات</th><th>شهادات أصدرها</th><th>فواتير عهد</th><th>تسويات عهد</th><th>عمليات مسجلة</th></tr></thead>
+<table><thead><tr><th>معاملات منجزة</th><th>قيد الإعداد</th><th>ملغاة</th><th>تقارير عروض</th><th>شهادات أصدرها</th><th>فواتير عهد</th><th>تسويات عهد</th><th>عمليات مسجلة</th></tr></thead>
 <tbody><tr><td>${s.done}</td><td>${s.open}</td><td>${s.cancelled}</td><td>${s.approvals}</td><td>${s.certificates}</td><td>${s.pettyInvoices} (${money(s.pettyAmount)})</td><td>${s.settlements}</td><td>${s.actions}</td></tr></tbody></table>
 <h2>المعاملات التي أعدها</h2>
 ${table(
@@ -303,7 +292,7 @@ ${table(
     `<b>${esc(c.status)}</b>`,
   ]),
 )}
-<h2>الاعتمادات</h2>
+<h2>تقارير عروض الأسعار الصادرة</h2>
 ${table(
   ['الرقم', 'المدرسة', 'الموضوع', 'القيمة', 'الحالة'],
   r.approved.map((c: any) => [numHtml(c.number), esc(c.school), esc(c.subject), money(c.total), esc(c.stateName)]),
@@ -347,7 +336,7 @@ async function userReportWorkbook(r: Report) {
     r.prepared.map((c: any) => [c.number, c.school, c.subject, c.supplier, c.orderNumber, Number(c.total), c.stateName, c.status, c.erp]),
   );
   add(
-    'الاعتمادات',
+    'تقارير عروض الأسعار',
     ['الرقم', 'المدرسة', 'الموضوع', 'القيمة', 'الحالة'],
     r.approved.map((c: any) => [c.number, c.school, c.subject, Number(c.total), c.stateName]),
   );
@@ -384,6 +373,15 @@ export async function manageUser(s: Identity, t: Tx, userId: string | undefined,
     if (user.id === s.user.id && !p.active) fail('لا يمكنك إيقاف حسابك');
     if (!p.active) await t.session.deleteMany({ where: { userId: user.id } });
     return t.user.update({ where: { id: user.id }, data: { active: p.active }, select: { id: true, active: true } });
+  }
+  if (action === 'delete') {
+    if (user.id === s.user.id) fail('لا يمكنك حذف حسابك');
+    // Every recorded action is audited against its user; such an account is suspended instead.
+    if (await t.audit.count({ where: { actor: user.id } })) fail('للحساب أعمال مسجلة؛ أوقف الحساب بدلاً من حذفه، أو احذف بياناته أولاً');
+    await t.session.deleteMany({ where: { userId: user.id } });
+    await t.membership.deleteMany({ where: { userId: user.id } });
+    await t.user.delete({ where: { id: user.id } });
+    return { id: user.id, deleted: true };
   }
   if (!action) {
     const p = parse(z.object({ name: text, isTenantAdmin: z.boolean() }).strict(), body);

@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { db } from '../common/db';
 import { date, fail, id, parse, text } from '../common/validation';
-import { passwordHash, ROLES, scope } from '../core/identity';
+import { passwordHash, ROLES, scope, WORK } from '../core/identity';
 import { loadPolicy } from '../core/policy';
 import { openYear } from '../core/transaction';
 import type { ReadCtx, WriteCtx } from './context';
@@ -37,7 +37,7 @@ export async function readSetup({ s, school, query }: ReadCtx) {
 }
 
 export async function writeSchool({ s, school, t, body }: WriteCtx) {
-  scope(s, school, ['ADMIN']);
+  scope(s, school, WORK);
   const p = parse(
     z
       .object({
@@ -46,6 +46,7 @@ export async function writeSchool({ s, school, t, body }: WriteCtx) {
         pettyCustodian: z.string().max(100),
         educationCustodian: z.string().max(100),
         bookCustodian: z.string().max(100),
+        purchasingOfficer: z.string().max(100).optional(),
         orderPrefix: z
           .string()
           .regex(/^[A-Za-z0-9]{0,12}$/, 'رمز أوامر الشراء: حروف إنجليزية وأرقام فقط')
@@ -78,13 +79,14 @@ export async function writeUser({ s, school, t, body }: WriteCtx) {
 }
 
 export async function writeYear({ s, school, t, body, rid, action }: WriteCtx) {
-  scope(s, school, ['ADMIN']);
+  scope(s, school, WORK);
   if (action === 'close') {
     const y = await openYear(t, school, parse(id, rid));
     const open =
-      (await t.case.count({ where: { schoolId: school, yearId: y.id, state: { notIn: ['REGISTERED', 'CANCELLED'] } } })) ||
-      (await t.imprest.count({ where: { schoolId: school, yearId: y.id, closed: false } }));
-    if (open) fail('توجد معاملات أو عهد غير مغلقة');
+      (await t.case.count({
+        where: { schoolId: school, yearId: y.id, state: { notIn: ['CERTIFIED', 'COMPLETE', 'REGISTERED', 'CANCELLED'] } },
+      })) || (await t.imprest.count({ where: { schoolId: school, yearId: y.id, closed: false } }));
+    if (open) fail('توجد معاملات أو عهد غير منجزة');
     return t.fiscalYear.update({ where: { id: y.id }, data: { closed: true } });
   }
   const p = parse(z.object({ label: text, start: date, end: date }).strict(), body);
@@ -93,7 +95,26 @@ export async function writeYear({ s, school, t, body, rid, action }: WriteCtx) {
     where: { schoolId: school, startDate: { lte: new Date(p.end) }, endDate: { gte: new Date(p.start) } },
   });
   if (overlap) fail('الفترة تتداخل مع عام قائم');
-  return t.fiscalYear.create({
+  const year = await t.fiscalYear.create({
     data: { schoolId: school, label: p.label, startDate: new Date(p.start), endDate: new Date(p.end) },
   });
+  // The new year starts with the official budget lines (amounts are entered on the budget screen).
+  const catalog = await t.budgetCatalog.findMany({
+    where: { tenantId: s.user.tenantId, active: true },
+    orderBy: [{ sort: 'asc' }, { code: 'asc' }],
+  });
+  await t.budget.createMany({
+    data: catalog.map((c, i) => ({
+      schoolId: school,
+      yearId: year.id,
+      code: c.code,
+      name: c.nameAr,
+      nameEn: c.nameEn,
+      assetCode: c.assetCode,
+      groupKey: c.groupKey,
+      sort: i,
+      approved: 0,
+    })),
+  });
+  return year;
 }

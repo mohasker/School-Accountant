@@ -50,6 +50,7 @@ model School {
   suppliers          Supplier[]
   cases              Case[]
   orderPrefix        String       @default("")
+  purchasingOfficer  String       @default("")
   plans              BudgetPlan[]
 
   @@unique([id, tenantId])
@@ -100,7 +101,7 @@ model Supplier {
   schoolId String  @db.Uuid
   school   School  @relation(fields: [schoolId], references: [id])
   name     String
-  cr       String
+  cr       String?
   iban     String  @default("")
   phone    String  @default("")
   email    String  @default("")
@@ -177,6 +178,7 @@ model Case {
   exclusiveReason   String?
   deliveryDays      Int?
   policy            Json?
+  reportDate        DateTime?     @db.Date
 
   @@unique([id, schoolId, yearId])
   @@unique([schoolId, yearId, number])
@@ -200,6 +202,7 @@ model Item {
   acceptedValue Decimal   @default(0) @db.Decimal(18, 2)
   certifiedQty  Decimal   @default(0) @db.Decimal(12, 3)
   portions      Portion[]
+  position      Int       @default(0)
 
   @@unique([id, caseId])
 }

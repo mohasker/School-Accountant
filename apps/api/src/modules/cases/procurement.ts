@@ -9,7 +9,7 @@ import { loadCalendar, loadPolicy, type Policy } from '../../core/policy';
 import { audit, formatNumber, nextNumber, openYear } from '../../core/transaction';
 import { orderLetter, quoteStudyReport } from '../../print/procurement';
 import type { WriteCtx } from '../context';
-import { independent, requireState, type FullCase } from './common';
+import { requireState, type FullCase } from './common';
 
 const prices = z.array(z.object({ itemId: id, price: money })).min(1);
 
@@ -51,7 +51,7 @@ export async function createCase({ s, school, t, body }: WriteCtx) {
       createdBy: s.user.id,
       accountantName: s.user.name,
       principalName: m.school.principal,
-      items: { create: p.items },
+      items: { create: p.items.map((item, position) => ({ ...item, position })) },
     },
   });
 }
@@ -78,17 +78,19 @@ export async function addQuote({ s, school, t, body, c }: WriteCtx & { c: FullCa
   const p = parse(
     z
       .object({
-        supplierId: id,
-        reference: text,
+        supplierId: id.optional(),
+        supplierName: z.string().trim().min(2).max(200).optional(),
+        reference: z.string().trim().max(150).default(''),
         quoteDate: date.optional(),
         prices,
-        compliant: z.boolean(),
-        note: z.string().max(1000),
+        compliant: z.boolean().default(true),
+        note: z.string().max(1000).default(''),
       })
       .strict(),
     body,
   );
-  if (!(await t.supplier.findUnique({ where: { id: p.supplierId, schoolId: school, active: true } }))) fail('المورد غير متاح');
+  const supplierId = await supplierFor(t, school, p.supplierId, p.supplierName);
+  if (c.quotes.some((q) => q.supplierId === supplierId)) fail('يوجد عرض مسجل لهذه الشركة؛ احذفه أولاً لتعديله');
   const { total } = priceLines(c, p.prices);
   if (!p.compliant && !p.note.trim()) fail('سبب استبعاد العرض مطلوب');
   return t.quote.create({
@@ -96,7 +98,7 @@ export async function addQuote({ s, school, t, body, c }: WriteCtx & { c: FullCa
       schoolId: school,
       yearId: c.yearId,
       caseId: c.id,
-      supplierId: p.supplierId,
+      supplierId,
       reference: p.reference,
       quoteDate: p.quoteDate ? new Date(p.quoteDate) : null,
       prices: p.prices,
@@ -105,6 +107,33 @@ export async function addQuote({ s, school, t, body, c }: WriteCtx & { c: FullCa
       note: p.note,
     },
   });
+}
+
+/**
+ * A quote names an existing supplier, or a company typed by name: it is found by name in the school's
+ * list or added to it (the commercial registration can be completed later in the supplier list).
+ */
+export async function supplierFor(t: Tx, school: string, supplierId?: string, name?: string) {
+  if (supplierId) {
+    const s = await t.supplier.findUnique({ where: { id: supplierId, schoolId: school } });
+    if (!s) fail('المورد غير موجود');
+    if (!s.active) await t.supplier.update({ where: { id: s.id }, data: { active: true, version: { increment: 1 } } });
+    return s.id;
+  }
+  const clean = name?.replace(/\s+/g, ' ').trim();
+  if (!clean) fail('اسم الشركة مطلوب');
+  const found = await t.supplier.findFirst({ where: { schoolId: school, name: { equals: clean, mode: 'insensitive' } } });
+  if (found) return found.id;
+  return (await t.supplier.create({ data: { schoolId: school, name: clean } })).id;
+}
+
+export async function removeQuote({ s, school, t, body, c }: WriteCtx & { c: FullCase }) {
+  scope(s, school, ACCOUNT);
+  requireState(c, ['DRAFT']);
+  const p = parse(z.object({ quoteId: id }).strict(), body);
+  if (!c.quotes.some((q) => q.id === p.quoteId)) fail('العرض غير موجود');
+  await t.quote.delete({ where: { id: p.quoteId } });
+  return { id: c.id };
 }
 
 /**
@@ -125,31 +154,65 @@ export function purchaseMethod(policy: Policy, total: InstanceType<typeof D>, qu
   return 'THREE_QUOTES';
 }
 
+/**
+ * Quote comparison report: the lowest compliant quote is awarded (a single company is awarded
+ * directly), the report is frozen with its date and the file is ready for the assignment letter.
+ */
 export async function evaluate({ s, school, t, body, c }: WriteCtx & { c: FullCase }) {
   scope(s, school, ACCOUNT);
   requireState(c, ['DRAFT']);
   if (c.origin !== 'SCHOOL') fail('استخدم مسار التكليف الوزاري');
-  const p = parse(z.object({ quoteId: id, reason: text, exclusiveReason: z.string().trim().max(500).optional() }).strict(), body);
-  const q = c.quotes.find((q) => q.id === p.quoteId && q.compliant && q.supplier.active);
+  const p = parse(
+    z
+      .object({
+        quoteId: id.optional(),
+        reason: z.string().trim().max(500).optional(),
+        exclusiveReason: z.string().trim().max(500).optional(),
+        date: date.optional(),
+      })
+      .strict(),
+    body,
+  );
+  const valid = c.quotes.filter((q) => q.compliant).sort((a, b) => a.total.comparedTo(b.total));
+  if (!valid.length) fail('أضف عرض سعر مطابقاً واحداً على الأقل');
+  const q = p.quoteId ? valid.find((x) => x.id === p.quoteId) : valid[0];
   if (!q) fail('العرض المختار غير صالح');
-  const policy = await loadPolicy(t, s.user.tenantId);
+  const lowest = q.total.eq(valid[0].total);
+  const reason = p.reason || (valid.length === 1 ? 'العرض الوحيد المطابق للمواصفات' : 'الأقل سعراً والمطابق للمواصفات والشروط');
+  if (!lowest && !p.reason) fail('اختيار عرض غير الأقل سعراً يتطلب ذكر المبرر');
+  const on = p.date ?? today();
+  if (on > today()) fail('تاريخ مستقبلي');
+  inYear(c.year, on);
+  const policy = await loadPolicy(t, s.user.tenantId, on);
   const method = purchaseMethod(policy, q.total, c.quotes.length, p.exclusiveReason);
   if (method === 'EXCLUSIVE' && c.quotes.length > 1) fail('حالة المورد المحتكر تكون بعرض سعر واحد');
   for (const line of q.prices as { itemId: string; price: string }[]) {
     const item = c.items.find((i) => i.id === line.itemId)!;
     await t.item.update({ where: { id: item.id }, data: { unitPrice: line.price, value: round(item.qty.mul(line.price)) } });
   }
+  const evaluationNumber = c.evaluationNumber ?? formatNumber('EV', await nextNumber(t, school, c.yearId, 'EV'));
+  const awarded = {
+    ...c,
+    selectedQuoteId: q.id,
+    awardReason: reason,
+    method,
+    exclusiveReason: method === 'EXCLUSIVE' ? p.exclusiveReason! : null,
+    evaluationNumber,
+  };
   return t.case.update({
     where: { id: c.id },
     data: {
-      state: 'EVALUATED',
+      state: 'APPROVED',
       selectedQuoteId: q.id,
       supplierId: q.supplierId,
       total: q.total,
-      awardReason: p.reason,
+      awardReason: reason,
       method,
-      exclusiveReason: method === 'EXCLUSIVE' ? p.exclusiveReason : null,
-      evaluationNumber: c.evaluationNumber ?? formatNumber('EV', await nextNumber(t, school, c.yearId, 'EV')),
+      exclusiveReason: awarded.exclusiveReason,
+      evaluationNumber,
+      reportDate: new Date(on),
+      evaluationBy: s.user.id,
+      evaluationHtml: await renderQuoteReport(t, awarded, s.user.tenantId, on),
       version: { increment: 1 },
     },
   });
@@ -159,13 +222,16 @@ export async function directOrder({ s, school, t, body, c }: WriteCtx & { c: Ful
   scope(s, school, ACCOUNT);
   requireState(c, ['DRAFT']);
   if (c.origin !== 'MINISTRY') fail('ليس تكليفاً وزارياً');
-  const p = parse(z.object({ supplierId: id, reason: text, prices }).strict(), body);
-  if (!(await t.supplier.findUnique({ where: { id: p.supplierId, schoolId: school, active: true } }))) fail('مورد غير صالح');
+  const p = parse(
+    z.object({ supplierId: id.optional(), supplierName: z.string().trim().min(2).max(200).optional(), reason: text, prices }).strict(),
+    body,
+  );
+  const supplierId = await supplierFor(t, school, p.supplierId, p.supplierName);
   const { total, values } = priceLines(c, p.prices);
   for (const v of values) await t.item.update({ where: { id: v.item.id }, data: { unitPrice: v.price, value: v.value } });
   return t.case.update({
     where: { id: c.id },
-    data: { supplierId: p.supplierId, total, awardReason: p.reason, method: 'MINISTRY', state: 'EVALUATED', version: { increment: 1 } },
+    data: { supplierId, total, awardReason: p.reason, method: 'MINISTRY', state: 'APPROVED', version: { increment: 1 } },
   });
 }
 
@@ -177,7 +243,7 @@ export async function renderQuoteReport(t: Tx, c: FullCase, tenantId: string, on
     date: on,
     school: c.school.name,
     principal: c.principalName,
-    accountant: c.accountantName,
+    accountant: c.school.purchasingOfficer || c.accountantName,
     subject: c.subject,
     quotes: c.quotes.map((q) => ({
       supplier: q.supplier.name,
@@ -193,9 +259,9 @@ export async function renderQuoteReport(t: Tx, c: FullCase, tenantId: string, on
   });
 }
 
+/** Files evaluated before the single-step quote report (state EVALUATED) are confirmed here. */
 export async function approve({ s, school, t, c }: WriteCtx & { c: FullCase }) {
   scope(s, school, APPROVE);
-  independent(s, c);
   requireState(c, ['EVALUATED']);
   return t.case.update({
     where: { id: c.id },
@@ -208,12 +274,16 @@ export async function approve({ s, school, t, c }: WriteCtx & { c: FullCase }) {
   });
 }
 
+/** Reopens the quote report for correction before the assignment letter is issued. */
 export async function returnCase({ s, school, t, body, c }: WriteCtx & { c: FullCase }) {
   scope(s, school, REVIEW);
-  requireState(c, ['EVALUATED']);
+  requireState(c, ['EVALUATED', 'APPROVED']);
   const p = parse(z.object({ reason: text }).strict(), body);
   await audit(t, s, school, 'RETURN_REASON', c.id, p);
-  return t.case.update({ where: { id: c.id }, data: { state: 'DRAFT', version: { increment: 1 } } });
+  return t.case.update({
+    where: { id: c.id },
+    data: { state: 'DRAFT', evaluationHtml: null, reportDate: null, version: { increment: 1 } },
+  });
 }
 
 /** Local purchase order number: PREFIX/YYYY-MMDD, then -2, -3 … for further orders on the same day. */
@@ -300,7 +370,6 @@ export function orderPolicy(c: FullCase) {
 
 export async function extend({ s, school, t, body, c }: WriteCtx & { c: FullCase }) {
   scope(s, school, APPROVE);
-  independent(s, c);
   requireState(c, ['ORDERED', 'PARTIAL']);
   const p = parse(z.object({ due: date, reason: text }).strict(), body);
   if (c.certificates.length) fail('يلزم تعديل مالي مستقل بعد إصدار شهادة؛ التمديد المباشر محظور');
@@ -318,7 +387,6 @@ export async function extend({ s, school, t, body, c }: WriteCtx & { c: FullCase
 
 export async function cancel({ s, school, t, body, c }: WriteCtx & { c: FullCase }) {
   scope(s, school, APPROVE);
-  independent(s, c);
   requireState(c, ['DRAFT', 'EVALUATED', 'APPROVED', 'ORDERED']);
   const p = parse(z.object({ reason: text }).strict(), body);
   if (c.deliveries.length || c.certificates.length) fail('الإلغاء بعد الاستلام يحتاج مستند تصحيح؛ لا إلغاء صامت');

@@ -1,8 +1,7 @@
-import { ForbiddenException, NotFoundException } from '@nestjs/common';
+import { NotFoundException } from '@nestjs/common';
 import type { Tx } from '../../common/db';
 import { fail } from '../../common/validation';
 import { EVIDENCE, PRE_CERTIFICATE, waivable } from '../../core/documents';
-import type { Identity } from '../../core/identity';
 
 export const STATES = [
   'DRAFT',
@@ -21,7 +20,7 @@ export async function getCase(t: Tx, school: string, caseId: string) {
   const c = await t.case.findUnique({
     where: { id: caseId, schoolId: school },
     include: {
-      items: { include: { budget: true } },
+      items: { include: { budget: true }, orderBy: { position: 'asc' } },
       quotes: { include: { supplier: true } },
       deliveries: { include: { portions: true }, orderBy: { date: 'asc' } },
       certificates: { orderBy: { createdAt: 'asc' } },
@@ -54,11 +53,6 @@ export type FullCase = Awaited<ReturnType<typeof getCase>>;
 export function requireState(c: FullCase, states: string[]) {
   if (!states.includes(c.state)) fail('حالة المعاملة لا تسمح بالإجراء');
   if (c.year.closed) fail('العام المالي مغلق');
-}
-
-/** Segregation of duties: the preparer of a transaction cannot approve it. */
-export function independent(s: Identity, c: FullCase) {
-  if (c.createdBy === s.user.id) throw new ForbiddenException('يلزم اعتماد مستخدم آخر عن معد المعاملة');
 }
 
 export function checklist(c: FullCase) {

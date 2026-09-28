@@ -1,10 +1,10 @@
 import { ConflictException, NotFoundException } from '@nestjs/common';
 import { z } from 'zod';
 import { fail, id, parse, text } from '../common/validation';
-import { scope } from '../core/identity';
+import { scope, WORK } from '../core/identity';
 import type { WriteCtx } from './context';
 
-const EDITORS = ['ACCOUNTANT', 'ADMIN'];
+const EDITORS = WORK;
 
 function normaliseIban(iban: string) {
   if (!iban) return iban;
@@ -33,7 +33,12 @@ export async function writeSupplier({ s, school, t, body, rid, method }: WriteCt
     z
       .object({
         name: text,
-        cr: text,
+        cr: z
+          .string()
+          .trim()
+          .max(60)
+          .transform((v) => v || null)
+          .nullish(),
         iban: z.string().max(50).default(''),
         phone: z.string().max(40).default(''),
         email: z.string().max(150).default(''),
@@ -49,8 +54,6 @@ export async function writeSupplier({ s, school, t, body, rid, method }: WriteCt
     const current = await t.supplier.findUnique({ where: { id: parse(id, rid), schoolId: school } });
     if (!current) throw new NotFoundException();
     if (current.version !== version) throw new ConflictException('تم تعديل المورد؛ أعد تحميله');
-    // A bank account change affects where money is paid, so it needs an approver or administrator.
-    if (current.iban !== data.iban) scope(s, school, ['APPROVER', 'ADMIN']);
     return t.supplier.update({ where: { id: rid, schoolId: school, version }, data: { ...data, version: { increment: 1 } } });
   }
   return t.supplier.create({ data: { ...data, schoolId: school } });

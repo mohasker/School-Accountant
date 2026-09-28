@@ -5,7 +5,7 @@ import type { Dialog } from '../components/FormDialog';
 import { Badge, DocButtons, Empty, Panel, Stat, Table } from '../components/ui';
 import { useLoad } from '../components/useLoad';
 import type { Row } from '../lib/api';
-import { currency, day, downloadFile, ROLE_NAMES } from '../lib/format';
+import { currency, day, downloadFile, ROLE_CHOICES, ROLE_NAMES } from '../lib/format';
 
 const when = (v: unknown) =>
   v ? new Date(String(v)).toLocaleString('en-GB', { timeZone: 'Asia/Qatar', dateStyle: 'short', timeStyle: 'short' }) : '—';
@@ -46,10 +46,10 @@ export function AdminConsole() {
     ],
     body: (
       <div className="check-grid">
-        {Object.entries(ROLE_NAMES).map(([value, label]) => (
+        {ROLE_CHOICES.map((value) => (
           <label key={value} className="check">
-            <input type="checkbox" name={'role_' + value} />
-            {String(label)}
+            <input type="checkbox" name={'role_' + value} defaultChecked={value === 'ACCOUNTANT'} />
+            {String(ROLE_NAMES[value])}
           </label>
         ))}
       </div>
@@ -58,8 +58,29 @@ export function AdminConsole() {
       w.api('admin/memberships', 'POST', {
         username: a.username,
         schoolId: v.schoolId,
-        roles: Object.keys(ROLE_NAMES).filter((r) => fd.get('role_' + r) === 'on'),
+        roles: ROLE_CHOICES.filter((r) => fd.get('role_' + r) === 'on'),
       }),
+  });
+  const newUserDialog: Dialog = {
+    title: 'حساب جديد',
+    intro: <p>المحاسب يعمل كل خطوات المعاملة والعهد في المدارس المسندة له. يمكن إسناد مدارس أخرى لاحقاً من «الصلاحيات».</p>,
+    fields: [
+      { name: 'name', label: 'الاسم الظاهر في المستندات' },
+      { name: 'username', label: 'اسم الدخول بالإنجليزية' },
+      { name: 'password', label: 'كلمة المرور — 12 حرفاً على الأقل', type: 'password' },
+      { name: 'schoolId', label: 'المدرسة', type: 'select', options: data.schools.map((s: Row) => ({ value: s.id, label: s.name })) },
+    ],
+    save: (v) => w.api('admin/memberships', 'POST', { ...v, roles: ['ACCOUNTANT'] }),
+  };
+  const purgeDialog = (title: string, text: string, body: Row): Dialog => ({
+    title,
+    intro: <p className="warn">{text} لا يمكن التراجع بعد التنفيذ.</p>,
+    fields: [{ name: 'confirm', label: 'اكتب كلمة «حذف» للتأكيد' }],
+    submit: 'حذف نهائي',
+    save: async (v) => {
+      await w.api('admin/purge', 'POST', { ...body, confirm: v.confirm });
+      if (body.scope !== 'transactions') location.reload();
+    },
   });
 
   return (
@@ -73,15 +94,18 @@ export function AdminConsole() {
       <Panel
         title="كل الحسابات"
         actions={
-          <input className="search" placeholder="بحث بالاسم أو المدرسة" value={filter} onChange={(e) => setFilter(e.target.value)} />
+          <>
+            <input className="search" placeholder="بحث بالاسم أو المدرسة" value={filter} onChange={(e) => setFilter(e.target.value)} />
+            <button onClick={() => w.open(newUserDialog)}>＋ حساب جديد</button>
+          </>
         }
       >
         <p>
-          الأعمال المنجزة: المعاملات المكتملة أو المسجلة في ERP. قيد الإعداد: من المسودة حتى صدور الشهادة. مدير النظام يرى كل المدارس
-          ويديرها، أما صلاحيات الإعداد والاعتماد المالي فتبقى حسب إسناد كل مدرسة.
+          المنجزة: المعاملات التي صدرت لها شهادة الإنجاز وكتاب التغطية. قيد الإعداد: من تقرير العروض حتى قبل الشهادة. لمدير النظام كامل
+          الصلاحيات على كل المدارس والحسابات، ويفتح «تقرير الأعمال» لأي حساب عند الطلب.
         </p>
         <Table
-          heads={['الحساب', 'المدارس والصلاحيات', 'منجزة', 'قيد الإعداد', 'اعتمادات / شهادات', 'فواتير العهد', 'آخر دخول', 'الحالة', '']}
+          heads={['الحساب', 'المدارس والصلاحيات', 'منجزة', 'قيد الإعداد', 'تقارير / شهادات', 'فواتير العهد', 'آخر دخول', 'الحالة', '']}
         >
           {accounts.map((a) => (
             <tr key={a.id} className={a.active ? '' : 'inactive'}>
@@ -93,7 +117,9 @@ export function AdminConsole() {
                 </small>
               </td>
               <td>
-                {a.schools.length ? (
+                {a.isTenantAdmin ? (
+                  <small>كل المدارس — كامل الصلاحيات</small>
+                ) : a.schools.length ? (
                   a.schools.map((s: Row) => (
                     <small key={s.schoolId}>
                       {s.name}: {s.roles.map((r: string) => ROLE_NAMES[r] || r).join('، ')}
@@ -147,6 +173,17 @@ export function AdminConsole() {
                       {a.active ? 'إيقاف' : 'تفعيل'}
                     </button>
                   )}
+                  {a.id !== w.me.user.id && (
+                    <button
+                      className="link danger"
+                      onClick={() =>
+                        confirm(`حذف حساب ${a.name}؟ يُحذف الحساب فقط إذا لم تكن له أعمال مسجلة.`) &&
+                        w.task(() => w.api(`admin/users/${a.id}/delete`, 'POST', {}), 'حُذف الحساب')
+                      }
+                    >
+                      حذف
+                    </button>
+                  )}
                 </div>
               </td>
             </tr>
@@ -155,7 +192,17 @@ export function AdminConsole() {
       </Panel>
       <Panel title="المدارس">
         <Table
-          heads={['المدرسة', 'المدير', 'الحسابات', 'منجزة', 'قيد الإعداد', 'الشهادات', 'الموازنة (معتمد / مرتبط / مصروف)', 'عهد مفتوحة']}
+          heads={[
+            'المدرسة',
+            'المدير',
+            'الحسابات',
+            'منجزة',
+            'قيد الإعداد',
+            'الشهادات',
+            'الموازنة (معتمد / مرتبط / مصروف)',
+            'عهد مفتوحة',
+            '',
+          ]}
         >
           {data.schools.map((s: Row) => (
             <tr key={s.id}>
@@ -177,9 +224,52 @@ export function AdminConsole() {
                 {s.openImprests}
                 <small>رصيد {currency(s.imprestBalance)}</small>
               </td>
+              <td>
+                <button
+                  className="link danger"
+                  onClick={() =>
+                    w.open(
+                      purgeDialog(
+                        'حذف مدرسة: ' + s.name,
+                        'تُحذف المدرسة وكل بياناتها: المعاملات والمستندات والعهد والموازنة والموردون والأعوام.',
+                        { scope: 'school', id: s.id },
+                      ),
+                    )
+                  }
+                >
+                  حذف
+                </button>
+              </td>
             </tr>
           ))}
         </Table>
+      </Panel>
+      <Panel title="مسح البيانات">
+        <p>للتجربة أو لتصحيح الأخطاء. تبقى الحسابات والإجازات والسياسة المالية ودليل البنود.</p>
+        <div className="actions">
+          <button
+            className="secondary danger"
+            onClick={() =>
+              w.open(
+                purgeDialog(
+                  'مسح كل المعاملات والعهد',
+                  'تُحذف كل المعاملات ومستنداتها وكل العهد والتقارير المحفوظة في كل المدارس، وتعود أرصدة الموازنة كاملة. تبقى المدارس والموازنات والموردون.',
+                  { scope: 'transactions' },
+                ),
+              )
+            }
+          >
+            مسح كل المعاملات والعهد
+          </button>
+          <button
+            className="secondary danger"
+            onClick={() =>
+              w.open(purgeDialog('مسح كل البيانات', 'تُحذف كل المدارس وكل بياناتها. تبقى الحسابات فقط لإعادة البدء.', { scope: 'all' }))
+            }
+          >
+            مسح كل البيانات (كل المدارس)
+          </button>
+        </div>
       </Panel>
     </>
   );
@@ -230,7 +320,7 @@ function AccountReport({ account, onBack }: { account: Row; onBack: () => void }
             <div className="cards">
               <Stat label="معاملات منجزة" value={r.summary.done} />
               <Stat label="قيد الإعداد" value={r.summary.open} />
-              <Stat label="اعتمادات / شهادات" value={`${r.summary.approvals} / ${r.summary.certificates}`} />
+              <Stat label="تقارير عروض / شهادات" value={`${r.summary.approvals} / ${r.summary.certificates}`} />
               <Stat label="فواتير العهد" value={r.summary.pettyInvoices} hint={currency(r.summary.pettyAmount) + ' ر.ق'} />
             </div>
           </Panel>
@@ -261,7 +351,7 @@ function AccountReport({ account, onBack }: { account: Row; onBack: () => void }
             )}
           </Panel>
           <div className="grid2">
-            <Panel title="الاعتمادات">
+            <Panel title="تقارير عروض الأسعار الصادرة">
               {r.approved.length ? (
                 <Table heads={['الرقم', 'المدرسة', 'الموضوع', 'القيمة']}>
                   {r.approved.map((c: Row) => (

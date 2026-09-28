@@ -51,6 +51,26 @@ export const COVER_ATTACHMENTS: { key: string; text: string; evidence?: number }
   { key: 'procurementApproval', text: 'موافقة إدارة المشتريات على إصدار أمر التوريد.', evidence: 15 },
 ];
 
+/** Covering-letter attachments ticked by default when no supporting documents were uploaded. */
+export function DEFAULT_COVER(origin: string, method?: string | null) {
+  const base = ['certificate', 'invoice', 'order', 'supplierReceipt', 'schoolReceipt', 'iban'];
+  if (origin === 'MINISTRY') return [...base, 'localPo'];
+  return method === 'THREE_QUOTES' ? [...base, 'quoteReport', 'quotes', 'crs'] : [...base, 'quoteReport'];
+}
+
+export const STATE_NAMES: Record<string, string> = {
+  DRAFT: 'تقرير العروض قيد الإعداد',
+  EVALUATED: 'بانتظار الاعتماد',
+  APPROVED: 'جاهزة لإصدار التكليف',
+  ORDERED: 'صدر التكليف — قيد التنفيذ',
+  PARTIAL: 'توريد جزئي',
+  DELIVERED: 'تم الاستلام',
+  CERTIFIED: 'منجزة — صدرت الشهادة والتغطية',
+  COMPLETE: 'منجزة',
+  REGISTERED: 'منجزة ومسجلة في ERP',
+  CANCELLED: 'ملغاة',
+};
+
 export const METHOD_NAMES: Record<string, string> = {
   SINGLE_QUOTE: 'عرض سعر واحد (ضمن حد الشراء المباشر)',
   THREE_QUOTES: 'مقارنة عروض أسعار',

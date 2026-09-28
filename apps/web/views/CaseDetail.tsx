@@ -6,17 +6,18 @@ import { useLoad } from '../components/useLoad';
 import type { Row } from '../lib/api';
 import { currency, dateNow, day, downloadFile, EVIDENCE, EVIDENCE_ORDER, METHOD_NAMES, readBase64 } from '../lib/format';
 
-const STEPS = ['مسودة وعروض', 'دراسة واعتماد', 'تكليف', 'توريد', 'شهادة وتغطية', 'ERP'];
+/** The purchase file in four documents: quote report → assignment letter → completion certificate + covering letter. */
+const STEPS = ['تقرير عروض الأسعار', 'كتاب التكليف', 'شهادة الإنجاز', 'كتاب التغطية'];
 const STEP_OF: Row = {
   DRAFT: 0,
-  EVALUATED: 1,
+  EVALUATED: 0,
   APPROVED: 1,
   ORDERED: 2,
-  PARTIAL: 3,
-  DELIVERED: 3,
+  PARTIAL: 2,
+  DELIVERED: 2,
   CERTIFIED: 4,
   COMPLETE: 4,
-  REGISTERED: 5,
+  REGISTERED: 4,
 };
 
 const RATING_OPTIONS = [
@@ -29,21 +30,27 @@ const ADDRESSEES = [
   { value: '2', label: 'إدارة الخدمات العامة' },
   { value: '3', label: 'إدارة المشتريات والمناقصات' },
 ];
-const COVER_ATTACHMENTS: [string, string, number?][] = [
-  ['invoice', 'فاتورة بالمبلغ المستحق (أصل)', 6],
-  ['order', 'كتاب التكليف الصادر إلى الشركة', 5],
-  ['supplierReceipt', 'سند الاستلام من الشركة معتمد من المدرسة', 7],
-  ['schoolReceipt', 'سند الاستلام من المدرسة معتمد', 8],
-  ['iban', 'صورة IBAN', 10],
-  ['quoteReport', 'تقرير عروض الأسعار معتمد', 4],
-  ['quotes', 'عروض الأسعار للشركات المختلفة', 2],
-  ['crs', 'السجلات التجارية للشركات', 3],
-  ['deptApproval', 'موافقة القسم المختص بالوزارة', 11],
-  ['undertaking', 'التعهد (الإقرار) بعدم التابعية', 9],
+/** Covering-letter attachments (template «Cover Let»); the certificate is always attached. */
+const COVER_ATTACHMENTS: [string, string][] = [
+  ['invoice', 'فاتورة بالمبلغ المستحق (أصل) معتمدة من الشركة'],
+  ['order', 'كتاب التكليف الصادر إلى الشركة'],
+  ['supplierReceipt', 'سند الاستلام من الشركة معتمد من المدرسة'],
+  ['schoolReceipt', 'سند الاستلام من المدرسة معتمد'],
+  ['iban', 'صورة IBAN (بيان رقم حساب البنك للشركة)'],
+  ['quoteReport', 'تقرير عروض الأسعار معتمد من المدرسة'],
+  ['quotes', 'عروض الأسعار للشركات المختلفة'],
+  ['crs', 'السجلات التجارية للشركات المقدمة للعروض'],
+  ['deptApproval', 'موافقة القسم المختص بالوزارة'],
+  ['undertaking', 'التعهد (الإقرار) بعدم تابعية الشركة لمنسوبي الوزارة'],
   ['localPo', 'أمر شراء محلي (إدارة المشتريات والمناقصات)'],
-  ['beneficiaries', 'كشوف بيانات المستفيدين بالهدايا', 12],
-  ['procurementApproval', 'موافقة إدارة المشتريات على أمر التوريد', 15],
+  ['beneficiaries', 'كشوف بيانات المستفيدين بالهدايا'],
+  ['procurementApproval', 'موافقة إدارة المشتريات على إصدار أمر التوريد'],
 ];
+const defaultCover = (c: Row) => {
+  const base = ['invoice', 'order', 'supplierReceipt', 'schoolReceipt', 'iban'];
+  if (c.origin === 'MINISTRY') return [...base, 'localPo'];
+  return c.method === 'THREE_QUOTES' ? [...base, 'quoteReport', 'quotes', 'crs'] : [...base, 'quoteReport'];
+};
 
 export function CaseDetail({ id }: { id: string }) {
   const w = useWorkspace();
@@ -56,18 +63,31 @@ export function CaseDetail({ id }: { id: string }) {
     fields,
     save: (v) => act(action, { ...v, ...extra }),
   });
-  const suppliers = (w.setup.suppliers || []).filter((s: Row) => s.active).map((s: Row) => ({ value: s.id, label: s.name }));
-  const verified = new Set(c.evidence.filter((e: Row) => e.status === 'VERIFIED').map((e: Row) => e.code));
+  const work = w.can('ACCOUNTANT');
   const step = STEP_OF[c.state] ?? 0;
+  const ministry = c.origin === 'MINISTRY';
+  const lowest = [...c.quotes].filter((q: Row) => q.compliant).sort((a: Row, b: Row) => Number(a.total) - Number(b.total))[0];
 
-  const quoteDialog = (direct: boolean): Dialog => ({
-    title: direct ? 'إدخال أسعار التكليف الوزاري' : 'إضافة عرض سعر',
+  const companies = (
+    <datalist id="companies">
+      {(w.setup.suppliers || []).map((s: Row) => (
+        <option key={s.id} value={s.name} />
+      ))}
+    </datalist>
+  );
+
+  const quoteDialog: Dialog = {
+    title: ministry ? 'أسعار التكليف الوزاري' : 'إضافة عرض سعر شركة',
     wide: true,
+    intro: ministry ? undefined : (
+      <p>اكتب اسم الشركة كما في عرض السعر (أو اختره من القائمة). تُضاف الشركة الجديدة إلى دليل الموردين تلقائياً.</p>
+    ),
     fields: [
-      { name: 'supplierId', label: 'المورد', type: 'select', options: suppliers },
-      ...(!direct
-        ? ([
-            { name: 'reference', label: 'رقم عرض السعر' },
+      { name: 'supplierName', label: 'اسم الشركة', list: 'companies' },
+      ...(ministry
+        ? [{ name: 'reason', label: 'مرجع اعتماد الأسعار من الوزارة' } as Field]
+        : ([
+            { name: 'reference', label: 'رقم عرض السعر', required: false },
             { name: 'quoteDate', label: 'تاريخ عرض السعر', type: 'date', value: dateNow() },
             {
               name: 'compliant',
@@ -75,66 +95,73 @@ export function CaseDetail({ id }: { id: string }) {
               type: 'select',
               options: [
                 { value: 'true', label: 'نعم' },
-                { value: 'false', label: 'لا' },
+                { value: 'false', label: 'لا — مستبعد' },
               ],
             },
-            { name: 'note', label: 'الرأي الفني / سبب الاستبعاد', required: false },
-          ] as Field[])
-        : [{ name: 'reason', label: 'مرجع اعتماد الأسعار من الوزارة' }]),
+            { name: 'note', label: 'الرأي الفني (اختياري؛ إلزامي للمستبعد)', required: false },
+          ] as Field[])),
     ],
     body: (
       <>
-        <h3>سعر الوحدة لكل صنف</h3>
+        {companies}
+        <h3>{c.items.length > 1 ? 'سعر الوحدة لكل صنف' : 'سعر الوحدة'}</h3>
         {c.items.map((i: Row) => (
           <label key={i.id}>
             {i.name} — الكمية {i.qty} {i.unit}
-            <input name={'price_' + i.id} type="number" min="0.01" step="0.01" placeholder="سعر الوحدة" required />
+            <input name={'price_' + i.id} type="number" min="0.01" step="0.01" placeholder="سعر الوحدة (ر.ق)" required />
           </label>
         ))}
       </>
     ),
     save: (v, fd) =>
-      act(direct ? 'direct-order' : 'quotes', {
+      act(ministry ? 'direct-order' : 'quotes', {
         ...v,
-        ...(!direct ? { compliant: v.compliant === 'true' } : {}),
+        ...(!ministry ? { compliant: v.compliant === 'true' } : {}),
+        ...(!ministry && !v.reference ? { reference: '' } : {}),
         prices: c.items.map((i: Row) => ({ itemId: i.id, price: String(fd.get('price_' + i.id)) })),
       }),
-  });
+  };
 
-  const evaluateDialog: Dialog = {
-    title: 'اختيار العرض وإعداد تقرير الدراسة',
-    intro: (
-      <p>
-        حتى {currency(policy.singleQuoteLimit)} ر.ق يكفي عرض واحد. ما يزيد يتطلب {policy.minQuotes} عروض على الأقل (المسجل الآن:{' '}
-        {c.quotes.length})، أو ذكر مبرر احتكار المورد للصنف.
-      </p>
+  const overLimit = lowest && Number(lowest.total) > Number(policy.singleQuoteLimit);
+  const reportDialog: Dialog = {
+    title: 'إصدار تقرير عروض الأسعار',
+    intro: lowest ? (
+      <>
+        <p>
+          يُوصى بتكليف <b>{lowest.supplier.name}</b> بقيمة <b>{currency(lowest.total)} ر.ق</b>{' '}
+          {c.quotes.filter((q: Row) => q.compliant).length > 1
+            ? 'لأنها الأقل سعراً والمطابقة للمواصفات.'
+            : 'وهي الشركة الوحيدة المقدمة للعرض.'}
+        </p>
+        {overLimit && c.quotes.length < Number(policy.minQuotes) && (
+          <p className="warn">
+            القيمة تزيد عن {currency(policy.singleQuoteLimit)} ر.ق وعدد العروض أقل من {policy.minQuotes}: أضف عروضاً أخرى، أو اذكر مبرر
+            احتكار الشركة للصنف.
+          </p>
+        )}
+      </>
+    ) : (
+      <p className="warn">لا يوجد عرض مطابق.</p>
     ),
     fields: [
-      {
-        name: 'quoteId',
-        label: 'العرض المختار',
-        type: 'select',
-        options: c.quotes
-          .filter((q: Row) => q.compliant)
-          .map((q: Row) => ({ value: q.id, label: q.supplier.name + ' — ' + currency(q.total) })),
-      },
-      { name: 'reason', label: 'مبرر الاختيار', value: 'الأقل سعراً والمطابق للمواصفات' },
-      { name: 'exclusiveReason', label: 'مبرر احتكار المورد (عند وجود عرض واحد فوق الحد)', required: false },
+      { name: 'date', label: 'تاريخ التقرير', type: 'date', value: dateNow() },
+      ...(overLimit && c.quotes.length === 1
+        ? [{ name: 'exclusiveReason', label: 'مبرر احتكار الشركة للصنف', required: false } as Field]
+        : []),
     ],
-    save: (v) =>
-      act('evaluate', { quoteId: v.quoteId, reason: v.reason, ...(v.exclusiveReason ? { exclusiveReason: v.exclusiveReason } : {}) }),
+    submit: 'إصدار التقرير',
+    save: (v) => act('evaluate', { date: v.date, ...(v.exclusiveReason ? { exclusiveReason: v.exclusiveReason } : {}) }),
   };
 
   const issueDialog: Dialog = {
     title: 'إصدار كتاب التكليف',
-    intro: <p>مدة التوريد بأيام العمل (الأحد – الخميس) مع استبعاد الإجازات الرسمية المسجلة. يوم الإصدار لا يُحتسب.</p>,
+    intro: <p>مدة التنفيذ بأيام العمل (الأحد – الخميس) مع استبعاد الإجازات الرسمية المسجلة؛ يوم الإصدار لا يُحتسب.</p>,
     fields: [
       { name: 'trigger', label: 'تاريخ كتاب التكليف', type: 'date', value: dateNow() },
-      { name: 'days', label: 'مدة التوريد (أيام عمل)', type: 'number', step: '1', min: '1', value: policy.defaultDeliveryDays ?? 15 },
-      ...(c.origin === 'SCHOOL'
-        ? [{ name: 'orderNumber', label: 'رقم أمر الشراء (اتركه فارغاً للترقيم التلقائي)', required: false } as Field]
-        : []),
+      { name: 'days', label: 'مدة التنفيذ (أيام عمل)', type: 'number', step: '1', min: '1', value: policy.defaultDeliveryDays ?? 15 },
+      ...(!ministry ? [{ name: 'orderNumber', label: 'رقم أمر الشراء (فارغ = ترقيم تلقائي)', required: false } as Field] : []),
     ],
+    submit: 'إصدار التكليف',
     save: (v) =>
       act('issue', {
         trigger: v.trigger,
@@ -144,127 +171,73 @@ export function CaseDetail({ id }: { id: string }) {
       }),
   };
 
-  const deliverDialog: Dialog = {
-    title: 'تسجيل توريد واستلام',
+  const finishDialog: Dialog = {
+    title: 'إصدار شهادة الإنجاز وكتاب التغطية',
     wide: true,
-    fields: [
-      { name: 'date', label: 'تاريخ التوريد الفعلي', type: 'date', value: dateNow() },
-      { name: 'note', label: 'رقم إذن التسليم' },
-      { name: 'invoice', label: 'رقم الفاتورة' },
-    ],
-    body: (
-      <>
-        <p>سجّل المقبول فقط؛ الفرق بين المستلم والمقبول يظل غير منجز. التأخير يُحسب بأيام العمل بعد {day(c.dueDate)}.</p>
-        {c.items.map((i: Row) => (
-          <div className="item-form delivery" key={i.id}>
-            <b>
-              {i.name}
-              <small>المتبقي {Number(i.qty) - Number(i.acceptedQty)}</small>
-            </b>
-            <label>
-              المستلم
-              <input name={'received_' + i.id} type="number" min="0" step="0.001" defaultValue={Number(i.qty) - Number(i.acceptedQty)} />
-            </label>
-            <label>
-              المقبول
-              <input name={'accepted_' + i.id} type="number" min="0" step="0.001" defaultValue={Number(i.qty) - Number(i.acceptedQty)} />
-            </label>
-          </div>
-        ))}
-      </>
+    intro: (
+      <p>
+        بعد إتمام المعاملة: تاريخ الإنجاز الفعلي يُقارن بآخر موعد ({day(c.dueDate)}) بأيام العمل، وتُحسب الغرامة تلقائياً إن وجد تأخير. يصدر
+        كتاب التغطية مع الشهادة مباشرة.
+      </p>
     ),
-    save: (v, fd) =>
-      act('deliver', {
-        ...v,
-        lines: c.items
-          .map((i: Row) => ({
-            itemId: i.id,
-            received: String(fd.get('received_' + i.id) || '0'),
-            accepted: String(fd.get('accepted_' + i.id) || '0'),
-          }))
-          .filter((l: Row) => Number(l.received) > 0),
-      }),
-  };
-
-  const certificateDialog: Dialog = {
-    title: 'إصدار شهادة إنجاز أعمال',
-    wide: true,
     fields: [
-      {
-        name: 'kind',
-        label: 'نوع الشهادة',
-        type: 'select',
-        options: c.state === 'DELIVERED' ? [{ value: 'FINAL', label: 'نهائية' }] : [{ value: 'PARTIAL', label: 'جزئية' }],
-      },
-      { name: 'date', label: 'تاريخ الشهادة', type: 'date', value: dateNow() },
-      { name: 'addressee', label: 'موجهة إلى', type: 'select', options: ADDRESSEES },
-      { name: 'invoice', label: 'رقم الفاتورة (افتراضياً من التوريدات)', required: false },
+      { name: 'completionDate', label: 'تاريخ الإنجاز / التوريد الفعلي', type: 'date', value: dateNow() },
+      { name: 'invoice', label: 'رقم فاتورة الشركة' },
+      { name: 'date', label: 'تاريخ الشهادة وكتاب التغطية', type: 'date', value: dateNow() },
+      { name: 'addressee', label: 'الشهادة موجهة إلى', type: 'select', options: ADDRESSEES },
       { name: 'scope', label: 'الالتزام بنطاق العمل', type: 'select', options: RATING_OPTIONS },
       { name: 'time', label: 'الالتزام بالمدة الزمنية', type: 'select', options: RATING_OPTIONS },
       { name: 'supervision', label: 'الالتزام بتعليمات جهة الإشراف', type: 'select', options: RATING_OPTIONS },
       { name: 'notes', label: 'ملاحظات', type: 'textarea', required: false },
     ],
-    save: (v) =>
-      act('certificate', {
-        kind: v.kind,
+    body: (
+      <>
+        <h3>مرفقات كتاب التغطية</h3>
+        <div className="check-grid">
+          {COVER_ATTACHMENTS.map(([key, label]) => (
+            <label key={key} className="check">
+              <input type="checkbox" name={'att_' + key} defaultChecked={defaultCover(c).includes(key)} />
+              {label}
+            </label>
+          ))}
+        </div>
+      </>
+    ),
+    submit: 'إصدار الشهادة وكتاب التغطية',
+    save: (v, fd) =>
+      act('finish', {
+        completionDate: v.completionDate,
+        invoice: v.invoice,
         date: v.date,
         addressee: Number(v.addressee),
-        ...(v.invoice ? { invoice: v.invoice } : {}),
         notes: v.notes,
         ratings: { scope: v.scope, time: v.time, supervision: v.supervision },
+        attachments: ['certificate', ...COVER_ATTACHMENTS.map(([k]) => k).filter((k) => fd.get('att_' + k) === 'on')],
       }),
   };
 
-  const coverDialog = (cert: Row): Dialog => ({
-    title: 'كتاب التغطية — صرف مستحقات الشركة',
-    intro: <p>حدد المرفقات التي ستُرسل مع الكتاب. شهادة إنجاز الأعمال مرفقة دائماً.</p>,
-    fields: [{ name: 'date', label: 'تاريخ الكتاب', type: 'date', value: dateNow() }],
-    body: (
-      <div className="check-grid">
-        {COVER_ATTACHMENTS.map(([key, label, code]) => (
-          <label key={key} className="check">
-            <input type="checkbox" name={'att_' + key} defaultChecked={code ? verified.has(code) : false} />
-            {label}
-          </label>
-        ))}
-      </div>
-    ),
-    save: (v, fd) =>
-      act('cover', {
-        certificateId: cert.id,
-        date: v.date,
-        attachments: COVER_ATTACHMENTS.map(([k]) => k).filter((k) => fd.get('att_' + k) === 'on'),
-      }),
-  });
-
   const uploadDialog: Dialog = {
-    title: 'رفع مستند مؤيد',
+    title: 'إرفاق مستند بالمعاملة (اختياري)',
     fields: [
       {
         name: 'code',
         label: 'نوع المستند',
         type: 'select',
-        options: EVIDENCE_ORDER.map((code) => ({ value: String(code), label: `${code}. ${EVIDENCE[code]}` })),
-      },
-      {
-        name: 'certificateId',
-        label: 'الشهادة المرتبطة — للنسخ الموقعة فقط',
-        type: 'select',
-        required: false,
-        options: [{ value: '', label: 'غير مرتبط' }, ...c.certificates.map((x: Row) => ({ value: x.id, label: x.number }))],
+        options: EVIDENCE_ORDER.map((code) => ({ value: String(code), label: EVIDENCE[code] })),
       },
     ],
     body: (
       <label>
-        PDF أو PNG أو JPEG حتى 5 MB
+        PDF أو صورة حتى 5 MB
         <input name="file" type="file" accept="application/pdf,image/png,image/jpeg" required />
       </label>
     ),
     save: async (v, fd) => {
       const file = fd.get('file') as File;
+      const code = Number(v.code);
       await act('evidence', {
-        code: Number(v.code),
-        ...(v.certificateId ? { certificateId: v.certificateId } : {}),
+        code,
+        ...([13, 14].includes(code) && c.certificates[0] ? { certificateId: c.certificates.at(-1).id } : {}),
         name: file.name,
         mime: file.type,
         base64: await readBase64(file),
@@ -272,113 +245,195 @@ export function CaseDetail({ id }: { id: string }) {
     },
   };
 
+  const cert = c.certificates.at(-1);
   return (
     <>
       <div className="case-top">
         <Badge state={c.state} />
         <b className="mono">{c.number}</b>
         <span>{c.subject}</span>
-        <span>المصدر: {c.origin === 'MINISTRY' ? 'الوزارة' : 'مشتريات المدرسة'}</span>
-        {c.method && <span>الطريقة: {METHOD_NAMES[c.method]}</span>}
-        <span>المورد: {c.supplier?.name || '—'}</span>
+        {c.method && <span>{METHOD_NAMES[c.method]}</span>}
+        <span>الشركة: {c.supplier?.name || '—'}</span>
         {c.orderNumber && <span className="mono">أمر الشراء: {c.orderNumber}</span>}
         {c.dueDate && (
           <span>
             آخر موعد: {day(c.dueDate)} ({c.deliveryDays} يوم عمل)
           </span>
         )}
+        <span>
+          القيمة: <b>{currency(c.total)} ر.ق</b>
+        </span>
       </div>
-      <div className="stepper">
+      <div className="stepper four">
         {STEPS.map((s, i) => (
           <div key={s} className={c.state === 'CANCELLED' ? '' : i < step ? 'done' : i === step ? 'current' : ''}>
-            <b>{i + 1}</b>
+            <b>{i < step ? '✓' : i + 1}</b>
             {s}
           </div>
         ))}
       </div>
-      <div className="actions panel">
-        {c.state === 'DRAFT' && w.can('ACCOUNTANT') && (
-          <button onClick={() => w.open(quoteDialog(c.origin === 'MINISTRY'))}>
-            {c.origin === 'MINISTRY' ? 'إدخال أسعار التكليف الوزاري' : 'إضافة عرض سعر'}
-          </button>
-        )}
-        {c.state === 'DRAFT' && c.quotes.length > 0 && c.origin === 'SCHOOL' && w.can('ACCOUNTANT') && (
-          <button onClick={() => w.open(evaluateDialog)}>اختيار العرض وإعداد التقرير</button>
-        )}
-        {c.state === 'EVALUATED' && c.origin === 'SCHOOL' && (
-          <button className="secondary" onClick={() => w.print(w.root(`cases/${c.id}/report-print`))}>
-            معاينة تقرير الدراسة
-          </button>
-        )}
-        {c.state === 'EVALUATED' && w.can('APPROVER') && (
-          <>
-            <button disabled={w.busy} onClick={() => w.task(() => act('approve'), 'تم الاعتماد')}>
-              اعتماد
+
+      {work && c.state !== 'CANCELLED' && (
+        <div className="actions panel">
+          {c.state === 'DRAFT' && (
+            <>
+              <button onClick={() => w.open(quoteDialog)}>{ministry ? 'إدخال أسعار التكليف الوزاري' : '＋ إضافة عرض سعر شركة'}</button>
+              {!ministry && c.quotes.length > 0 && (
+                <>
+                  <button onClick={() => w.open(reportDialog)}>إصدار تقرير عروض الأسعار ←</button>
+                  <button className="secondary" onClick={() => w.print(w.root(`cases/${c.id}/report-print`))}>
+                    معاينة التقرير
+                  </button>
+                </>
+              )}
+            </>
+          )}
+          {c.state === 'EVALUATED' && (
+            <button disabled={w.busy} onClick={() => w.task(() => act('approve'), 'تم اعتماد التقرير')}>
+              اعتماد التقرير
             </button>
+          )}
+          {c.state === 'APPROVED' && (
+            <>
+              <button onClick={() => w.open(issueDialog)}>إصدار كتاب التكليف ←</button>
+              {!ministry && (
+                <button
+                  className="secondary"
+                  onClick={() => w.open(simple('إعادة فتح تقرير العروض للتعديل', 'return', [{ name: 'reason', label: 'سبب التعديل' }]))}
+                >
+                  تعديل تقرير العروض
+                </button>
+              )}
+            </>
+          )}
+          {['ORDERED', 'PARTIAL', 'DELIVERED'].includes(c.state) && (
+            <>
+              <button onClick={() => w.open(finishDialog)}>إصدار شهادة الإنجاز وكتاب التغطية ←</button>
+              {c.state !== 'DELIVERED' && (
+                <button
+                  className="secondary"
+                  onClick={() =>
+                    w.open(
+                      simple('تمديد مدة التنفيذ', 'extend', [
+                        { name: 'due', label: 'الموعد الجديد', type: 'date' },
+                        { name: 'reason', label: 'سبب ومرجع التمديد' },
+                      ]),
+                    )
+                  }
+                >
+                  تمديد المدة
+                </button>
+              )}
+            </>
+          )}
+          {['CERTIFIED', 'COMPLETE'].includes(c.state) && (
             <button
               className="secondary"
-              onClick={() => w.open(simple('إرجاع للتصحيح', 'return', [{ name: 'reason', label: 'سبب الإرجاع' }]))}
+              onClick={() =>
+                w.open(
+                  simple('تسجيل المعاملة في ERP (اختياري)', 'erp', [
+                    { name: 'reference', label: 'رقم القيد في ERP' },
+                    { name: 'date', label: 'تاريخ التسجيل', type: 'date', value: dateNow() },
+                    { name: 'evidence', label: 'ملاحظة / مرجع الإثبات', value: 'تسجيل يدوي' },
+                  ]),
+                )
+              }
             >
-              إرجاع
+              تسجيل رقم ERP
             </button>
-          </>
+          )}
+          {['DRAFT', 'EVALUATED', 'APPROVED', 'ORDERED'].includes(c.state) && !c.deliveries.length && (
+            <button
+              className="secondary danger"
+              onClick={() => w.open(simple('إلغاء المعاملة', 'cancel', [{ name: 'reason', label: 'سبب الإلغاء' }]))}
+            >
+              إلغاء المعاملة
+            </button>
+          )}
+        </div>
+      )}
+
+      <Panel title="مستندات المعاملة">
+        <div className="doc-list">
+          <div className={c.evaluationHtml ? 'ready' : ''}>
+            <span>1</span>
+            <b>تقرير عروض الأسعار</b>
+            {c.evaluationHtml ? (
+              <DocButtons link path={w.root(`cases/${c.id}/report-print`)} label="" />
+            ) : (
+              <small>{ministry ? 'لا يلزم للتكليف الوزاري' : 'يصدر بعد إدخال العروض'}</small>
+            )}
+          </div>
+          <div className={c.orderHtml ? 'ready' : ''}>
+            <span>2</span>
+            <b>كتاب التكليف</b>
+            {c.orderHtml ? <DocButtons link path={w.root(`cases/${c.id}/order-print`)} label="" /> : <small>بعد التقرير</small>}
+          </div>
+          <div className={cert ? 'ready' : ''}>
+            <span>3</span>
+            <b>شهادة الإنجاز</b>
+            {cert ? <DocButtons link path={w.root('certificates/' + cert.id)} label="" /> : <small>بعد إتمام المعاملة</small>}
+          </div>
+          <div className={cert?.coverHtml ? 'ready' : ''}>
+            <span>4</span>
+            <b>كتاب التغطية</b>
+            {cert?.coverHtml ? <DocButtons link path={w.root(`certificates/${cert.id}/cover`)} label="" /> : <small>يصدر مع الشهادة</small>}
+          </div>
+        </div>
+        {cert && (
+          <p>
+            قيمة الأعمال {currency(cert.gross)} ر.ق — الغرامة {currency(cert.fine)} ر.ق — الصافي المستحق <b>{currency(cert.net)} ر.ق</b>
+          </p>
         )}
-        {c.state === 'APPROVED' && w.can('ACCOUNTANT') && <button onClick={() => w.open(issueDialog)}>إصدار كتاب التكليف</button>}
-        {['ORDERED', 'PARTIAL'].includes(c.state) && w.can('ACCOUNTANT') && (
-          <button onClick={() => w.open(deliverDialog)}>تسجيل توريد</button>
+        {c.erp && (
+          <div className="success">
+            مسجلة في ERP بالرقم {c.erp.reference} بتاريخ {day(c.erp.date)}.
+          </div>
         )}
-        {['PARTIAL', 'DELIVERED'].includes(c.state) && w.can('APPROVER') && (
-          <button onClick={() => w.open(certificateDialog)}>إصدار شهادة إنجاز</button>
-        )}
-        {c.state === 'CERTIFIED' && w.can('APPROVER') && (
-          <button disabled={w.busy} onClick={() => w.task(() => act('complete'))}>
-            تأكيد اكتمال الملف
-          </button>
-        )}
-        {c.state === 'COMPLETE' && w.can('ERP') && (
-          <button
-            onClick={() =>
-              w.open(
-                simple('إثبات التسجيل في ERP', 'erp', [
-                  { name: 'reference', label: 'رقم القيد الوزاري' },
-                  { name: 'date', label: 'تاريخ التسجيل', type: 'date', value: dateNow() },
-                  { name: 'evidence', label: 'مرجع إثبات التسجيل' },
-                ]),
-              )
-            }
-          >
-            تسجيل ERP
-          </button>
-        )}
-        {c.evaluationHtml && <DocButtons path={w.root(`cases/${c.id}/report-print`)} label="تقرير الدراسة" />}
-        {c.orderHtml && <DocButtons path={w.root(`cases/${c.id}/order-print`)} label="كتاب التكليف" />}
-        {['ORDERED', 'PARTIAL'].includes(c.state) && w.can('APPROVER') && (
-          <button
-            className="secondary"
-            onClick={() =>
-              w.open(
-                simple('تمديد معتمد لموعد التوريد', 'extend', [
-                  { name: 'due', label: 'الموعد الجديد', type: 'date' },
-                  { name: 'reason', label: 'سبب ومرجع التمديد' },
-                ]),
-              )
-            }
-          >
-            تمديد المدة
-          </button>
-        )}
-        {['DRAFT', 'EVALUATED', 'APPROVED', 'ORDERED'].includes(c.state) && w.can('APPROVER') && (
-          <button
-            className="secondary danger"
-            onClick={() => w.open(simple('إلغاء المعاملة', 'cancel', [{ name: 'reason', label: 'سبب الإلغاء' }]))}
-          >
-            إلغاء
-          </button>
-        )}
-      </div>
+      </Panel>
+
+      {!ministry && (
+        <Panel title="عروض أسعار الشركات">
+          {c.quotes.length ? (
+            <Table heads={['م', 'اسم الشركة', 'رقم العرض', 'التاريخ', 'قيمة العرض', 'الرأي الفني', '']}>
+              {[...c.quotes]
+                .sort((a: Row, b: Row) => Number(a.total) - Number(b.total))
+                .map((q: Row, i: number) => (
+                  <tr key={q.id} className={c.selectedQuoteId === q.id || (!c.selectedQuoteId && q.id === lowest?.id) ? 'selected' : ''}>
+                    <td>{i + 1}</td>
+                    <td>
+                      {q.supplier.name}
+                      {q.id === lowest?.id && <small>الأقل سعراً</small>}
+                    </td>
+                    <td>{q.reference || '—'}</td>
+                    <td>{day(q.quoteDate)}</td>
+                    <td>{currency(q.total)}</td>
+                    <td>{q.note || (q.compliant ? 'مطابق للمواصفات' : 'غير مطابق')}</td>
+                    <td>
+                      {work && c.state === 'DRAFT' && (
+                        <button
+                          className="link danger"
+                          onClick={() =>
+                            confirm('حذف عرض هذه الشركة؟') && w.task(() => act('quote-delete', { quoteId: q.id }), 'حُذف العرض')
+                          }
+                        >
+                          حذف
+                        </button>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+            </Table>
+          ) : (
+            <Empty text="لم تُسجل عروض أسعار بعد — أضف عرض كل شركة" />
+          )}
+          {c.awardReason && <p>التوصية: {c.awardReason}</p>}
+          {c.exclusiveReason && <p>مبرر الاحتكار: {c.exclusiveReason}</p>}
+        </Panel>
+      )}
 
       <Panel title="الأصناف">
-        <Table heads={['الصنف', 'بند الموازنة', 'الكمية', 'سعر الوحدة', 'المقبول', 'المعتمد بشهادات', 'القيمة']}>
+        <Table heads={['الصنف', 'بند الموازنة', 'الكمية', 'سعر الوحدة', 'القيمة', 'المستلم']}>
           {c.items.map((i: Row) => (
             <tr key={i.id}>
               <td>
@@ -391,173 +446,70 @@ export function CaseDetail({ id }: { id: string }) {
               </td>
               <td>{i.qty}</td>
               <td>{currency(i.unitPrice)}</td>
-              <td>{i.acceptedQty}</td>
-              <td>{i.certifiedQty}</td>
               <td>{currency(i.value)}</td>
+              <td>{i.acceptedQty}</td>
             </tr>
           ))}
         </Table>
         <div className="total">
-          إجمالي التكليف <b>{currency(c.total)} ر.ق</b>
+          الإجمالي <b>{currency(c.total)} ر.ق</b>
         </div>
-      </Panel>
-
-      {!!c.quotes.length && (
-        <Panel title="عروض الأسعار">
-          <Table heads={['المورد', 'رقم العرض', 'التاريخ', 'القيمة', 'المطابقة', 'الرأي الفني']}>
-            {c.quotes.map((q: Row) => (
-              <tr key={q.id} className={c.selectedQuoteId === q.id ? 'selected' : ''}>
-                <td>{q.supplier.name}</td>
-                <td>{q.reference}</td>
-                <td>{day(q.quoteDate)}</td>
-                <td>{currency(q.total)}</td>
-                <td>{q.compliant ? 'مطابق' : 'غير مطابق'}</td>
-                <td>{q.note || '—'}</td>
-              </tr>
-            ))}
-          </Table>
-          {c.awardReason && <p>مبرر الاختيار: {c.awardReason}</p>}
-          {c.exclusiveReason && <p>مبرر الاحتكار: {c.exclusiveReason}</p>}
-        </Panel>
-      )}
-
-      <Panel title="سجل التوريدات">
-        {c.deliveries.length ? (
-          <Table heads={['التاريخ', 'إذن التسليم', 'الفاتورة', 'المقبول والتأخير (أيام عمل)']}>
-            {c.deliveries.map((d: Row) => (
-              <tr key={d.id}>
-                <td>{day(d.date)}</td>
-                <td>{d.note}</td>
-                <td>{d.invoice}</td>
-                <td>
-                  {d.portions.map((r: Row) => (
-                    <div key={r.id}>
-                      {c.items.find((i: Row) => i.id === r.itemId)?.name}: {r.accepted} — {r.lateDays} يوم تأخير — {currency(r.value)} ر.ق
-                    </div>
-                  ))}
-                </td>
-              </tr>
-            ))}
-          </Table>
-        ) : (
-          <Empty text="لم تُسجّل توريدات بعد" />
-        )}
       </Panel>
 
       <Panel
-        title="المستندات المؤيدة"
-        actions={w.can('ACCOUNTANT') && c.state !== 'REGISTERED' && <button onClick={() => w.open(uploadDialog)}>رفع مستند</button>}
+        title="المرفقات (اختياري)"
+        actions={
+          work &&
+          c.state !== 'CANCELLED' && (
+            <button className="secondary" onClick={() => w.open(uploadDialog)}>
+              إرفاق مستند
+            </button>
+          )
+        }
       >
-        <p>تُراجع المستندات قبل الشهادة بواسطة مستخدم غير رافعها. النسخ الموقعة للشهادة والتغطية تُستكمل بعدها.</p>
-        <div className="docs-grid">
-          {EVIDENCE_ORDER.map((code) => {
-            const files = c.evidence.filter((e: Row) => e.code === code);
-            const rule = c.checklist.find((x: Row) => x.code === code);
-            return (
-              <div className="doc" key={code}>
-                <div>
-                  <b>
-                    {code}. {EVIDENCE[code]}
-                  </b>
-                  <span>{files.some((f: Row) => ['VERIFIED', 'NA'].includes(f.status)) ? '✓' : '○'}</span>
-                </div>
-                {files.map((f: Row) => (
-                  <div key={f.id}>
-                    <small>
-                      {f.name} — <Badge state={f.status} />
-                    </small>
-                    <div className="actions">
-                      {f.status !== 'NA' && (
-                        <button className="link" onClick={async () => downloadFile(await w.api(w.root('evidence/' + f.id)))}>
-                          تنزيل
-                        </button>
-                      )}
-                      {w.can('REVIEWER', 'APPROVER') && f.status === 'PENDING' && (
-                        <button
-                          className="link"
-                          onClick={() =>
-                            w.open(
-                              simple(
-                                'مراجعة المستند',
-                                'verify',
-                                [
-                                  {
-                                    name: 'decision',
-                                    label: 'القرار',
-                                    type: 'select',
-                                    options: [
-                                      { value: 'VERIFIED', label: 'تم التحقق' },
-                                      { value: 'REJECTED', label: 'مرفوض' },
-                                    ],
-                                  },
-                                  { name: 'reason', label: 'ملاحظة المراجعة' },
-                                ],
-                                { evidenceId: f.id },
-                              ),
-                            )
-                          }
-                        >
-                          مراجعة
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                ))}
-                {!files.length && <small>لم يُرفق مستند</small>}
-                {w.can('APPROVER') && rule?.waivable && !rule.complete && (
-                  <button
-                    className="link"
-                    onClick={() =>
-                      w.open(simple('تسجيل عدم الانطباق', 'not-applicable', [{ name: 'reason', label: 'السبب والمرجع' }], { code }))
-                    }
-                  >
-                    لا ينطبق
-                  </button>
-                )}
-              </div>
-            );
-          })}
-        </div>
-      </Panel>
-
-      <Panel title="شهادات الإنجاز وكتب التغطية">
-        {c.certificates.length ? (
-          <Table heads={['الشهادة', 'القيمة', 'الغرامة', 'الصافي', 'المستندات']}>
-            {c.certificates.map((x: Row) => (
-              <tr key={x.id}>
-                <td>
-                  {x.number}
-                  <small>{x.kind === 'FINAL' ? 'نهائية' : 'جزئية'}</small>
-                </td>
-                <td>{currency(x.gross)}</td>
-                <td>{currency(x.fine)}</td>
-                <td>{currency(x.net)}</td>
-                <td>
-                  <div className="actions">
-                    <DocButtons link path={w.root('certificates/' + x.id)} label="الشهادة" />
-                    {x.coverHtml ? (
-                      <DocButtons link path={w.root(`certificates/${x.id}/cover`)} label="كتاب التغطية" />
-                    ) : (
-                      w.can('ACCOUNTANT') && (
-                        <button className="link" onClick={() => w.open(coverDialog(x))}>
-                          إعداد كتاب التغطية
-                        </button>
-                      )
-                    )}
-                  </div>
-                </td>
-              </tr>
-            ))}
+        {c.evidence.length ? (
+          <Table heads={['المستند', 'الملف', 'التاريخ', '']}>
+            {c.evidence
+              .filter((e: Row) => e.status !== 'NA')
+              .map((e: Row) => (
+                <tr key={e.id}>
+                  <td>{EVIDENCE[e.code] ?? e.code}</td>
+                  <td>{e.name}</td>
+                  <td>{day(e.createdAt)}</td>
+                  <td>
+                    <button className="link" onClick={async () => downloadFile(await w.api(w.root('evidence/' + e.id)))}>
+                      تنزيل
+                    </button>
+                  </td>
+                </tr>
+              ))}
           </Table>
         ) : (
-          <Empty text="لم تصدر شهادات بعد" />
-        )}
-        {c.erp && (
-          <div className="success">
-            مسجلة في النظام الوزاري بالمرجع {c.erp.reference} بتاريخ {day(c.erp.date)}. إثبات يدوي، وليس اتصالاً مباشراً بالنظام الوزاري.
-          </div>
+          <p>يمكن إرفاق عروض الأسعار والفاتورة وسندات الاستلام ونسخ المستندات الموقعة للرجوع إليها.</p>
         )}
       </Panel>
+
+      {w.me.user.isTenantAdmin && (
+        <Panel title="صلاحيات مدير النظام">
+          <button
+            className="secondary danger"
+            onClick={() =>
+              w.open({
+                title: 'حذف المعاملة نهائياً',
+                intro: <p className="warn">تُحذف المعاملة وكل مستنداتها، وتُعاد مبالغها إلى أرصدة بنود الموازنة. لا يمكن التراجع.</p>,
+                fields: [{ name: 'confirm', label: 'اكتب كلمة «حذف» للتأكيد' }],
+                submit: 'حذف نهائي',
+                save: async (v) => {
+                  await w.api('admin/purge', 'POST', { scope: 'case', id: c.id, confirm: v.confirm });
+                  w.go('cases');
+                },
+              })
+            }
+          >
+            حذف المعاملة نهائياً
+          </button>
+        </Panel>
+      )}
     </>
   );
 }

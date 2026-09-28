@@ -31,7 +31,7 @@ echo "جارٍ تشغيل مَدار…"
 for _ in $(seq 1 60); do
   if curl -s -o /dev/null -f http://localhost:3000/; then
     echo "✅ مَدار يعمل الآن: $URL"
-    echo "الحسابات: admin / accountant / approver"
+    echo "الحسابات: accountant / admin / other"
     exit 0
   fi
   sleep 2

@@ -74,12 +74,12 @@ export function Budget() {
         actions={
           <>
             <DocButtons path={w.root('budget-estimate?year=' + w.year)} label="الموازنة التقديرية" />
-            {w.can('APPROVER', 'ACCOUNTANT') && (
+            {w.can('ACCOUNTANT') && (
               <button className="secondary" onClick={() => w.open(planDialog)}>
                 الافتراضات (الطلاب والهيئات)
               </button>
             )}
-            {w.can('APPROVER') && (
+            {w.can('ACCOUNTANT') && (
               <>
                 <button
                   className="secondary"
@@ -122,7 +122,7 @@ export function Budget() {
                       <b className={available(b) < 0 ? 'neg' : ''}>{currency(available(b))}</b>
                     </td>
                     <td>
-                      {w.can('APPROVER') && (
+                      {w.can('ACCOUNTANT') && (
                         <button className="link" onClick={() => w.open(lineDialog(b))}>
                           اعتماد / تعديل
                         </button>

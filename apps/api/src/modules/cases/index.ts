@@ -10,6 +10,7 @@ type CaseAction = (ctx: WriteCtx & { c: FullCase }) => Promise<any>;
 /** Workflow actions on an existing case: POST schools/:school/cases/:id/:action */
 const ACTIONS: Record<string, CaseAction> = {
   quotes: procurement.addQuote,
+  'quote-delete': procurement.removeQuote,
   'direct-order': procurement.directOrder,
   evaluate: procurement.evaluate,
   approve: procurement.approve,
@@ -24,6 +25,7 @@ const ACTIONS: Record<string, CaseAction> = {
   certificate: fulfilment.issueCertificate,
   cover: fulfilment.coverLetter,
   complete: fulfilment.completeFile,
+  finish: fulfilment.finish,
   erp: fulfilment.registerErp,
 };
 
