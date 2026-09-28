@@ -2,8 +2,8 @@ import { esc, fmtDate, money, num, printDocument, signatures } from './layout';
 
 /**
  * Comprehensive financial report (financial-analyst view) for one school, fiscal year and period:
- * executive summary, budget position by group and line, procurement activity, monthly trend,
- * supplier concentration, imprests and recommendations — with SVG charts drawn in the document so
+ * key figures, budget position by group and line, procurement activity, monthly trend,
+ * suppliers and imprests — figures and charts only, computed from the records (no written commentary) — with SVG charts drawn in the document so
  * they print and export to PDF exactly as shown.
  */
 
@@ -239,78 +239,11 @@ ${p1 > 0 ? `<path d="${arc}" fill="none" stroke="${C.spent}" stroke-width="13" p
 const kpi = (label: string, value: string, hint = '') =>
   `<div class="kpi"><span>${esc(label)}</span><b>${value}</b>${hint ? `<small>${hint}</small>` : ''}</div>`;
 
-/** Observations and recommendations written from the figures, the way an analyst would summarise them. */
-export function insights(d: FinanceData) {
-  const approved = d.groups.reduce((v, g) => v + g.approved, 0),
-    spent = d.groups.reduce((v, g) => v + g.spent, 0),
-    committed = d.groups.reduce((v, g) => v + g.committed, 0);
-  const used = ratio(spent, approved),
-    usedWithCommitments = ratio(spent + committed, approved);
-  const obs: string[] = [],
-    rec: string[] = [];
-  const gap = used - d.elapsed;
-  obs.push(
-    `بلغ المنصرف الفعلي ${num(n2(spent))} ر.ق بنسبة ${num(pct(used))} من الموازنة المعتمدة (${num(n2(approved))} ر.ق)، مقابل ${num(pct(d.elapsed))} منقضية من العام المالي؛ ${
-      Math.abs(gap) < 0.1
-        ? 'أي أن وتيرة الصرف متوافقة تقريباً مع الزمن'
-        : gap < 0
-          ? `أي أن الصرف أبطأ من المسار الزمني بفارق ${num(pct(-gap))}`
-          : `أي أن الصرف أسرع من المسار الزمني بفارق ${num(pct(gap))}`
-    }.`,
-  );
-  if (committed > 0)
-    obs.push(
-      `توجد ارتباطات قائمة (تكليفات لم تُنجز بعد) بقيمة ${num(n2(committed))} ر.ق، وبإضافتها تصل نسبة الاستخدام إلى ${num(pct(usedWithCommitments))}.`,
-    );
-  const top = [...d.groups].sort((a, b) => b.spent - a.spent)[0];
-  if (top && top.spent > 0) obs.push(`تستحوذ مجموعة «${esc(top.name)}» على ${num(pct(ratio(top.spent, spent)))} من الإنفاق الفعلي.`);
-  const crit = d.lines.filter((l) => ratio(l.spent + l.committed, l.approved) >= 0.9 && l.approved > 0);
-  if (crit.length) {
-    obs.push(`بنود قاربت النفاد (90% فأكثر مع الارتباطات): ${crit.map((l) => `«${esc(l.name)}»`).join('، ')}.`);
-    rec.push('مراجعة احتياجات البنود التي قاربت النفاد، وطلب مناقلة من بنود ذات فائض قبل إصدار تكليفات جديدة عليها.');
-  }
-  const idle = d.lines.filter((l) => l.approved > 0 && l.spent + l.committed === 0);
-  if (idle.length && d.elapsed >= 0.25) {
-    obs.push(
-      `بنود لم يُصرف منها حتى الآن: ${idle.map((l) => `«${esc(l.name)}»`).join('، ')} بإجمالي ${num(n2(idle.reduce((v, l) => v + l.approved, 0)))} ر.ق.`,
-    );
-    rec.push('وضع خطة شراء زمنية للبنود غير المستغلة، أو إعادة توجيه الفائض للبنود ذات الاحتياج الفعلي قبل نهاية العام.');
-  }
-  if (gap < -0.2) rec.push('تسريع تنفيذ خطة المشتريات؛ فالصرف أقل بوضوح من الوتيرة الزمنية للعام، مما قد يؤدي إلى وفر غير مستغل.');
-  if (gap > 0.15) rec.push('ضبط وتيرة الصرف ومراجعة أولويات المشتريات المتبقية حتى لا تنفد الموازنة قبل نهاية العام.');
-  if (d.docs.fines > 0) {
-    obs.push(`طُبقت غرامات تأخير بقيمة ${num(n2(d.docs.fines))} ر.ق على الموردين المتأخرين.`);
-    rec.push('متابعة الموردين المتأخرين وتضمين مدد تنفيذ واقعية في كتب التكليف.');
-  }
-  if (d.docs.late > 0) rec.push(`متابعة ${num(d.docs.late)} تكليف تجاوز موعد التنفيذ ولم تصدر شهادة إنجازه.`);
-  if (d.docs.incomplete > 0)
-    rec.push(
-      `استكمال ${num(d.docs.incomplete)} معاملة غير مكتملة بقيمة ${num(n2(d.docs.incompleteValue))} ر.ق (تقرير عروض أو تكليف أو شهادة إنجاز).`,
-    );
-  const supTotal = d.suppliers.reduce((v, s) => v + s.value, 0);
-  const s1 = d.suppliers[0];
-  if (s1 && supTotal > 0) {
-    const share = ratio(s1.value, supTotal);
-    obs.push(`أكبر مورد «${esc(s1.name)}» بحصة ${num(pct(share))} من قيمة التكليفات، من أصل ${num(d.suppliers.length)} مورد.`);
-    if (share > 0.4 && d.suppliers.length > 1) rec.push('تنويع قاعدة الموردين وتوسيع دعوات عروض الأسعار لخفض التركّز على مورد واحد.');
-  }
-  if (d.docs.savings > 0)
-    obs.push(
-      `حققت المنافسة بين عروض الأسعار وفراً تقديرياً ${num(n2(d.docs.savings))} ر.ق (الفرق بين متوسط العروض المقدمة وقيمة العرض المكلف).`,
-    );
-  const open = d.imprests.filter((i) => !i.closed);
-  const unsettled = open.reduce((v, i) => v + i.spent - i.settled, 0);
-  if (unsettled > 0) rec.push(`تسوية فواتير العهد غير المسواة (${num(n2(unsettled))} ر.ق) وطلب الاستعاضة عند بلوغ الحد.`);
-  if (!rec.length) rec.push('الأداء المالي منضبط؛ يوصى بالاستمرار على نفس الوتيرة ومتابعة الأرصدة شهرياً.');
-  return { obs, rec };
-}
-
 export function financeReport(d: FinanceData) {
   const approved = d.groups.reduce((v, g) => v + g.approved, 0),
     spent = d.groups.reduce((v, g) => v + g.spent, 0),
     committed = d.groups.reduce((v, g) => v + g.committed, 0),
     available = approved - spent - committed;
-  const { obs, rec } = insights(d);
   const elapsedMonths = d.monthly.findIndex((m) => m.month > new Date().toISOString().slice(0, 7));
   const status = (g: Group) => {
     const st = lineStatus(ratio(g.spent + g.committed, g.approved), d.elapsed);
@@ -343,7 +276,7 @@ export function financeReport(d: FinanceData) {
   const body = `<h1>التقرير المالي الشامل</h1>
 <p class="center fr-sub">${esc(d.school)} · مدير المدرسة: ${esc(d.principal)} · العام المالي ${num(d.year)} · الفترة من ${num(fmtDate(d.from))} إلى ${num(fmtDate(d.to))}</p>
 
-<h2>أولاً: الملخص التنفيذي</h2>
+<h2>أولاً: المؤشرات الرئيسية</h2>
 <div class="fr-top">
   <div class="fr-kpis">
     ${kpi('الموازنة المعتمدة', money(approved), 'ر.ق')}
@@ -359,7 +292,6 @@ export function financeReport(d: FinanceData) {
     { label: 'المنقضي من العام', color: C.ink, line: true },
   ])}</div>
 </div>
-<div class="fr-box"><b>أبرز الملاحظات</b><ul>${obs.map((o) => `<li>${o}</li>`).join('')}</ul></div>
 
 <h2>ثانياً: الموقف المالي حسب مجموعات الموازنة</h2>
 <table class="fr-table"><thead><tr><th class="r">المجموعة</th><th>المعتمد</th><th>المنصرف الفعلي</th><th>الارتباطات</th><th>الرصيد</th><th>نسبة الصرف</th><th>الحالة</th></tr></thead>
@@ -422,8 +354,6 @@ ${
     : '<p>لا توجد عهد في هذا العام.</p>'
 }
 
-<h2>سابعاً: التوصيات</h2>
-<div class="fr-box rec"><ol>${rec.map((r) => `<li>${r}</li>`).join('')}</ol></div>
 <p class="muted">أساس الأرقام: أرصدة البنود كما في تاريخ إعداد التقرير؛ المستندات والقيم الشهرية حسب تواريخ إصدارها خلال الفترة المختارة.</p>
 ${signatures([
   { role: 'المحاسب', name: d.preparedBy },
@@ -450,9 +380,6 @@ svg .g{font-size:24px;font-weight:700;fill:#1b2e3a}
 .fr-legend{display:flex;gap:5mm;justify-content:center;flex-wrap:wrap;font-size:8.8pt;color:#333;margin:1mm 0}
 .fr-legend i{display:inline-block;width:3mm;height:3mm;border-radius:.6mm;margin-left:1.2mm;vertical-align:middle}
 .fr-figure{border:.6pt solid #e2d5da;border-radius:2mm;padding:2.5mm 3mm;margin:3mm 0}
-.fr-box{border-right:2.5pt solid #8a1538;background:#fbf6f8;padding:2mm 4mm;margin:3mm 0;font-size:10.5pt}
-.fr-box ul,.fr-box ol{margin:1mm 5mm 0}
-.fr-box.rec{border-right-color:#1b6b52;background:#f4faf7}
 .fr-table{font-size:9.8pt}
 .fr-table td,.fr-table th{padding:1.2mm 1.8mm}
 .fr-table tr.grp td{background:#f3e7eb!important;font-weight:700;color:#4d0c20}

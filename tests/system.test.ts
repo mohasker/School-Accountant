@@ -924,10 +924,11 @@ test('SETTLEMENT: all invoices entered once on the settlement screen (Arabic dig
   assert.equal(after.expenses.length, 2);
   assert.ok(after.expenses.every((e: any) => e.settlementId === st.id));
 });
-test('FINANCIAL REPORT: analyst report with charts, groups, insights and Excel; home shows incomplete files', async () => {
+test('FINANCIAL REPORT: figures and charts by group and line, with Excel; home shows incomplete files', async () => {
   const r = (await req(acc, route(`financial-report?year=${year}&from=2026-01-01&to=2026-12-31`))).body;
-  for (const part of ['التقرير المالي الشامل', 'الملخص التنفيذي', 'شكل (1)', 'شكل (4)', 'التوصيات', '<svg', 'الموردون'])
+  for (const part of ['التقرير المالي الشامل', 'المؤشرات الرئيسية', 'شكل (1)', 'شكل (4)', '<svg', 'الموردون'])
     assert.ok(r.html.includes(part), part);
+  assert.ok(!r.html.includes('التوصيات') && !r.html.includes('أبرز الملاحظات'), 'figures and charts only');
   assert.ok((await req(acc, route(`financial-report?year=${year}&format=xlsx`))).body.base64.length > 1000);
   const d = (await req(acc, route('dashboard?year=' + year))).body;
   assert.equal(typeof d.incomplete.count, 'number');

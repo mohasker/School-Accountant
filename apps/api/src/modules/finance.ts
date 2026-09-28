@@ -4,7 +4,7 @@ import { db } from '../common/db';
 import { isoDay, today } from '../common/dates';
 import { id, parse } from '../common/validation';
 import { BUDGET_GROUPS } from '../print/budget';
-import { financeReport, insights, lineStatus, type FinanceData } from '../print/finance';
+import { financeReport, lineStatus, type FinanceData } from '../print/finance';
 import { IMPREST_TYPES } from '../print/imprest';
 import type { ReadCtx } from './context';
 
@@ -214,12 +214,6 @@ async function workbook(d: FinanceData) {
   total.font = { bold: true };
   [2, 3, 4, 5].forEach((i) => (total.getCell(i).numFmt = moneyFmt));
   total.getCell(6).numFmt = pctFmt;
-  sum.addRow([]);
-  const { obs, rec } = insights(d);
-  sum.addRow(['أبرز الملاحظات']).font = { bold: true };
-  obs.forEach((o) => sum.addRow(['•', plain(o)]));
-  sum.addRow(['التوصيات']).font = { bold: true };
-  rec.forEach((o, i) => sum.addRow([i + 1, plain(o)]));
   sum.columns.forEach((c, i) => (c.width = i === 1 ? 60 : 20));
 
   const lines = wb.addWorksheet('البنود', { views: [{ rightToLeft: true }] });
