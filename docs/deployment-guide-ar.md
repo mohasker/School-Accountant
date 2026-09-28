@@ -90,6 +90,17 @@
 
 السكربت يثبّت Docker، ويولّد كلمة مرور قاعدة البيانات، ويشغّل النظام بـ HTTPS، وينشئ مدير النظام ودليل البنود، ويجدول **نسخة احتياطية يومية** في `/var/backups/madar` (آخر 30 يوماً). **للتحديث لاحقاً:** أعد تشغيل نفس الأمر (يأخذ نسخة احتياطية أولاً ولا يمس البيانات).
 
+### خيار مجاني: Oracle Cloud (Always Free)
+خادم ARM مجاني دائماً حتى 4 معالجات و24 GB ذاكرة، ومنه مواقع قريبة (دبي، جدة، أبوظبي). مناسب للتجربة؛ للبيانات الحقيقية يُفضّل خادم مدفوع.
+1. سجّل في oracle.com/cloud/free (يطلب بطاقة للتحقق فقط).
+2. **Compute ← Instances ← Create**: الصورة Ubuntu 24.04، الشكل **VM.Standard.A1.Flex** (2 OCPU و12 GB)، ونزّل مفتاح SSH الذي يعطيك إياه.
+3. **Networking ← الشبكة ← Security List ← Add Ingress Rules**: المصدر `0.0.0.0/0` والمنافذ `80,443`.
+4. اتصل: `ssh -i المفتاح.key ubuntu@IP` ثم شغّل أمر التثبيت مع `sudo`:
+   ```bash
+   curl -fsSL https://raw.githubusercontent.com/mohasker/School-Accountant/main/deploy/install.sh | sudo bash
+   ```
+ملاحظات: أحياناً تظهر رسالة «Out of capacity» فجرّب لاحقاً أو منطقة أخرى، وقد توقف Oracle الخوادم المجانية الخاملة طويلاً.
+
 ### الخطوات اليدوية (بديل للسكربت)
 
 **1. تثبيت Docker وGit:**

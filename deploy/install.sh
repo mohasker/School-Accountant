@@ -78,6 +78,13 @@ EOF
 fi
 
 if command -v ufw > /dev/null && ufw status | grep -q active; then ufw allow 22/tcp > /dev/null; ufw allow 80/tcp > /dev/null; ufw allow 443/tcp > /dev/null; fi
+# Oracle Cloud Ubuntu images ship iptables rules that reject everything except SSH.
+if [ -f /etc/iptables/rules.v4 ] && command -v iptables > /dev/null; then
+  for port in 80 443; do
+    iptables -C INPUT -p tcp --dport $port -j ACCEPT 2> /dev/null || iptables -I INPUT 1 -p tcp --dport $port -j ACCEPT
+  done
+  iptables-save > /etc/iptables/rules.v4
+fi
 
 say "بناء وتشغيل النظام (أول مرة 5–10 دقائق)"
 "${COMPOSE[@]}" up --build -d
