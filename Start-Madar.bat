@@ -14,16 +14,21 @@ if errorlevel 1 (
   exit /b 1
 )
 
-if not exist node_modules (
-  echo  First run: installing packages - this takes a few minutes, once only...
-  call npm ci --no-audit --no-fund
-  if errorlevel 1 goto failed
-)
-if not exist apps\web\.next (
-  echo  First run: preparing the application...
-  call npm run build
-  if errorlevel 1 goto failed
-)
+rem Checks the installed tools themselves, so an interrupted first run is completed next time.
+if not exist node_modules\.bin\prisma.cmd goto install
+if not exist node_modules\.bin\next.cmd goto install
+if not exist node_modules\.bin\tsx.cmd goto install
+goto build
+:install
+echo  First run: installing packages - this takes a few minutes, once only...
+call npm ci --include=dev --no-audit --no-fund
+if errorlevel 1 goto failed
+:build
+if exist apps\web\.next\BUILD_ID if exist dist\main.js goto run
+echo  First run: preparing the application...
+call npm run build
+if errorlevel 1 goto failed
+:run
 
 if "%DEMO_PASSWORD%"=="" set "DEMO_PASSWORD=Madar-Trial-2026"
 echo.
