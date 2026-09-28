@@ -57,7 +57,15 @@ async function main() {
       '--port',
       '3000',
     ],
-    { stdio: 'inherit', env: { ...process.env, API_URL: 'http://127.0.0.1:3001', NEXT_TELEMETRY_DISABLED: '1' } },
+    {
+      stdio: 'inherit',
+      env: {
+        ...process.env,
+        API_URL: 'http://127.0.0.1:3001',
+        NEXT_TELEMETRY_DISABLED: '1',
+        NODE_ENV: process.env.DEMO_DEV === 'true' ? 'development' : 'production',
+      },
+    },
   );
   console.log(`Demo: ${process.env.WEB_ORIGIN} | Accounts: accountant, approver, admin, other. Use your DEMO_PASSWORD.`);
   let stopping = false;
