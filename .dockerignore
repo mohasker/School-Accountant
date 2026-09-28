@@ -1,0 +1,7 @@
+node_modules
+.data
+.env
+dist
+apps/web/.next
+docs/qa
+*.zip
