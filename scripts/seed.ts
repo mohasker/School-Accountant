@@ -14,7 +14,7 @@ async function main() {
   if (await db.tenant.count()) throw new Error('Seed requires an empty database. It never overwrites data.');
   const who = await people();
 
-  const t = await db.tenant.create({ data: { name: 'مَدار — بيانات تجريبية' } });
+  const t = await db.tenant.create({ data: { name: 'MOESAS — بيانات تجريبية' } });
   const schools = [];
   for (const [i, s] of DEMO_SCHOOLS.entries()) {
     const names = who.schools?.[s.key] ?? {};

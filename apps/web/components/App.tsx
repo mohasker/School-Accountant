@@ -5,6 +5,7 @@ import { downloadFile, ROLE_NAMES, showPrint } from '../lib/format';
 import { WorkspaceContext, type View, type Workspace } from './context';
 import { FormDialog, type Dialog } from './FormDialog';
 import { Logo } from './ui';
+import { APP_NAME, APP_TITLE } from '../lib/brand';
 import { AdminConsole } from '../views/AdminConsole';
 import { Audit } from '../views/Audit';
 import { Budget } from '../views/Budget';
@@ -180,12 +181,15 @@ export default function App() {
     <WorkspaceContext.Provider value={workspace}>
       <div className="app">
         <aside>
-          <div className="brand">
-            <Logo variant="emblem" />
-            <div>
-              <b>مَدار</b>
-              <small>المساعد المحاسبي للمدارس</small>
+          <div className="brand-card">
+            <div className="brand-row">
+              <Logo variant="mark" />
+              <div>
+                <b>{APP_NAME}</b>
+                <small>{APP_TITLE}</small>
+              </div>
             </div>
+            <Logo />
           </div>
           <nav>
             {NAV.filter((n) => !n.show || n.show({ can, me })).map((n) => (
@@ -296,7 +300,7 @@ export default function App() {
             )}
           </main>
           <footer className="page-footer">
-            مَدار V0 · المساعد المحاسبي للمدارس <span>العملة: ريال قطري · أيام العمل: الأحد – الخميس · التوقيت: قطر</span>
+            {APP_NAME} V0 · {APP_TITLE} <span>العملة: ريال قطري · أيام العمل: الأحد – الخميس · التوقيت: قطر</span>
           </footer>
         </div>
         {dialog && (
@@ -321,9 +325,11 @@ function Login({ onLogin }: { onLogin: (me: Row) => void }) {
   return (
     <div className="login">
       <section>
-        <Logo />
-        <h1>مَدار</h1>
-        <h2>المساعد المحاسبي للمدارس</h2>
+        <div className="login-logos">
+          <Logo variant="system" />
+          <Logo />
+        </div>
+        <h2>{APP_TITLE}</h2>
         <p>
           التكليفات وشهادات الإنجاز والعهد والموازنة
           <br />

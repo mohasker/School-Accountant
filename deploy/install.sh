@@ -73,7 +73,7 @@ DB_PASSWORD=$(openssl rand -hex 24)
 ADMIN_USERNAME=$ADMIN_USERNAME
 ADMIN_NAME="${ADMIN_NAME//\"/}"
 ADMIN_PASSWORD="$ADMIN_PASSWORD"
-TENANT_NAME="مَدار"
+TENANT_NAME="MOESAS"
 EOF
 fi
 
@@ -103,7 +103,7 @@ EOF
 mkdir -p /var/backups/madar
 
 DOMAIN=$(grep '^DOMAIN=' .env | cut -d= -f2)
-say "✅ مَدار يعمل: https://$DOMAIN"
+say "✅ MOESAS يعمل: https://$DOMAIN"
 echo "   ادخل باسم مدير النظام وكلمة المرور التي اخترتها."
 echo "   إن لم يفتح فوراً انتظر دقيقة لإصدار شهادة HTTPS. لو استخدمت دومينك تأكد أن سجل A يشير إلى هذا الخادم."
 echo "   للتحديث لاحقاً: أعد تشغيل نفس أمر التثبيت."

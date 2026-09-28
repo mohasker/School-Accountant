@@ -1,7 +1,7 @@
 @echo off
-rem Madar V0 - one-click trial on Windows (synthetic data, stored in the .data folder).
+rem MOESAS V0 - one-click trial on Windows (synthetic data, stored in the .data folder).
 rem Needs Node.js 22.12+ (https://nodejs.org). Keep this window open while using the system.
-title Madar V0
+title MOESAS V0
 cd /d "%~dp0"
 
 where node >nul 2>nul
@@ -39,7 +39,7 @@ if exist VERSION copy /y VERSION apps\web\.next\madar-version >nul
 if "%DEMO_PASSWORD%"=="" set "DEMO_PASSWORD=Madar-Trial-2026"
 echo.
 echo  ============================================================
-echo    Madar is starting. The browser opens by itself when ready.
+echo    MOESAS is starting. The browser opens by itself when ready.
 echo    Address : http://localhost:3000
 echo    Users   : accountant / admin / other
 echo    Password: %DEMO_PASSWORD%

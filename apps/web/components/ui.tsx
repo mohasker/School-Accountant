@@ -46,8 +46,10 @@ export function Panel({ title, actions, children }: { title?: React.ReactNode; a
   );
 }
 
-/** Screen logo (the letterhead banner is used only on printed documents). */
-export function Logo({ variant = 'full' }: { variant?: 'full' | 'emblem' }) {
+/** Screen logos: the system logo (MOESAS) with the ministry logo; the letterhead banner is used only on printed documents. */
+export function Logo({ variant = 'full' }: { variant?: 'full' | 'emblem' | 'system' | 'mark' }) {
+  if (variant === 'system') return <img className="logo system" src="/brand/moesas-logo.png" alt="MOESAS — نظام محاسب المدارس" />;
+  if (variant === 'mark') return <img className="logo mark" src="/brand/moesas-mark.png" alt="MOESAS" />;
   return variant === 'emblem' ? (
     <img className="logo emblem" src="/brand/moehe-emblem.png" alt="شعار وزارة التربية والتعليم والتعليم العالي" />
   ) : (

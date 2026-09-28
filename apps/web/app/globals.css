@@ -1404,3 +1404,74 @@ tr.clickable:hover td {
     width: 130px;
   }
 }
+
+/* System logo (MOESAS) with the ministry logo */
+.brand-card {
+  background: #fff;
+  border-radius: 14px;
+  padding: 14px 14px 12px;
+  margin: 0 4px 22px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.brand-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.brand-row b {
+  display: block;
+  color: var(--navy);
+  font-size: 24px;
+  letter-spacing: 1px;
+  line-height: 1.1;
+  font-family: 'UI', Calibri, Arial, sans-serif;
+}
+.brand-row small {
+  color: var(--wine);
+  font-size: 13px;
+  font-weight: 700;
+}
+.logo.mark {
+  height: 44px;
+  width: auto;
+}
+.brand-card .logo.full {
+  height: auto;
+  width: 100%;
+  padding-top: 10px;
+  border-top: 1px solid #e6ebef;
+}
+.login-logos {
+  background: #fff;
+  border-radius: 16px;
+  padding: 22px 26px;
+  display: flex;
+  align-items: center;
+  gap: 26px;
+  flex-wrap: wrap;
+  margin-bottom: 26px;
+  width: fit-content;
+  max-width: 100%;
+}
+.login .login-logos .logo.system {
+  height: 170px;
+  width: auto;
+  margin: 0;
+}
+.login .login-logos .logo.full {
+  width: 230px;
+  height: auto;
+  padding: 0;
+  margin: 0;
+  background: none;
+}
+@media (max-width: 900px) {
+  .login .login-logos .logo.system {
+    height: 120px;
+  }
+  .login .login-logos .logo.full {
+    width: 170px;
+  }
+}

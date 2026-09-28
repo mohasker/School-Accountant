@@ -27,10 +27,10 @@ else
   URL="http://localhost:3000"
 fi
 
-echo "جارٍ تشغيل مَدار…"
+echo "جارٍ تشغيل MOESAS…"
 for _ in $(seq 1 60); do
   if curl -s -o /dev/null -f http://localhost:3000/; then
-    echo "✅ مَدار يعمل الآن: $URL"
+    echo "✅ MOESAS يعمل الآن: $URL"
     echo "الحسابات: accountant / admin / other"
     exit 0
   fi
