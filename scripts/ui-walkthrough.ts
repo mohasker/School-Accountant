@@ -124,6 +124,16 @@ async function main() {
   await acc.waitForSelector('.modal');
   await shot(acc, '10-imprest-new-dialog');
   await acc.click('.modal-actions button.secondary');
+  await acc.click('button:has-text("إدخال الفواتير") >> nth=0');
+  await acc.waitForSelector('.invoice-rows');
+  await acc.fill('input[name=i_vendor_0]', 'محلات الجنوب التجارية');
+  await acc.fill('input[name=i_invoice_0]', '58770');
+  await acc.fill('input[name=i_desc_0]', 'ضيافة - بوفيه المدرسة');
+  await acc.type('input[name=i_amount_0]', '٤٥٠٫٧٥');
+  await shot(acc, '09b-settlement-invoices-dialog');
+  await acc.click('.modal-actions button.secondary');
+  await nav(acc, 'التقارير');
+  await shot(acc, '15-reports');
   await nav(acc, 'الإعدادات');
   await shot(acc, '13-settings');
   await acc.click('.theme >> nth=2');
@@ -141,6 +151,7 @@ async function main() {
   await printed(acc, stDocs.html, '24-print-petty-statement');
   await printed(acc, stDocs.cover, '25-print-petty-cover');
   await printed(acc, (await api(acc, root(`budget-estimate?year=${year}`))).html, '26-print-budget-estimate');
+  await printed(acc, (await api(acc, root(`financial-report?year=${year}`))).html, '27-print-financial-report');
   const pdfDir = OUT + '/pdf';
   mkdirSync(pdfDir, { recursive: true });
   const savePdf = async (path: string, name: string) => {
@@ -154,6 +165,7 @@ async function main() {
   await savePdf(root(`imprests/${petty.id}/${st.id}`), '5-petty-statement');
   await savePdf(root(`imprests/${petty.id}/${st.id}?part=cover`), '6-petty-cover');
   await savePdf(root(`budget-estimate?year=${year}`), '7-budget-estimate');
+  await savePdf(root(`financial-report?year=${year}`), '9-financial-report');
 
   // System administrator: console, account report, financial policy.
   const adminPage = await browser.newContext({ viewport: { width: 1440, height: 900 }, locale: 'ar-QA' }).then((x) => x.newPage());

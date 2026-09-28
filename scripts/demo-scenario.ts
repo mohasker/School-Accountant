@@ -80,8 +80,11 @@ export async function runScenario(api: string, origin: string, password: string)
       amount: '12000',
       reference: 'شيك رقم 100245',
     });
-    for (const [vendor, invoice, date, description, code, amount, note] of DEMO_PETTY)
-      await call(root(`imprests/${imprest.id}/expense`), 'POST', {
+    // Invoices are entered once, on the settlement screen, together with the statement.
+    await call(root(`imprests/${imprest.id}/settle`), 'POST', {
+      type: 'REPLENISH',
+      date: '2026-02-25',
+      invoices: DEMO_PETTY.map(([vendor, invoice, date, description, code, amount, note]) => ({
         vendor,
         invoice,
         date,
@@ -89,8 +92,8 @@ export async function runScenario(api: string, origin: string, password: string)
         budgetId: line(code),
         amount,
         note,
-      });
-    await call(root(`imprests/${imprest.id}/settle`), 'POST', { type: 'REPLENISH', date: '2026-02-25' });
+      })),
+    });
     const book = await call(root('imprests'), 'POST', {
       yearId: year,
       type: 'BOOK',
@@ -99,14 +102,20 @@ export async function runScenario(api: string, origin: string, password: string)
       amount: '5000',
       reference: 'شيك رقم 100311',
     });
-    await call(root(`imprests/${book.id}/expense`), 'POST', {
-      vendor: 'دار الثقافة للطباعة و الصحافة و النشر و التوزيع',
-      invoice: 'BF-2026-118',
-      date: '2026-05-12',
-      description: 'كتب مكتبة المدرسة - معرض الدوحة للكتاب',
-      budgetId: line('510201'),
-      amount: '980',
-      asset: true,
+    await call(root(`imprests/${book.id}/settle`), 'POST', {
+      type: 'CLOSE',
+      date: '2026-05-20',
+      invoices: [
+        {
+          vendor: 'دار الثقافة للطباعة و الصحافة و النشر و التوزيع',
+          invoice: 'BF-2026-118',
+          date: '2026-05-12',
+          description: 'كتب مكتبة المدرسة - معرض الدوحة للكتاب',
+          budgetId: line('510201'),
+          amount: '980',
+          asset: true,
+        },
+      ],
     });
   }
 

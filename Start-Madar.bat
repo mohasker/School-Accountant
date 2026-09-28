@@ -1,7 +1,7 @@
 @echo off
 rem MOESAS V0 - one-click trial on Windows (synthetic data, stored in the .data folder).
 rem Needs Node.js 22.12+ (https://nodejs.org). Keep this window open while using the system.
-title MOESAS V0
+title MOESAS V0 - Government Schools Accountants System
 cd /d "%~dp0"
 
 where node >nul 2>nul

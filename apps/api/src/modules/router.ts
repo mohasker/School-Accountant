@@ -4,6 +4,7 @@ import { transact } from '../core/transaction';
 import { readBudgetEstimate, readLedger, writeBudget, writeBudgetPlan } from './budgets';
 import { readCases, readCertificate, readDashboard, readEvidence, writeCases } from './cases';
 import type { Reader, Writer } from './context';
+import { readFinancialReport } from './finance';
 import { readImprests, writeImprests } from './imprests';
 import { readAudit, readReportRuns, readTransactionsReport } from './reports';
 import { readSetup, writeSchool, writeUser, writeYear } from './school';
@@ -20,6 +21,7 @@ const READERS: Record<string, Reader> = {
   ledger: readLedger,
   'budget-estimate': readBudgetEstimate,
   reports: readTransactionsReport,
+  'financial-report': readFinancialReport,
   'report-runs': readReportRuns,
   audit: readAudit,
 };

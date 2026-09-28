@@ -31,7 +31,17 @@ function scale(max: number) {
 const short = (v: number) => (v >= 1000 ? `${(v / 1000).toLocaleString('en-US', { maximumFractionDigits: 1 })}k` : String(v));
 
 /** Grouped vertical bars per month (one axis, same unit) with a hover card for the month. */
-export function MonthlyBars({ rows, series }: { rows: Record<string, any>[]; series: { key: string; label: string }[] }) {
+export function MonthlyBars({
+  rows,
+  series,
+  label = (r) => monthName(r.month),
+  aria = 'القيم الشهرية',
+}: {
+  rows: Record<string, any>[];
+  series: { key: string; label: string; color?: string }[];
+  label?: (r: Record<string, any>) => string;
+  aria?: string;
+}) {
   const [hover, setHover] = useState<number | null>(null);
   const max = Math.max(0, ...rows.flatMap((r) => series.map((s) => Number(r[s.key] || 0))));
   const { top, ticks } = scale(max);
@@ -45,9 +55,9 @@ export function MonthlyBars({ rows, series }: { rows: Record<string, any>[]; ser
   const y = (v: number) => 10 + plotH - (v / top) * plotH;
   return (
     <div className="chart">
-      <Legend items={series.map((s, i) => ({ label: s.label, color: SERIES[i] }))} />
+      <Legend items={series.map((s, i) => ({ label: s.label, color: s.color ?? SERIES[i] }))} />
       <div className="chart-box">
-        <svg viewBox={`0 0 ${W} ${H}`} role="img" aria-label="القيم الشهرية" onMouseLeave={() => setHover(null)}>
+        <svg viewBox={`0 0 ${W} ${H}`} role="img" aria-label={aria} onMouseLeave={() => setHover(null)}>
           {ticks.map((t) => (
             <g key={t}>
               <line x1={left} x2={W - 4} y1={y(t)} y2={y(t)} className="grid" />
@@ -60,7 +70,7 @@ export function MonthlyBars({ rows, series }: { rows: Record<string, any>[]; ser
             const gx = left + gi * groupW;
             const inner = series.length * (barW + 2) - 2;
             return (
-              <g key={r.month} onMouseEnter={() => setHover(gi)}>
+              <g key={gi} onMouseEnter={() => setHover(gi)}>
                 <rect x={gx} y={0} width={groupW} height={H - bottom} className={hover === gi ? 'hit on' : 'hit'} />
                 {series.map((s, si) => {
                   const v = Number(r[s.key] || 0),
@@ -69,13 +79,13 @@ export function MonthlyBars({ rows, series }: { rows: Record<string, any>[]; ser
                   return v > 0 ? (
                     <path
                       key={s.key}
-                      fill={SERIES[si]}
+                      fill={s.color ?? SERIES[si]}
                       d={`M${x},${y(0)} V${y(0) - Math.max(h - 3, 0)} q0,-3 3,-3 h${barW - 6} q3,0 3,3 V${y(0)} Z`}
                     />
                   ) : null;
                 })}
                 <text x={gx + groupW / 2} y={H - 8} className="tick" textAnchor="middle">
-                  {monthName(r.month)}
+                  {label(r)}
                 </text>
               </g>
             );
@@ -84,10 +94,10 @@ export function MonthlyBars({ rows, series }: { rows: Record<string, any>[]; ser
         </svg>
         {hover !== null && rows[hover] && (
           <div className="chart-tip" style={{ left: `${((left + (hover + 0.5) * groupW) / W) * 100}%` }}>
-            <b>{monthName(rows[hover].month)}</b>
+            <b>{label(rows[hover])}</b>
             {series.map((s, i) => (
               <span key={s.key}>
-                <i style={{ background: SERIES[i] }} />
+                <i style={{ background: s.color ?? SERIES[i] }} />
                 {s.label}: {currency(rows[hover][s.key])}
               </span>
             ))}
@@ -144,6 +154,96 @@ export function BudgetBars({ lines, compact }: { lines: Record<string, any>[]; c
           {all ? 'عرض أقل ▴' : `عرض كل البنود (${lines.length}) ▾`}
         </button>
       )}
+    </div>
+  );
+}
+
+/** Budget execution as one headline figure with a thin progress arc (spent, then commitments). */
+export function ExecutionGauge({
+  approved,
+  spent,
+  committed,
+  elapsed,
+}: {
+  approved: number;
+  spent: number;
+  committed: number;
+  elapsed: number;
+}) {
+  const R = 64,
+    C = Math.PI * R,
+    total = approved || 1;
+  const p1 = Math.min(1, spent / total),
+    p2 = Math.min(1 - p1, committed / total);
+  const arc = 'M16,84 A64,64 0 0 1 144,84';
+  return (
+    <div className="gauge">
+      <svg viewBox="0 0 160 96" role="img" aria-label={`نسبة التنفيذ ${Math.round(p1 * 100)}%`}>
+        <path d={arc} className="gauge-track" pathLength={C} />
+        {p2 > 0 && (
+          <path
+            d={arc}
+            stroke={SERIES[1]}
+            className="gauge-bar"
+            pathLength={C}
+            strokeDasharray={`0 ${p1 * C + 1} ${Math.max(p2 * C - 1, 0)} ${C}`}
+          />
+        )}
+        {p1 > 0 && <path d={arc} stroke={SERIES[0]} className="gauge-bar" pathLength={C} strokeDasharray={`${p1 * C} ${C}`} />}
+        <line
+          x1={80 - 58 * Math.cos(Math.PI * elapsed)}
+          y1={84 - 58 * Math.sin(Math.PI * elapsed)}
+          x2={80 - 76 * Math.cos(Math.PI * elapsed)}
+          y2={84 - 76 * Math.sin(Math.PI * elapsed)}
+          className="gauge-mark"
+        />
+        <text x="80" y="72" textAnchor="middle" className="gauge-value">
+          {Math.round(p1 * 1000) / 10}%
+        </text>
+        <text x="80" y="93" textAnchor="middle" className="gauge-label">
+          نسبة الصرف من المعتمد
+        </text>
+      </svg>
+      <Legend
+        items={[
+          { label: 'المصروف', color: SERIES[0] },
+          { label: 'الارتباطات', color: SERIES[1] },
+          { label: `المنقضي من العام ${Math.round(elapsed * 100)}%`, color: 'var(--ink)' },
+        ]}
+      />
+    </div>
+  );
+}
+
+/** Budget groups as labelled horizontal bars (approved, spent, commitments), readable at any width. */
+export function GroupBars({ groups }: { groups: Record<string, any>[] }) {
+  const parts = [
+    { key: 'approved', label: 'المعتمد', color: SERIES[2] },
+    { key: 'spent', label: 'المصروف', color: SERIES[0] },
+    { key: 'committed', label: 'الارتباطات', color: SERIES[1] },
+  ];
+  const max = Math.max(1, ...groups.map((g) => Number(g.approved)), ...groups.map((g) => Number(g.spent) + Number(g.committed)));
+  return (
+    <div className="chart">
+      <Legend items={parts} />
+      <div className="group-bars">
+        {groups.map((g) => (
+          <div key={g.key} className="group-bar">
+            <div className="hbar-label">
+              <span>{g.name}</span>
+              <small>{Math.round((1000 * Number(g.spent)) / (Number(g.approved) || 1)) / 10}% مصروف</small>
+            </div>
+            {parts.map((p) => (
+              <div className="gb-row" key={p.key} title={`${p.label}: ${currency(g[p.key])} ر.ق`}>
+                <span className="gb-track">
+                  <span style={{ width: `${(100 * Number(g[p.key])) / max}%`, background: p.color }} />
+                </span>
+                <small>{currency(g[p.key])}</small>
+              </div>
+            ))}
+          </div>
+        ))}
+      </div>
     </div>
   );
 }

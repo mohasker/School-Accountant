@@ -27,8 +27,46 @@ export function Reports() {
       w.fail(e);
     }
   };
+  const finPath = (extra = '') => w.root(`financial-report?year=${w.year}&from=${period.from}&to=${period.to}${extra}`);
   return (
     <>
+      <Panel title="التقرير المالي الشامل — تحليل الأداء المالي">
+        <p>
+          تقرير متكامل بأسلوب المحلل المالي: ملخص تنفيذي ومؤشرات، الموقف المالي حسب المجموعات والبنود، نشاط المشتريات، الاتجاه الشهري والصرف
+          التراكمي، تركّز الموردين، العهد، والتوصيات — مع رسوم بيانية توضيحية.
+        </p>
+        <div className="toolbar">
+          <label>
+            من
+            <input type="date" value={period.from} onChange={(e) => setPeriod({ ...period, from: e.target.value })} />
+          </label>
+          <label>
+            إلى
+            <input type="date" value={period.to} onChange={(e) => setPeriod({ ...period, to: e.target.value })} />
+          </label>
+          <DocButtons path={finPath()} label="التقرير المالي" />
+          <button
+            className="secondary"
+            onClick={async () => {
+              try {
+                downloadFile(await w.api(finPath('&format=xlsx')));
+              } catch (e) {
+                w.fail(e);
+              }
+            }}
+          >
+            تنزيل Excel
+          </button>
+        </div>
+        <div className="actions">
+          <button className="link" onClick={() => setPeriod({ ...period, from: dateNow().slice(0, 7) + '-01', to: dateNow() })}>
+            هذا الشهر
+          </button>
+          <button className="link" onClick={() => fy && setPeriod({ ...period, from: day(fy.startDate), to: day(fy.endDate) })}>
+            العام المالي كاملاً
+          </button>
+        </div>
+      </Panel>
       <Panel title="تقرير المعاملات لفترة محددة">
         <div className="toolbar">
           <label>
@@ -99,8 +137,14 @@ export function Reports() {
       </Panel>
       <Panel title="تقارير أخرى">
         <div className="actions">
+          <button className="secondary" onClick={() => w.go('quote-register')}>
+            تقارير عروض الأسعار
+          </button>
+          <button className="secondary" onClick={() => w.go('order-register')}>
+            التكليفات
+          </button>
           <button className="secondary" onClick={() => w.go('registry')}>
-            سجل شهادات الإنجاز والبحث
+            شهادات الإنجاز
           </button>
           <DocButtons path={w.root('budget-estimate?year=' + w.year)} label="الموازنة التقديرية" />
           <button className="secondary" onClick={() => w.go('imprests')}>

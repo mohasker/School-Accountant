@@ -1,5 +1,6 @@
 'use client';
 import React, { useState } from 'react';
+import { NumberInput } from './NumberInput';
 import { Select } from './Select';
 import type { Row } from '../lib/api';
 
@@ -78,14 +79,20 @@ export function FormDialog({ dialog, onClose, onSaved }: { dialog: Dialog; onClo
                   />
                 ) : f.type === 'textarea' ? (
                   <textarea name={f.name} defaultValue={f.value as string} required={f.required !== false} rows={3} />
-                ) : f.type === 'checkbox' ? null : (
+                ) : f.type === 'checkbox' ? null : f.type === 'number' ? (
+                  <NumberInput
+                    name={f.name}
+                    defaultValue={f.value as string}
+                    required={f.required !== false}
+                    integer={f.step === '1'}
+                    placeholder={f.step === '1' ? '0' : '0.00'}
+                  />
+                ) : (
                   <input
                     name={f.name}
                     type={f.type || 'text'}
                     defaultValue={f.value as string}
                     required={f.required !== false}
-                    step={f.step ?? (f.type === 'number' ? '0.01' : undefined)}
-                    min={f.min ?? (f.type === 'number' ? '0' : undefined)}
                     list={f.list}
                     autoComplete={f.list ? 'off' : undefined}
                   />
@@ -117,7 +124,7 @@ export function ItemLines({ budgets }: { budgets: Row[] }) {
         <div className="item-form" key={i}>
           <input name={'name_' + i} placeholder="وصف الصنف" aria-label="وصف الصنف" required />
           <input name={'unit_' + i} defaultValue="عدد" aria-label="الوحدة" required />
-          <input name={'qty_' + i} type="number" min="0.001" step="0.001" placeholder="الكمية" aria-label="الكمية" required />
+          <NumberInput name={'qty_' + i} placeholder="الكمية" aria-label="الكمية" required />
           <Select
             name={'budget_' + i}
             label="بند الموازنة"

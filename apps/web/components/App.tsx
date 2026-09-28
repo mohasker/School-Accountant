@@ -7,7 +7,7 @@ import { downloadFile, ERP_URL, ROLE_NAMES, showPrint } from '../lib/format';
 import { WorkspaceContext, type View, type Workspace } from './context';
 import { FormDialog, type Dialog } from './FormDialog';
 import { Logo } from './ui';
-import { APP_NAME, APP_TITLE } from '../lib/brand';
+import { APP_NAME, APP_TITLE, COPYRIGHT, CREDIT } from '../lib/brand';
 import { AdminConsole } from '../views/AdminConsole';
 import { Audit } from '../views/Audit';
 import { Budget } from '../views/Budget';
@@ -200,6 +200,7 @@ export default function App() {
               </div>
             </div>
             <Logo />
+            <p className="credit">{CREDIT}</p>
           </div>
           <nav>
             {NAV.filter((n) => !n.show || n.show({ can, me })).map((n) => (
@@ -314,7 +315,10 @@ export default function App() {
             )}
           </main>
           <footer className="page-footer">
-            {APP_NAME} V0 · {APP_TITLE} <span>العملة: ريال قطري · أيام العمل: الأحد – الخميس · التوقيت: قطر</span>
+            <span>
+              {APP_NAME} · {APP_TITLE} · {CREDIT}
+            </span>
+            <b className="copyright">{COPYRIGHT}</b>
           </footer>
         </div>
         {dialog && (
@@ -346,6 +350,7 @@ function Login({ onLogin }: { onLogin: (me: Row) => void }) {
           <Logo />
         </div>
         <h2>{APP_TITLE}</h2>
+        <p className="credit">{CREDIT}</p>
         <p>
           التكليفات وشهادات الإنجاز والعهد والموازنة
           <br />
@@ -394,6 +399,7 @@ function Login({ onLogin }: { onLogin: (me: Row) => void }) {
         <button disabled={busy}>{busy ? 'جارٍ التحقق…' : 'الدخول إلى مساحة العمل'}</button>
         <small>نظام مساعد شخصي لخدمة المحاسبين — ليس نظاماً حكومياً رسمياً.</small>
       </form>
+      <footer className="login-footer">{COPYRIGHT}</footer>
     </div>
   );
 }

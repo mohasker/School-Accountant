@@ -110,6 +110,58 @@ async function statementData(
   };
 }
 
+/** Records one invoice paid from the imprest (budget posting, balance and cash movement). */
+async function addExpense({ s, school, t }: WriteCtx, a: FullImprest, y: Awaited<ReturnType<typeof openYear>>, input: unknown) {
+  const p = parse(
+    z
+      .object({
+        budgetId: id,
+        vendor: text,
+        invoice: optionalText(100),
+        date,
+        description: text,
+        amount: money,
+        note: optionalText(300),
+        proof: optionalText(300),
+        asset: z.boolean().default(false),
+      })
+      .strict(),
+    input,
+  );
+  inYear(y, p.date);
+  if (p.date > today() || new D(p.amount).lte(0) || new D(p.amount).gt(a.balance)) fail('المبلغ أو التاريخ غير صالح أو يتجاوز رصيد العهدة');
+  if (!p.invoice && !p.note) fail('بدون رقم فاتورة يلزم ذكر السبب في الملاحظات');
+  if (a.type === 'PETTY') {
+    const policy = await loadPolicy(t, s.user.tenantId, p.date);
+    if (new D(p.amount).gt(policy.singleQuoteLimit))
+      fail(`الشراء من النثرية حتى ${amount(policy.singleQuoteLimit)} ريال للفاتورة؛ ما يزيد يتطلب عروض أسعار ومعاملة شراء`);
+  }
+  if (p.invoice && a.expenses.some((e) => e.invoice === p.invoice && e.vendor === p.vendor && e.amount.eq(p.amount)))
+    fail('الفاتورة مسجلة مسبقاً لنفس المورد والمبلغ');
+  const budget = await t.budget.findUnique({ where: { id: p.budgetId, schoolId: school, yearId: a.yearId } });
+  if (!budget) fail('بند موازنة غير صالح');
+  // Asset purchases (e.g. library books) keep the budget line but post to its asset account.
+  if (p.asset && !budget.assetCode) fail('هذا البند ليس له حساب أصل');
+  const { asset, ...fields } = p;
+  const e = await t.expense.create({
+    data: {
+      ...fields,
+      accountCode: asset ? budget.assetCode : budget.code,
+      date: new Date(p.date),
+      imprestId: a.id,
+      schoolId: school,
+      yearId: a.yearId,
+      createdBy: s.user.id,
+    },
+  });
+  await posting(t, p.budgetId, ZERO, new D(p.amount), 'expense:' + e.id, e.id, s.user.id);
+  await t.imprest.update({ where: { id: a.id }, data: { balance: { decrement: p.amount } } });
+  await t.cashMovement.create({
+    data: { imprestId: a.id, amount: new D(p.amount).neg(), kind: 'EXPENSE', reference: p.invoice || p.vendor, actor: s.user.id },
+  });
+  return e;
+}
+
 export async function writeImprests(ctx: WriteCtx) {
   const { s, school, t, body, rid, action } = ctx;
   if (!rid) return openImprest(ctx);
@@ -119,55 +171,7 @@ export async function writeImprests(ctx: WriteCtx) {
 
   if (action === 'expense') {
     scope(s, school, ACCOUNT);
-    const p = parse(
-      z
-        .object({
-          budgetId: id,
-          vendor: text,
-          invoice: optionalText(100),
-          date,
-          description: text,
-          amount: money,
-          note: optionalText(300),
-          proof: optionalText(300),
-          asset: z.boolean().default(false),
-        })
-        .strict(),
-      body,
-    );
-    inYear(y, p.date);
-    if (p.date > today() || new D(p.amount).lte(0) || new D(p.amount).gt(a.balance))
-      fail('المبلغ أو التاريخ غير صالح أو يتجاوز رصيد العهدة');
-    if (!p.invoice && !p.note) fail('بدون رقم فاتورة يلزم ذكر السبب في الملاحظات');
-    if (a.type === 'PETTY') {
-      const policy = await loadPolicy(t, s.user.tenantId, p.date);
-      if (new D(p.amount).gt(policy.singleQuoteLimit))
-        fail(`الشراء من النثرية حتى ${amount(policy.singleQuoteLimit)} ريال للفاتورة؛ ما يزيد يتطلب عروض أسعار ومعاملة شراء`);
-    }
-    if (p.invoice && a.expenses.some((e) => e.invoice === p.invoice && e.vendor === p.vendor && e.amount.eq(p.amount)))
-      fail('الفاتورة مسجلة مسبقاً لنفس المورد والمبلغ');
-    const budget = await t.budget.findUnique({ where: { id: p.budgetId, schoolId: school, yearId: a.yearId } });
-    if (!budget) fail('بند موازنة غير صالح');
-    // Asset purchases (e.g. library books) keep the budget line but post to its asset account.
-    if (p.asset && !budget.assetCode) fail('هذا البند ليس له حساب أصل');
-    const { asset, ...fields } = p;
-    const e = await t.expense.create({
-      data: {
-        ...fields,
-        accountCode: asset ? budget.assetCode : budget.code,
-        date: new Date(p.date),
-        imprestId: a.id,
-        schoolId: school,
-        yearId: a.yearId,
-        createdBy: s.user.id,
-      },
-    });
-    await posting(t, p.budgetId, ZERO, new D(p.amount), 'expense:' + e.id, e.id, s.user.id);
-    await t.imprest.update({ where: { id: a.id }, data: { balance: { decrement: p.amount } } });
-    await t.cashMovement.create({
-      data: { imprestId: a.id, amount: new D(p.amount).neg(), kind: 'EXPENSE', reference: p.invoice || p.vendor, actor: s.user.id },
-    });
-    return e;
+    return addExpense(ctx, a, y, body);
   }
 
   if (action === 'settle') {
@@ -180,10 +184,22 @@ export async function writeImprests(ctx: WriteCtx) {
           custodian: z.string().trim().max(150).optional(),
           principal: z.string().trim().max(150).optional(),
           reason: z.string().trim().max(500).default(''),
+          invoices: z.array(z.record(z.string(), z.unknown())).max(300).default([]),
         })
         .strict(),
       body,
     );
+    // Invoices are entered once, on the settlement screen, and recorded together with the statement.
+    if (p.invoices.length) scope(s, school, ACCOUNT);
+    for (const [i, row] of p.invoices.entries()) {
+      try {
+        await addExpense(ctx, await findImprest(t, school, a.id), y, row);
+      } catch (e: any) {
+        if (e?.getStatus?.() === 400 || e?.status === 400) fail(`الفاتورة ${i + 1}: ${e.message}`);
+        throw e;
+      }
+    }
+    if (p.invoices.length) Object.assign(a, await findImprest(t, school, a.id));
     const expenses = a.expenses.filter((e) => !e.settlementId);
     if (!expenses.length) fail('لا توجد مصروفات غير مسواة');
     const info = await status(t, s.user.tenantId, a);

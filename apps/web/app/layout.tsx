@@ -1,7 +1,7 @@
 import './globals.css';
 
 export const metadata = {
-  title: 'MOESAS | نظام محاسب المدارس',
+  title: 'MOESAS | نظام محاسبي المدارس الحكومية',
   icons: { icon: '/brand/moesas-mark.png' },
   description: 'التكليفات وشهادات الإنجاز والعهد والموازنة للمدارس',
 };

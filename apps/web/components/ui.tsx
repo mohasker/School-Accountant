@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { downloadFile, EVIDENCE_STATUS, STATE_NAMES } from '../lib/format';
 import { useWorkspace } from './context';
 
@@ -48,7 +48,7 @@ export function Panel({ title, actions, children }: { title?: React.ReactNode; a
 
 /** Screen logos: the system logo (MOESAS) with the ministry logo; the letterhead banner is used only on printed documents. */
 export function Logo({ variant = 'full' }: { variant?: 'full' | 'emblem' | 'system' | 'mark' }) {
-  if (variant === 'system') return <img className="logo system" src="/brand/moesas-logo.png" alt="MOESAS — نظام محاسب المدارس" />;
+  if (variant === 'system') return <img className="logo system" src="/brand/moesas-logo.png" alt="MOESAS — نظام محاسبي المدارس الحكومية" />;
   if (variant === 'mark') return <img className="logo mark" src="/brand/moesas-mark.png" alt="MOESAS" />;
   return variant === 'emblem' ? (
     <img className="logo emblem" src="/brand/moehe-emblem.png" alt="شعار وزارة التربية والتعليم والتعليم العالي" />
@@ -74,11 +74,9 @@ export function Stat({ label, value, hint, onClick }: { label: string; value: Re
  */
 export function DocButtons({ path, label, part, link }: { path: string; label: string; part?: 'cover'; link?: boolean }) {
   const w = useWorkspace();
-  const [open, setOpen] = useState(false);
   const cls = link ? 'link' : 'secondary';
   const title = label || 'المستند';
   const send = async (via: 'mail' | 'whatsapp') => {
-    setOpen(false);
     try {
       const file = await w.api(path + (path.includes('?') ? '&' : '?') + 'pdf=1' + (part ? '&part=' + part : ''));
       const bytes = Uint8Array.from(atob(file.base64), (c) => c.charCodeAt(0));
@@ -119,21 +117,31 @@ export function DocButtons({ path, label, part, link }: { path: string; label: s
       <button className={cls + ' pdf'} disabled={w.busy} onClick={() => w.pdf(path, part)} title={'تنزيل ' + title + ' PDF'}>
         PDF
       </button>
-      <span className="send">
-        <button className={cls + ' send-btn'} onClick={() => setOpen((o) => !o)} aria-expanded={open} title={'إرسال ' + title}>
-          إرسال ▾
-        </button>
-        {open && (
-          <span className="send-menu" onMouseLeave={() => setOpen(false)}>
-            <button type="button" onClick={() => send('mail')}>
-              ✉ بالبريد الإلكتروني
-            </button>
-            <button type="button" onClick={() => send('whatsapp')}>
-              ◉ عبر واتساب
-            </button>
-          </span>
-        )}
-      </span>
+      <button className={cls + ' mail-btn'} onClick={() => send('mail')} title={'إرسال ' + title + ' بالبريد الإلكتروني'}>
+        ✉ بريد
+      </button>
+      <button className={cls + ' wa-btn'} onClick={() => send('whatsapp')} title={'إرسال ' + title + ' عبر واتساب'}>
+        <WhatsAppIcon /> واتساب
+      </button>
     </span>
+  );
+}
+
+/** WhatsApp mark in its green, for the send buttons. */
+export function WhatsAppIcon({ size = 16 }: { size?: number }) {
+  return (
+    <svg className="wa-icon" width={size} height={size} viewBox="0 0 32 32" aria-hidden="true">
+      <path fill="#25D366" d="M16 2.6A13.4 13.4 0 0 0 4.4 22.7L2.6 29.4l6.9-1.8A13.4 13.4 0 1 0 16 2.6z" />
+      <path
+        fill="none"
+        stroke="#fff"
+        strokeWidth="1.8"
+        d="M16 5.6a10.4 10.4 0 0 0-8.9 15.8l.3.5-1.1 4 4.1-1.1.5.3A10.4 10.4 0 1 0 16 5.6z"
+      />
+      <path
+        fill="#fff"
+        d="M12.3 10.4c-.3-.6-.6-.6-.9-.6h-.8c-.3 0-.7.1-1 .5-.4.4-1.4 1.3-1.4 3.2s1.4 3.7 1.6 4c.2.2 2.7 4.3 6.6 5.8 3.3 1.3 4 1 4.7.9.7-.1 2.3-.9 2.6-1.9.3-.9.3-1.7.2-1.9-.1-.2-.3-.3-.7-.5l-2.6-1.2c-.3-.1-.6-.2-.8.2-.2.4-.9 1.2-1.2 1.4-.2.2-.4.3-.8.1-.4-.2-1.6-.6-3.1-1.9-1.1-1-1.9-2.3-2.1-2.7-.2-.4 0-.6.2-.8l.6-.7c.2-.2.3-.4.4-.7.1-.3 0-.5 0-.7l-1.2-2.8z"
+      />
+    </svg>
   );
 }

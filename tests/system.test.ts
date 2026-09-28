@@ -901,3 +901,44 @@ test('REGISTERS: quote reports and assignment letters by school, accountant, com
   assert.equal((await req(o, 'registry/cases?type=order')).body.rows.length, 0, 'another school sees nothing');
   assert.equal((await req(o, `registry/cases?type=order&school=${school}`)).status, 400);
 });
+test('SETTLEMENT: all invoices entered once on the settlement screen (Arabic digits accepted by the client)', async () => {
+  const a = await ok(acc, 'imprests', {
+    yearId: year,
+    name: 'عهدة يوم التعليم',
+    custodian: 'أمين العهدة',
+    type: 'EDUCATION',
+    amount: '2000',
+    reference: 'EDU-1',
+  });
+  const invoices = [
+    { vendor: 'مكتبة الجامعة', invoice: 'S-1', date: '2026-09-20', description: 'مستلزمات', budgetId: budget, amount: '350.5', note: '' },
+    { vendor: 'مطبعة الدوحة', invoice: '', date: '2026-09-21', description: 'طباعة', budgetId: budget, amount: '120', note: 'بدون فاتورة' },
+  ];
+  const bad = await req(acc, route(`imprests/${a.id}/settle`), 'POST', { type: 'CLOSE', invoices: [{ ...invoices[0], amount: '9999' }] });
+  assert.equal(bad.status, 400);
+  assert.match(bad.body.message, /الفاتورة 1/);
+  assert.equal((await req(acc, route('imprests?year=' + year))).body.find((x: any) => x.id === a.id).expenses.length, 0, 'rolled back');
+  const st = await ok(acc, `imprests/${a.id}/settle`, { type: 'CLOSE', invoices });
+  assert.equal(Number(st.amount), 470.5);
+  const after = (await req(acc, route('imprests?year=' + year))).body.find((x: any) => x.id === a.id);
+  assert.equal(after.expenses.length, 2);
+  assert.ok(after.expenses.every((e: any) => e.settlementId === st.id));
+});
+test('FINANCIAL REPORT: analyst report with charts, groups, insights and Excel; home shows incomplete files', async () => {
+  const r = (await req(acc, route(`financial-report?year=${year}&from=2026-01-01&to=2026-12-31`))).body;
+  for (const part of ['التقرير المالي الشامل', 'الملخص التنفيذي', 'شكل (1)', 'شكل (4)', 'التوصيات', '<svg', 'الموردون'])
+    assert.ok(r.html.includes(part), part);
+  assert.ok((await req(acc, route(`financial-report?year=${year}&format=xlsx`))).body.base64.length > 1000);
+  const d = (await req(acc, route('dashboard?year=' + year))).body;
+  assert.equal(typeof d.incomplete.count, 'number');
+  assert.ok(Array.isArray(d.budget.groups) && d.budget.groups.length >= 1);
+  assert.equal((await req(acc, `schools/00000000-0000-4000-8000-000000000000/financial-report?year=${year}`)).status, 403);
+});
+test('NUMBERS: hand-typed amounts in Arabic or English digits are cleaned for entry', async () => {
+  const { toNumberText } = await import('../apps/web/components/NumberInput');
+  assert.equal(toNumberText('١٢٬٣٤٥٫٥٠'.replace('٬', ',')), '12345.50');
+  assert.equal(toNumberText('1,250.75'), '1250.75');
+  assert.equal(toNumberText('۳۵۰'), '350');
+  assert.equal(toNumberText('12.5.3'), '12.53');
+  assert.equal(toNumberText('15.7', true), '15');
+});

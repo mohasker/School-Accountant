@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useWorkspace, type Workspace } from '../components/context';
 import type { Dialog, Field } from '../components/FormDialog';
 import { Badge, DocButtons, Empty, Panel, Table } from '../components/ui';
+import { NumberInput } from '../components/NumberInput';
 import { useLoad } from '../components/useLoad';
 import type { Row } from '../lib/api';
 import { currency, dateNow, day, downloadFile, ERP_URL, EVIDENCE, EVIDENCE_ORDER, METHOD_NAMES, readBase64 } from '../lib/format';
@@ -74,7 +75,7 @@ function QuoteRows({ suppliers }: { suppliers: Row[] }) {
           <div className="quote-row" key={i}>
             <span className="n">{i + 1}</span>
             <input name={'q_name_' + i} list="companies" autoComplete="off" placeholder="اسم الشركة" required={i === 0} />
-            <input name={'q_total_' + i} type="number" min="0.01" step="0.01" placeholder="0.00" required={i === 0} />
+            <NumberInput name={'q_total_' + i} placeholder="0.00" required={i === 0} />
             <input name={'q_ref_' + i} placeholder="—" />
           </div>
         ))}
@@ -132,7 +133,7 @@ export function caseDialogs(w: Workspace, c: Row) {
                 {c.items.map((i: Row) => (
                   <label key={i.id}>
                     {i.name} — {i.qty} {i.unit}
-                    <input name={'v_' + i.id} type="number" min="0.01" step="0.01" required />
+                    <NumberInput name={'v_' + i.id} placeholder="0.00" required />
                   </label>
                 ))}
               </>
@@ -204,7 +205,7 @@ export function caseDialogs(w: Workspace, c: Row) {
         {c.items.map((i: Row) => (
           <label key={i.id}>
             {i.name} — {i.qty} {i.unit}
-            <input name={'v_' + i.id} type="number" min="0.01" step="0.01" required />
+            <NumberInput name={'v_' + i.id} placeholder="0.00" required />
           </label>
         ))}
       </>

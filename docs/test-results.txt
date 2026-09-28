@@ -1,45 +1,244 @@
+
+> school-accounting@0.0.0 test
+> node --import tsx --test --test-concurrency=1 tests/*.test.ts
+
+TAP version 13
 # Subtest: PEN: exact partial delivery and single cumulative cap
+ok 1 - PEN: exact partial delivery and single cumulative cap
+  ---
+  duration_ms: 5715.269275
+  type: 'test'
+  ...
 # Subtest: AUTH: school isolation on list, search, dashboard and mutation
+ok 2 - AUTH: school isolation on list, search, dashboard and mutation
+  ---
+  duration_ms: 51.560586
+  type: 'test'
+  ...
 # Subtest: AUTH: CSRF rejected and logout revokes copied session
+ok 3 - AUTH: CSRF rejected and logout revokes copied session
+  ---
+  duration_ms: 96.840926
+  type: 'test'
+  ...
 # Subtest: SUPPLIER: create/update conflict/delete/atomic duplicate import
-# (node:6914) DeprecationWarning: Calling client.query() when the client is already executing a query is deprecated and will be removed in pg@9.0. Use async/await or an external async flow control mechanism instead.
+ok 4 - SUPPLIER: create/update conflict/delete/atomic duplicate import
+  ---
+  duration_ms: 101.367267
+  type: 'test'
+  ...
+# (node:4517) DeprecationWarning: Calling client.query() when the client is already executing a query is deprecated and will be removed in pg@9.0. Use async/await or an external async flow control mechanism instead.
 # (Use `node --trace-deprecation ...` to show where the warning was created)
 # Subtest: WORKFLOW: quote report awards the lowest, the accountant issues the assignment and reserves budget
+ok 5 - WORKFLOW: quote report awards the lowest, the accountant issues the assignment and reserves budget
+  ---
+  duration_ms: 380.9015
+  type: 'test'
+  ...
 # Subtest: WORKFLOW: cross-school case and attachment inaccessible
+ok 6 - WORKFLOW: cross-school case and attachment inaccessible
+  ---
+  duration_ms: 5.843372
+  type: 'test'
+  ...
 # Subtest: DELIVERY: idempotent partial acceptance, reject oversupply, rollback
+ok 7 - DELIVERY: idempotent partial acceptance, reject oversupply, rollback
+  ---
+  duration_ms: 206.795575
+  type: 'test'
+  ...
 # Subtest: DOCS: attachments are optional; forged file rejected
+ok 8 - DOCS: attachments are optional; forged file rejected
+  ---
+  duration_ms: 954.411083
+  type: 'test'
+  ...
 # Subtest: FINANCE: partial certificate consumes only accepted quantity once
+ok 9 - FINANCE: partial certificate consumes only accepted quantity once
+  ---
+  duration_ms: 157.043698
+  type: 'test'
+  ...
 # Subtest: FINANCE: late remainder fine 200, final certificate, covering letter, completeness, ERP no double posting
+ok 10 - FINANCE: late remainder fine 200, final certificate, covering letter, completeness, ERP no double posting
+  ---
+  duration_ms: 606.38043
+  type: 'test'
+  ...
 # Subtest: ARCHIVE: old certificate stays unchanged after supplier rename
+ok 11 - ARCHIVE: old certificate stays unchanged after supplier rename
+  ---
+  duration_ms: 72.730348
+  type: 'test'
+  ...
 # Subtest: MINISTRY: independent direct order with no fabricated quote
+ok 12 - MINISTRY: independent direct order with no fabricated quote
+  ---
+  duration_ms: 236.625373
+  type: 'test'
+  ...
 # Subtest: BUDGET: competing orders cannot overcommit and cancellation releases residual
+ok 13 - BUDGET: competing orders cannot overcommit and cancellation releases residual
+  ---
+  duration_ms: 618.305781
+  type: 'test'
+  ...
 # Subtest: IMPREST: 75% replenishment rule, petty invoice limit, settlement documents, replenishment and close
+ok 14 - IMPREST: 75% replenishment rule, petty invoice limit, settlement documents, replenishment and close
+  ---
+  duration_ms: 395.47112
+  type: 'test'
+  ...
 # Subtest: IMPREST: book fair imprest is settled and closed, never replenished
+ok 15 - IMPREST: book fair imprest is settled and closed, never replenished
+  ---
+  duration_ms: 153.189148
+  type: 'test'
+  ...
 # Subtest: REPORTS: headers include school accountant period and isolation
+ok 16 - REPORTS: headers include school accountant period and isolation
+  ---
+  duration_ms: 56.380228
+  type: 'test'
+  ...
 # Subtest: DATABASE: audit history immutable; invalid budget fails constraint
+ok 17 - DATABASE: audit history immutable; invalid budget fails constraint
+  ---
+  duration_ms: 33.810061
+  type: 'test'
+  ...
 # Subtest: CLOSED YEAR: disallows new financial writes
+ok 18 - CLOSED YEAR: disallows new financial writes
+  ---
+  duration_ms: 26.768055
+  type: 'test'
+  ...
 # Subtest: TAFQEET: Qatari riyal amount in words
+ok 19 - TAFQEET: Qatari riyal amount in words
+  ---
+  duration_ms: 3.950301
+  type: 'test'
+  ...
 # Subtest: PRINT: official templates carry the logo, order number, working-day terms and amount in words
+ok 20 - PRINT: official templates carry the logo, order number, working-day terms and amount in words
+  ---
+  duration_ms: 132.33926
+  type: 'test'
+  ...
 # Subtest: PROCUREMENT: one quote up to 1000, three above it unless exclusive, tender above 200000
+ok 21 - PROCUREMENT: one quote up to 1000, three above it unless exclusive, tender above 200000
+  ---
+  duration_ms: 812.061857
+  type: 'test'
+  ...
 # Subtest: HOLIDAYS: every user maintains the official holidays
+ok 22 - HOLIDAYS: every user maintains the official holidays
+  ---
+  duration_ms: 77.433531
+  type: 'test'
+  ...
 # Subtest: POLICY: threshold changes are dated history and apply to new evaluations
+ok 23 - POLICY: threshold changes are dated history and apply to new evaluations
+  ---
+  duration_ms: 290.676004
+  type: 'test'
+  ...
 # Subtest: REGISTRY: certificate register across own schools only, with Excel export
+ok 24 - REGISTRY: certificate register across own schools only, with Excel export
+  ---
+  duration_ms: 114.496204
+  type: 'test'
+  ...
 # Subtest: BUDGET: catalog lines, school/kindergarten split, assumptions and estimate print
+ok 25 - BUDGET: catalog lines, school/kindergarten split, assumptions and estimate print
+  ---
+  duration_ms: 103.069242
+  type: 'test'
+  ...
 # Subtest: DASHBOARD: late orders and replenishment alerts
+ok 26 - DASHBOARD: late orders and replenishment alerts
+  ---
+  duration_ms: 19.274069
+  type: 'test'
+  ...
 # Subtest: LIBRARY: expense account 510201 with books on asset account 110805
+ok 27 - LIBRARY: expense account 510201 with books on asset account 110805
+  ---
+  duration_ms: 236.042917
+  type: 'test'
+  ...
 # Subtest: ADMIN: system administrator sees every school, account overview and per-account report
+ok 28 - ADMIN: system administrator sees every school, account overview and per-account report
+  ---
+  duration_ms: 300.978845
+  type: 'test'
+  ...
 # Subtest: ADMIN: password reset, deactivation, role removal
+ok 29 - ADMIN: password reset, deactivation, role removal
+  ---
+  duration_ms: 725.040837
+  type: 'test'
+  ...
 # Subtest: PDF: server-side export of a stored document
+ok 30 - PDF: server-side export of a stored document
+  ---
+  duration_ms: 1088.57408
+  type: 'test'
+  ...
 # Subtest: FLOW: four documents — quote report (lowest wins), assignment, certificate and covering letter in one step
+ok 31 - FLOW: four documents — quote report (lowest wins), assignment, certificate and covering letter in one step
+  ---
+  duration_ms: 532.490522
+  type: 'test'
+  ...
 # Subtest: PERMISSIONS: accountants add schools and fiscal years; policy and purge are for the administrator
+ok 32 - PERMISSIONS: accountants add schools and fiscal years; policy and purge are for the administrator
+  ---
+  duration_ms: 276.660648
+  type: 'test'
+  ...
 # Subtest: PURGE: the administrator deletes a file or an imprest and the budget balances are restored
+ok 33 - PURGE: the administrator deletes a file or an imprest and the budget balances are restored
+  ---
+  duration_ms: 199.049378
+  type: 'test'
+  ...
 # Subtest: QUOTES: the quote report takes only company and value; item values are set for the awarded company
+ok 34 - QUOTES: the quote report takes only company and value; item values are set for the awarded company
+  ---
+  duration_ms: 386.454204
+  type: 'test'
+  ...
 # Subtest: REGISTERS: quote reports and assignment letters by school, accountant, company and period, with print and Excel
-# tests 35
+ok 35 - REGISTERS: quote reports and assignment letters by school, accountant, company and period, with print and Excel
+  ---
+  duration_ms: 342.480077
+  type: 'test'
+  ...
+# Subtest: SETTLEMENT: all invoices entered once on the settlement screen (Arabic digits accepted by the client)
+ok 36 - SETTLEMENT: all invoices entered once on the settlement screen (Arabic digits accepted by the client)
+  ---
+  duration_ms: 208.793119
+  type: 'test'
+  ...
+# Subtest: FINANCIAL REPORT: analyst report with charts, groups, insights and Excel; home shows incomplete files
+ok 37 - FINANCIAL REPORT: analyst report with charts, groups, insights and Excel; home shows incomplete files
+  ---
+  duration_ms: 107.678025
+  type: 'test'
+  ...
+# Subtest: NUMBERS: hand-typed amounts in Arabic or English digits are cleaned for entry
+ok 38 - NUMBERS: hand-typed amounts in Arabic or English digits are cleaned for entry
+  ---
+  duration_ms: 9.725324
+  type: 'test'
+  ...
+1..38
+# tests 38
 # suites 0
-# pass 35
+# pass 38
 # fail 0
 # cancelled 0
 # skipped 0
 # todo 0
-# duration_ms 15495.110892
+# duration_ms 16652.559057

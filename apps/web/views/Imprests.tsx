@@ -1,5 +1,8 @@
 'use client';
+import { useState } from 'react';
 import { useWorkspace } from '../components/context';
+import { NumberInput, toNumberText } from '../components/NumberInput';
+import { Select } from '../components/Select';
 import { openImprestDialog } from '../components/dialogs';
 import type { Dialog } from '../components/FormDialog';
 import { DocButtons, Empty, Panel, Table } from '../components/ui';
@@ -12,39 +15,8 @@ export function Imprests() {
   const [rows] = useLoad<Row[]>(() => w.api(w.root('imprests?year=' + w.year)));
   const policy = w.setup.policy || {};
   const school = w.setup.school || {};
+  const vendors = [...new Set((rows || []).flatMap((a) => a.expenses.map((e: Row) => e.vendor)))] as string[];
   const post = (a: Row, action: string, body: Row) => w.api(w.root(`imprests/${a.id}/${action}`), 'POST', body);
-
-  const expenseDialog = (a: Row): Dialog => ({
-    title: 'تسجيل فاتورة مصروفة من العهدة',
-    intro:
-      a.type === 'PETTY' ? (
-        <p>الشراء من النثرية للاحتياجات الطارئة والضرورية حتى {currency(policy.singleQuoteLimit)} ر.ق للفاتورة.</p>
-      ) : undefined,
-    fields: [
-      { name: 'vendor', label: 'المورد' },
-      { name: 'invoice', label: 'رقم الفاتورة', required: false },
-      { name: 'date', label: 'تاريخ الفاتورة', type: 'date', value: dateNow() },
-      { name: 'description', label: 'البيان (التفاصيل)' },
-      {
-        name: 'budgetId',
-        label: 'البند',
-        type: 'select',
-        options: (w.setup.budgets || []).map((b: Row) => ({
-          value: b.id,
-          label: `${b.name} (${b.code}${b.assetCode ? ' / أصل ' + b.assetCode : ''})`,
-        })),
-      },
-      { name: 'amount', label: 'المبلغ', type: 'number' },
-      { name: 'note', label: 'ملاحظات (مثل: ليس لديهم فاتورة إلكترونية)', required: false },
-      {
-        name: 'asset',
-        label: 'شراء أصل على حساب الأصل للبند (مثل كتب المكتبة 110805)',
-        type: 'checkbox',
-        required: false,
-      },
-    ],
-    save: (v) => post(a, 'expense', v),
-  });
 
   /** Settlement screen: shows the imprest figures, then asks for replenishment or settlement and closure. */
   const settleDialog = (a: Row): Dialog => {
@@ -77,26 +49,15 @@ export function Imprests() {
               </b>
             </div>
           </div>
-          {a.type === 'PETTY' && !s.canReplenish && (
-            <p className="warn">
-              لم يبلغ المنصرف {percent(s.replenishPct)} من قيمة العهدة؛ الاستعاضة غير متاحة بعد، ويمكن التسوية والإغلاق.
-            </p>
-          )}
-          <button
-            type="button"
-            className="secondary"
-            onClick={async () => {
-              const type = (document.querySelector('input[name="type"]') as HTMLInputElement)?.value || 'REPLENISH';
-              try {
-                const r = await w.api(w.root(`imprests/${a.id}/preview?type=${type}`));
-                w.printHtml(r.html);
-              } catch (e) {
-                w.fail(e);
-              }
-            }}
-          >
-            معاينة الكشف قبل الحفظ
-          </button>
+          <p>
+            أدخل كل فواتير الفترة مرة واحدة هنا (المورد، الرقم، التاريخ، البيان، البند، المبلغ)؛ تُسجَّل مع إصدار كشف التسوية وكتاب التغطية.
+            {a.type === 'PETTY' && (
+              <>
+                {' '}
+                الاستعاضة عند بلوغ المنصرف {percent(s.replenishPct)} من قيمة العهدة ({currency(s.threshold)} ر.ق).
+              </>
+            )}
+          </p>
         </>
       ),
       fields: [
@@ -104,7 +65,7 @@ export function Imprests() {
           name: 'type',
           label: 'المطلوب',
           type: 'select',
-          value: s.canReplenish ? 'REPLENISH' : 'CLOSE',
+          value: a.type === 'PETTY' ? 'REPLENISH' : 'CLOSE',
           options: [
             ...(a.type === 'PETTY' ? [{ value: 'REPLENISH', label: 'تسوية واستعاضة (صرف)' }] : []),
             { value: 'CLOSE', label: 'تسوية وإغلاق العهدة' },
@@ -115,8 +76,11 @@ export function Imprests() {
         { name: 'principal', label: 'مدير / ة المدرسة', value: school.principal },
         { name: 'reason', label: 'ملاحظات', required: false },
       ],
+      body: (
+        <InvoiceRows budgets={w.setup.budgets || []} vendors={vendors} limit={a.type === 'PETTY' ? Number(policy.singleQuoteLimit) : 0} />
+      ),
       submit: 'إصدار الكشف وكتاب التغطية',
-      save: (v) => post(a, 'settle', v),
+      save: (v, fd) => post(a, 'settle', { ...v, invoices: readInvoiceRows(fd) }),
     };
   };
 
@@ -162,11 +126,10 @@ export function Imprests() {
                 </div>
               )}
               <div className="actions">
-                {w.can('ACCOUNTANT') && <button onClick={() => w.open(expenseDialog(a))}>＋ فاتورة</button>}
                 {w.can('ACCOUNTANT') && (
                   <>
-                    <button className="secondary" onClick={() => w.open(settleDialog(a))}>
-                      تسوية / استعاضة + كتاب التغطية
+                    <button onClick={() => w.open(settleDialog(a))}>
+                      {a.type === 'PETTY' ? 'تسوية / استعاضة — إدخال الفواتير' : 'تسوية العهدة — إدخال الفواتير'}
                     </button>
                     <button
                       className="secondary"
@@ -263,4 +226,73 @@ export function Imprests() {
       ))}
     </>
   );
+}
+
+/** All invoices of the settlement entered at once, as a table; empty rows are ignored. */
+function InvoiceRows({ budgets, vendors, limit }: { budgets: Row[]; vendors: string[]; limit: number }) {
+  const [count, setCount] = useState(5);
+  const [sum, setSum] = useState(0);
+  const recount = (e: React.FormEvent<HTMLDivElement>) => {
+    const inputs = e.currentTarget.querySelectorAll<HTMLInputElement>('input[name^="i_amount_"]');
+    setSum([...inputs].reduce((v, i) => v + (Number(toNumberText(i.value)) || 0), 0));
+  };
+  const lines = budgets.map((b) => ({ value: b.id, label: `${b.code} — ${b.name}` }));
+  return (
+    <div className="invoice-rows" onInput={recount}>
+      <datalist id="vendors">
+        {vendors.map((v) => (
+          <option key={v} value={v} />
+        ))}
+      </datalist>
+      <div className="invoice-row head">
+        <span>م</span>
+        <span>المورد</span>
+        <span>رقم الفاتورة</span>
+        <span>التاريخ</span>
+        <span>البيان</span>
+        <span>البند</span>
+        <span>المبلغ</span>
+        <span>ملاحظات</span>
+      </div>
+      {Array.from({ length: count }, (_, i) => (
+        <div className="invoice-row" key={i}>
+          <span className="n">{i + 1}</span>
+          <input name={'i_vendor_' + i} list="vendors" autoComplete="off" placeholder="اسم المورد" aria-label="المورد" />
+          <input name={'i_invoice_' + i} placeholder="—" aria-label="رقم الفاتورة" />
+          <input name={'i_date_' + i} type="date" defaultValue={dateNow()} aria-label="التاريخ" />
+          <input name={'i_desc_' + i} placeholder="مثل: ضيافة - بوفيه المدرسة" aria-label="البيان" />
+          <Select name={'i_budget_' + i} label="البند" options={lines} />
+          <NumberInput name={'i_amount_' + i} placeholder="0.00" aria-label="المبلغ" />
+          <input name={'i_note_' + i} placeholder="" aria-label="ملاحظات" />
+        </div>
+      ))}
+      <div className="invoice-foot">
+        <button type="button" className="secondary" onClick={() => setCount((n) => n + 5)}>
+          ＋ 5 صفوف أخرى
+        </button>
+        <span>
+          إجمالي الفواتير المدخلة: <b>{currency(sum)} ر.ق</b>
+          {limit > 0 && <small> · حد الفاتورة من النثرية {currency(limit)} ر.ق</small>}
+        </span>
+      </div>
+    </div>
+  );
+}
+
+export function readInvoiceRows(fd: FormData) {
+  const rows = [];
+  for (let i = 0; fd.has('i_vendor_' + i); i++) {
+    const g = (k: string) => String(fd.get(`i_${k}_${i}`) ?? '').trim();
+    if (!g('vendor') && !g('amount') && !g('desc')) continue;
+    rows.push({
+      vendor: g('vendor'),
+      invoice: g('invoice'),
+      date: g('date'),
+      description: g('desc') || 'مشتريات',
+      budgetId: g('budget'),
+      amount: toNumberText(g('amount')),
+      note: g('note') || (g('invoice') ? '' : 'بدون فاتورة'),
+    });
+  }
+  return rows;
 }

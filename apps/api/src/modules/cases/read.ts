@@ -4,6 +4,7 @@ import { isoDay, today } from '../../common/dates';
 import { D, num } from '../../common/money';
 import { id, parse } from '../../common/validation';
 import { loadPolicy } from '../../core/policy';
+import { BUDGET_GROUPS } from '../../print/budget';
 import type { ReadCtx } from '../context';
 import { checklist, getCase } from './common';
 import { renderQuoteReport } from './procurement';
@@ -166,6 +167,23 @@ export async function readDashboard({ s, school, query }: ReadCtx) {
     value: num(cases.filter((c) => stage(c) === key).reduce((v, c) => v.plus(c.total), new D(0))),
   }));
 
+  // Files not yet finished (no certificate yet), with the next document each one needs.
+  const OPEN = ['DRAFT', 'EVALUATED', 'APPROVED', 'ORDERED', 'PARTIAL', 'DELIVERED'];
+  const incomplete = cases.filter((c) => OPEN.includes(c.state));
+  const groups = [...BUDGET_GROUPS, { key: '', ar: 'بنود أخرى' }]
+    .map((g) => {
+      const rows = budgets.filter((b) => (g.key ? b.groupKey === g.key : !BUDGET_GROUPS.some((x) => x.key === b.groupKey)));
+      const add = (k: 'approved' | 'spent' | 'committed') => rows.reduce((v, b) => v.plus(b[k]), new D(0));
+      return {
+        key: g.key || 'OTHER',
+        name: g.ar,
+        approved: num(add('approved')),
+        spent: num(add('spent')),
+        committed: num(add('committed')),
+      };
+    })
+    .filter((g) => Number(g.approved) > 0 || Number(g.spent) > 0);
+
   const approved = budgets.reduce((v, b) => v.plus(b.approved), new D(0)),
     committed = budgets.reduce((v, b) => v.plus(b.committed), new D(0)),
     spent = budgets.reduce((v, b) => v.plus(b.spent), new D(0));
@@ -190,6 +208,7 @@ export async function readDashboard({ s, school, query }: ReadCtx) {
       committed: num(committed),
       spent: num(spent),
       available: num(approved.minus(committed).minus(spent)),
+      groups,
       lines: budgets
         .filter((b) => b.approved.gt(0) || b.spent.gt(0) || b.committed.gt(0))
         .map((b) => ({
@@ -223,6 +242,11 @@ export async function readDashboard({ s, school, query }: ReadCtx) {
     monthly,
     stages,
     cases: cases.slice(0, 10).map(({ evaluationHtml, certificates, ...c }) => c),
+    incomplete: {
+      count: incomplete.length,
+      value: num(incomplete.reduce((v, c) => v.plus(c.total), new D(0))),
+      rows: incomplete.slice(0, 15).map(({ evaluationHtml, certificates, ...c }) => c),
+    },
     total: cases.length,
     alerts: { replenish: alerts, lateOrders },
   };
