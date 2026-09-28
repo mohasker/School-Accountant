@@ -1,6 +1,6 @@
 import { PGlite } from '@electric-sql/pglite';
 import { PGLiteSocketServer } from '@electric-sql/pglite-socket';
-import { readFileSync, existsSync, readdirSync } from 'node:fs';
+import { readFileSync, existsSync, readdirSync, mkdirSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { spawn, execFile } from 'node:child_process';
 import { promisify } from 'node:util';
@@ -12,8 +12,14 @@ async function main() {
   process.env.PORT = '3001';
   process.env.DB_POOL_SIZE = '1';
   process.env.DATABASE_URL = 'postgresql://postgres:postgres@127.0.0.1:55432/postgres';
-  process.env.WEB_ORIGIN = 'http://localhost:3000';
-  const engine = await PGlite.create(process.env.PGLITE_DATA || '.data/demo');
+  // In GitHub Codespaces the app is opened through the forwarded https address of port 3000.
+  const codespace = process.env.CODESPACE_NAME && process.env.GITHUB_CODESPACES_PORT_FORWARDING_DOMAIN;
+  process.env.WEB_ORIGIN = codespace
+    ? `https://${process.env.CODESPACE_NAME}-3000.${process.env.GITHUB_CODESPACES_PORT_FORWARDING_DOMAIN}`
+    : process.env.WEB_ORIGIN || 'http://localhost:3000';
+  const dataDir = process.env.PGLITE_DATA || '.data/demo';
+  mkdirSync(dataDir, { recursive: true });
+  const engine = await PGlite.create(dataDir);
   await engine.exec('CREATE TABLE IF NOT EXISTS local_migrations (name text PRIMARY KEY, hash text NOT NULL)');
   for (const name of readdirSync('prisma/migrations')
     .filter((n) => existsSync('prisma/migrations/' + n + '/migration.sql'))
@@ -53,7 +59,7 @@ async function main() {
     ],
     { stdio: 'inherit', env: { ...process.env, API_URL: 'http://127.0.0.1:3001', NEXT_TELEMETRY_DISABLED: '1' } },
   );
-  console.log('Demo: http://localhost:3000 | Accounts: accountant, approver, admin, other. Use your DEMO_PASSWORD.');
+  console.log(`Demo: ${process.env.WEB_ORIGIN} | Accounts: accountant, approver, admin, other. Use your DEMO_PASSWORD.`);
   let stopping = false;
   const stop = async () => {
     if (stopping) return;
