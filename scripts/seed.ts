@@ -1,7 +1,7 @@
 import * as argon2 from 'argon2';
 import { db } from '../apps/api/src/common/db';
 import { BUDGET_CATALOG } from './catalog';
-import { DEMO_BUDGET, DEMO_HOLIDAYS, DEMO_SCHOOLS, DEMO_SUPPLIERS, people } from './demo-data';
+import { DEMO_BUDGET, DEMO_HOLIDAYS, DEMO_NOTES, DEMO_SCHOOLS, DEMO_SUPPLIERS, people } from './demo-data';
 
 /**
  * Trial data on an empty database only (never run against real data): the schools and suppliers of
@@ -29,6 +29,7 @@ async function main() {
           pettyCustodian: names.pettyCustodian ?? 'مسؤول / ة العهدة',
           purchasingOfficer: names.purchasingOfficer ?? '',
           orderPrefix: s.prefix,
+          erpCode: (s as { erpCode?: string }).erpCode ?? '',
         },
       }),
     });
@@ -72,6 +73,8 @@ async function main() {
   for (const [from, to, name] of DEMO_HOLIDAYS)
     for (let d = new Date(from); d <= new Date(to); d = new Date(d.getTime() + 86400000))
       await db.holiday.create({ data: { tenantId: t.id, date: d, name, createdBy: t.id } });
+  const adminUser = await db.user.findUniqueOrThrow({ where: { username: 'admin' } });
+  await db.note.createMany({ data: DEMO_NOTES.map((n) => ({ ...n, tenantId: t.id, updatedBy: adminUser.id })) });
   console.log('Trial accounts: admin (system administrator), accountant, other. Password is the supplied DEMO_PASSWORD.');
 }
 

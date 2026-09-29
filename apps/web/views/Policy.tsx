@@ -8,6 +8,23 @@ import { BUDGET_GROUPS, dateNow, day } from '../lib/format';
 
 const show = (v: unknown) => (Array.isArray(v) ? v.join('، ') : String(v));
 
+function AiStatus() {
+  const w = useWorkspace();
+  const [st] = useLoad<Row>(() => w.api('ai/status'));
+  if (!st) return <p>جارٍ التحميل…</p>;
+  return (
+    <p>
+      الحالة: <b>{st.configured ? 'مفعّل' : 'غير مفعّل'}</b>
+      {st.configured && (
+        <>
+          {' '}
+          — المصدر: {st.source === 'env' ? 'متغير الخادم ANTHROPIC_API_KEY' : 'مفتاح مسؤول النظام'} — النموذج {st.model}
+        </>
+      )}
+    </p>
+  );
+}
+
 /** Financial policy values with dated history; a change applies from its effective date forward. */
 export function Policy() {
   const w = useWorkspace();
@@ -40,6 +57,31 @@ export function Policy() {
   const label = (key: string) => data.definitions.find((d: Row) => d.key === key)?.label ?? key;
   return (
     <>
+      <Panel
+        title="المساعد الذكي — مفتاح Anthropic API"
+        actions={
+          <button
+            className="secondary"
+            onClick={() =>
+              w.open({
+                title: 'مفتاح Anthropic API',
+                intro: (
+                  <p>
+                    يُحفظ المفتاح على الخادم ولا يظهر للمستخدمين. احصل عليه من console.anthropic.com. اتركه فارغاً لإيقاف المساعد. إن كان
+                    المتغير ANTHROPIC_API_KEY معرفاً على الخادم فهو المستخدم.
+                  </p>
+                ),
+                fields: [{ name: 'key', label: 'المفتاح (sk-ant-…)', type: 'password', required: false }],
+                save: (v) => w.api('ai/key', 'POST', { key: v.key }),
+              })
+            }
+          >
+            تعيين المفتاح
+          </button>
+        }
+      >
+        <AiStatus />
+      </Panel>
       <Panel title="القيم السارية">
         <p>تُحفظ كل قيمة جديدة بتاريخ سريان، ولا تُعدّل القيم السابقة، فتبقى المعاملات القديمة على القاعدة التي طُبقت عليها.</p>
         <Table heads={['البند', 'القيمة الحالية', 'الوصف', '']}>

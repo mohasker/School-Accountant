@@ -96,7 +96,7 @@ export async function readDashboard({ s, school, query }: ReadCtx) {
   const day = /^\d{4}-\d{2}-\d{2}$/;
   const from = day.test(String(query.from ?? '')) ? String(query.from) : isoDay(year.startDate);
   const to = day.test(String(query.to ?? '')) ? String(query.to) : isoDay(year.endDate);
-  const [cases, budgets, imprests, policy] = await Promise.all([
+  const [cases, budgets, imprests, policy, directAll] = await Promise.all([
     db.case.findMany({
       where,
       select: {
@@ -125,12 +125,26 @@ export async function readDashboard({ s, school, query }: ReadCtx) {
       include: { expenses: true, settlements: { select: { id: true, amount: true, type: true, createdAt: true, details: true } } },
     }),
     loadPolicy(db, s.user.tenantId),
+    db.directExpense.findMany({ where, select: { date: true, amount: true } }),
   ]);
   const certDate = (c: { createdAt: Date; details: any }) => String(c.details?.date ?? isoDay(c.createdAt));
   const reports = cases.filter((c) => c.evaluationHtml && inPeriod(c.reportDate ?? c.createdAt, from, to));
   const orders = cases.filter((c) => inPeriod(c.issueDate, from, to));
   const certificates = cases.flatMap((c) => c.certificates.map((x) => ({ ...x, case: c }))).filter((x) => inPeriod(certDate(x), from, to));
   const expenses = imprests.flatMap((a) => a.expenses).filter((e) => inPeriod(e.date, from, to));
+  const direct = directAll.filter((e) => inPeriod(e.date, from, to));
+  // Companies assigned more than twice in the fiscal year: a reminder to widen the quotes (not a ban).
+  const bySupplier = new Map<string, { name: string; count: number; value: InstanceType<typeof D> }>();
+  for (const c of cases.filter((c) => c.issueDate && c.supplier)) {
+    const row = bySupplier.get(c.supplier!.name) ?? { name: c.supplier!.name, count: 0, value: new D(0) };
+    row.count += 1;
+    row.value = row.value.plus(c.total);
+    bySupplier.set(c.supplier!.name, row);
+  }
+  const repeatSuppliers = [...bySupplier.values()]
+    .filter((r) => r.count > 2)
+    .sort((a, b) => b.count - a.count)
+    .map((r) => ({ name: r.name, count: r.count, value: num(r.value) }));
   const settlements = imprests
     .flatMap((a) => a.settlements)
     .filter((x) => inPeriod(String((x.details as any)?.date ?? isoDay(x.createdAt)), from, to));
@@ -149,6 +163,7 @@ export async function readDashboard({ s, school, query }: ReadCtx) {
     orders: num(orders.filter((c) => monthOf(c.issueDate!) === m).reduce((v, c) => v.plus(c.total), new D(0))),
     certificates: num(certificates.filter((x) => certDate(x).slice(0, 7) === m).reduce((v, x) => v.plus(x.net), new D(0))),
     imprests: num(expenses.filter((e) => monthOf(e.date) === m).reduce((v, e) => v.plus(e.amount), new D(0))),
+    direct: num(direct.filter((e) => monthOf(e.date) === m).reduce((v, e) => v.plus(e.amount), new D(0))),
   }));
 
   const stage = (c: { state: string }) =>
@@ -230,6 +245,7 @@ export async function readDashboard({ s, school, query }: ReadCtx) {
         fines: num(certificates.reduce((v, x) => v.plus(x.fine), new D(0))),
         covers: certificates.filter((x) => x.coverHtml).length,
       },
+      direct: { count: direct.length, value: total(direct, 'amount') },
       imprests: {
         open: imprests.filter((a) => !a.closed).length,
         balance: num(imprests.filter((a) => !a.closed).reduce((v, a) => v.plus(a.balance), new D(0))),
@@ -248,7 +264,7 @@ export async function readDashboard({ s, school, query }: ReadCtx) {
       rows: incomplete.slice(0, 15).map(({ evaluationHtml, certificates, ...c }) => c),
     },
     total: cases.length,
-    alerts: { replenish: alerts, lateOrders },
+    alerts: { replenish: alerts, lateOrders, repeatSuppliers },
   };
 }
 

@@ -6,6 +6,7 @@ import { date, fail, id, optionalText, parse, text } from '../common/validation'
 import { passwordHash, requireTenantAdmin, ROLES, schoolIds, type Identity } from '../core/identity';
 import { loadPolicy, POLICY, policyKeys, type PolicyKey } from '../core/policy';
 import { adminOverview, manageUser, userReport } from './admin';
+import { readArchive, readLogins, readNotes, writeArchive, writeNotes } from './library';
 import { purge } from './purge';
 
 /**
@@ -47,6 +48,12 @@ export async function readTenant(
     }
     case 'budget-catalog':
       return db.budgetCatalog.findMany({ where: { tenantId }, orderBy: [{ sort: 'asc' }, { code: 'asc' }] });
+    case 'archive':
+      return readArchive(s, rid, query);
+    case 'notes':
+      return readNotes(s);
+    case 'logins':
+      return readLogins(s, query);
     case 'schools':
       return db.school.findMany({
         where: { tenantId, ...(s.user.isTenantAdmin ? {} : { id: { in: schoolIds(s) } }) },
@@ -83,7 +90,7 @@ export async function writeTenant(
   body: any,
 ) {
   const tenantId = s.user.tenantId;
-  if (!['holidays', 'schools'].includes(resource)) requireTenantAdmin(s);
+  if (!['holidays', 'schools', 'archive', 'notes'].includes(resource)) requireTenantAdmin(s);
   switch (resource) {
     case 'holidays': {
       if (method === 'DELETE') {
@@ -206,6 +213,10 @@ export async function writeTenant(
     }
     case 'purge':
       return purge(s, t, body);
+    case 'archive':
+      return writeArchive(s, t, rid, method, body);
+    case 'notes':
+      return writeNotes(s, t, rid, method, body);
     case 'users':
       return manageUser(s, t, rid, action, body);
     case 'memberships': {

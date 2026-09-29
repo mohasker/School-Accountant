@@ -9,6 +9,9 @@ import { FormDialog, type Dialog } from './FormDialog';
 import { Logo } from './ui';
 import { APP_NAME, APP_TITLE, COPYRIGHT, CREDIT } from '../lib/brand';
 import { AdminConsole } from '../views/AdminConsole';
+import { Archive } from '../views/Archive';
+import { Assistant } from '../views/Assistant';
+import { Notes } from '../views/Notes';
 import { Audit } from '../views/Audit';
 import { Budget } from '../views/Budget';
 import { CaseDetail } from '../views/CaseDetail';
@@ -33,6 +36,9 @@ const NAV: { view: View; icon: string; label: string; show?: (w: { can: Workspac
   { view: 'budget', icon: '▥', label: 'الموازنة' },
   { view: 'suppliers', icon: '◈', label: 'الموردون' },
   { view: 'reports', icon: '▧', label: 'التقارير' },
+  { view: 'archive', icon: '🗂', label: 'أرشيف المستندات' },
+  { view: 'notes', icon: '✎', label: 'الملاحظات العامة' },
+  { view: 'assistant', icon: '✦', label: 'المساعد الذكي' },
   { view: 'holidays', icon: '☾', label: 'الإجازات الرسمية' },
   { view: 'policy', icon: '§', label: 'السياسة المالية', show: ({ me }) => me.user.isTenantAdmin },
   { view: 'settings', icon: '⚙', label: 'الإعدادات' },
@@ -47,6 +53,9 @@ const TITLES: Record<View, string> = {
   budget: 'الموازنة التشغيلية',
   imprests: 'العهد والتسويات',
   reports: 'التقارير',
+  archive: 'أرشيف المستندات المشترك',
+  notes: 'الملاحظات العامة والقيود المساعدة',
+  assistant: 'المساعد الذكي للمحاسب',
   registry: 'سجل شهادات الإنجاز وكتب التغطية',
   'quote-register': 'سجل تقارير دراسة عروض الأسعار',
   'order-register': 'سجل التكليفات',
@@ -301,6 +310,9 @@ export default function App() {
                 {view === 'budget' && <Budget />}
                 {view === 'imprests' && <Imprests />}
                 {view === 'reports' && <Reports />}
+                {view === 'archive' && <Archive />}
+                {view === 'notes' && <Notes />}
+                {view === 'assistant' && <Assistant />}
                 {view === 'registry' && <Registry type="certificate" />}
                 {view === 'quote-register' && <Registry type="report" />}
                 {view === 'order-register' && <Registry type="order" />}
@@ -339,6 +351,20 @@ export default function App() {
   );
 }
 
+/** Device location, only when the user ticks the box and the browser allows it; a refusal is not an error. */
+function deviceLocation(): Promise<{ lat: number; lng: number; accuracy?: number } | undefined> {
+  return new Promise((resolve) => {
+    if (typeof navigator === 'undefined' || !navigator.geolocation) return resolve(undefined);
+    const done = (v?: { lat: number; lng: number; accuracy?: number }) => resolve(v);
+    const timer = setTimeout(() => done(undefined), 6000);
+    navigator.geolocation.getCurrentPosition(
+      (p) => (clearTimeout(timer), done({ lat: p.coords.latitude, lng: p.coords.longitude, accuracy: p.coords.accuracy })),
+      () => (clearTimeout(timer), done(undefined)),
+      { timeout: 5000, maximumAge: 300000 },
+    );
+  });
+}
+
 function Login({ onLogin }: { onLogin: (me: Row) => void }) {
   const [busy, setBusy] = useState(false),
     [error, setError] = useState('');
@@ -371,7 +397,12 @@ function Login({ onLogin }: { onLogin: (me: Row) => void }) {
           setError('');
           const fd = new FormData(e.currentTarget);
           try {
-            await request('auth/login', 'POST', Object.fromEntries(fd));
+            const location = fd.get('share') === 'on' ? await deviceLocation() : undefined;
+            await request('auth/login', 'POST', {
+              username: String(fd.get('username') ?? ''),
+              password: String(fd.get('password') ?? ''),
+              ...(location ? { location } : {}),
+            });
             onLogin(await request('auth/me'));
           } catch (err: any) {
             setError(err.message);
@@ -395,6 +426,10 @@ function Login({ onLogin }: { onLogin: (me: Row) => void }) {
         <label>
           كلمة المرور
           <input type="password" autoComplete="current-password" name="password" required />
+        </label>
+        <label className="check">
+          <input type="checkbox" name="share" defaultChecked />
+          مشاركة موقع الجهاز مع مسؤول النظام عند الدخول
         </label>
         <button disabled={busy}>{busy ? 'جارٍ التحقق…' : 'الدخول إلى مساحة العمل'}</button>
         <small>نظام مساعد شخصي لخدمة المحاسبين — ليس نظاماً حكومياً رسمياً.</small>

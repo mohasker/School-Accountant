@@ -1,5 +1,6 @@
 'use client';
 import { useState } from 'react';
+import { DateInput } from '../components/DateInput';
 import { Select } from '../components/Select';
 import { useWorkspace } from '../components/context';
 import { DocButtons, Empty, Panel, Table } from '../components/ui';
@@ -38,11 +39,11 @@ export function Reports() {
         <div className="toolbar">
           <label>
             من
-            <input type="date" value={period.from} onChange={(e) => setPeriod({ ...period, from: e.target.value })} />
+            <DateInput value={period.from} onChange={(v) => setPeriod({ ...period, from: v })} ariaLabel="من" />
           </label>
           <label>
             إلى
-            <input type="date" value={period.to} onChange={(e) => setPeriod({ ...period, to: e.target.value })} />
+            <DateInput value={period.to} onChange={(v) => setPeriod({ ...period, to: v })} ariaLabel="إلى" />
           </label>
           <DocButtons path={finPath()} label="التقرير المالي" />
           <button
@@ -71,11 +72,11 @@ export function Reports() {
         <div className="toolbar">
           <label>
             من
-            <input type="date" value={period.from} onChange={(e) => setPeriod({ ...period, from: e.target.value })} />
+            <DateInput value={period.from} onChange={(v) => setPeriod({ ...period, from: v })} ariaLabel="من" />
           </label>
           <label>
             إلى
-            <input type="date" value={period.to} onChange={(e) => setPeriod({ ...period, to: e.target.value })} />
+            <DateInput value={period.to} onChange={(v) => setPeriod({ ...period, to: v })} ariaLabel="إلى" />
           </label>
           <label>
             المحاسب

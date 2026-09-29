@@ -1,6 +1,7 @@
 'use client';
 import { useState } from 'react';
 import { useWorkspace } from '../components/context';
+import { DateInput } from '../components/DateInput';
 import { NumberInput, toNumberText } from '../components/NumberInput';
 import { Select } from '../components/Select';
 import { openImprestDialog } from '../components/dialogs';
@@ -259,7 +260,7 @@ function InvoiceRows({ budgets, vendors, limit }: { budgets: Row[]; vendors: str
           <span className="n">{i + 1}</span>
           <input name={'i_vendor_' + i} list="vendors" autoComplete="off" placeholder="اسم المورد" aria-label="المورد" />
           <input name={'i_invoice_' + i} placeholder="—" aria-label="رقم الفاتورة" />
-          <input name={'i_date_' + i} type="date" defaultValue={dateNow()} aria-label="التاريخ" />
+          <DateInput name={'i_date_' + i} defaultValue={dateNow()} ariaLabel="التاريخ" />
           <input name={'i_desc_' + i} placeholder="مثل: ضيافة - بوفيه المدرسة" aria-label="البيان" />
           <Select name={'i_budget_' + i} label="البند" options={lines} />
           <NumberInput name={'i_amount_' + i} aria-label="المبلغ" />

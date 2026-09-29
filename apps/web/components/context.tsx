@@ -18,6 +18,9 @@ export type View =
   | 'policy'
   | 'settings'
   | 'audit'
+  | 'archive'
+  | 'notes'
+  | 'assistant'
   | 'admin';
 
 export type Workspace = {

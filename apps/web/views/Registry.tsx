@@ -1,5 +1,6 @@
 'use client';
 import { useEffect, useState } from 'react';
+import { DateInput } from '../components/DateInput';
 import { Select } from '../components/Select';
 import { useWorkspace } from '../components/context';
 import { DocButtons, Empty, Panel, Table } from '../components/ui';
@@ -103,11 +104,11 @@ export function Registry({ type = 'certificate' }: { type?: RegisterType }) {
         )}
         <label>
           من
-          <input type="date" value={form.from} onChange={set('from')} />
+          <DateInput value={form.from} onChange={(v) => setForm({ ...form, from: v })} ariaLabel="من" />
         </label>
         <label>
           إلى
-          <input type="date" value={form.to} onChange={set('to')} />
+          <DateInput value={form.to} onChange={(v) => setForm({ ...form, to: v })} ariaLabel="إلى" />
         </label>
         <div className="register-buttons">
           <button>بحث</button>

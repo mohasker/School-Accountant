@@ -2,8 +2,9 @@
 import { useEffect, useState } from 'react';
 import { BudgetBars, ExecutionGauge, GroupBars, MonthlyBars } from '../components/charts';
 import { useWorkspace } from '../components/context';
+import { DateInput } from '../components/DateInput';
 import { newCaseDialog } from '../components/dialogs';
-import { Panel, Stat } from '../components/ui';
+import { Panel, Stat, Table } from '../components/ui';
 import { useLoad } from '../components/useLoad';
 import type { Row } from '../lib/api';
 import { currency, dateNow, day, ERP_URL, percent } from '../lib/format';
@@ -42,13 +43,46 @@ export function Dashboard() {
     { icon: '✔', title: 'شهادات الإنجاز', hint: 'وكتب التغطية', onClick: () => w.go('registry') },
     { icon: '▣', title: 'العهد', hint: 'عهدة جديدة والتسوية', onClick: () => w.go('imprests') },
     { icon: '▧', title: 'التقارير', hint: 'التقرير المالي الشامل والمعاملات', onClick: () => w.go('reports') },
+    { icon: '🗂', title: 'الأرشيف', hint: 'سجلات وتعهدات الشركات المشتركة', onClick: () => w.go('archive') },
+    { icon: '✦', title: 'المساعد الذكي', hint: 'اسأل عن النظام وأرقام مدرستك', onClick: () => w.go('assistant') },
     { icon: '▥', title: 'الموازنة', hint: 'البنود والأرصدة', onClick: () => w.go('budget') },
     { icon: '↗', title: 'نظام ERP', hint: 'بوابة الوزارة', href: ERP_URL },
   ];
   const monthEnd = (m: string) => new Date(Date.UTC(Number(m.slice(0, 4)), Number(m.slice(5, 7)), 0)).toISOString().slice(0, 10);
 
+  const greet = new Date();
+  const hijri = (() => {
+    try {
+      return new Intl.DateTimeFormat('ar-SA-u-ca-islamic-umalqura-nu-latn', {
+        day: 'numeric',
+        month: 'long',
+        year: 'numeric',
+        timeZone: 'Asia/Qatar',
+      }).format(greet);
+    } catch {
+      return '';
+    }
+  })();
+  const weekday = new Intl.DateTimeFormat('ar', { weekday: 'long', timeZone: 'Asia/Qatar' }).format(greet);
+  const gregorian = new Intl.DateTimeFormat('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric', timeZone: 'Asia/Qatar' }).format(
+    greet,
+  );
   return (
     <>
+      <section className="welcome">
+        <div>
+          <h2>أهلاً بعودتك يا {w.me.user.name}</h2>
+          <p>
+            اليوم: <b>{weekday}</b>
+            {hijri && <> {hijri}</>} — الموافق: <b className="mono">{gregorian}</b> م
+          </p>
+        </div>
+        {w.setup.school?.erpCode && (
+          <div className="welcome-erp">
+            كود المدرسة على ERP: <b className="mono">{w.setup.school.erpCode}</b>
+          </div>
+        )}
+      </section>
       <section className="quick-links" aria-label="روابط سريعة">
         {links.map((l) =>
           l.href ? (
@@ -108,15 +142,33 @@ export function Dashboard() {
           </button>
           <label>
             من
-            <input type="date" value={draft.from || d.period.from} onChange={(e) => setDraft({ ...draft, from: e.target.value })} />
+            <DateInput value={draft.from || d.period.from} onChange={(v) => setDraft({ ...draft, from: v })} ariaLabel="من" />
           </label>
           <label>
             إلى
-            <input type="date" value={draft.to || d.period.to} onChange={(e) => setDraft({ ...draft, to: e.target.value })} />
+            <DateInput value={draft.to || d.period.to} onChange={(v) => setDraft({ ...draft, to: v })} ariaLabel="إلى" />
           </label>
           <button onClick={() => setRange(draft)}>عرض</button>
         </div>
       </section>
+
+      {d.alerts?.repeatSuppliers?.length > 0 && (
+        <section className="panel alerts repeat">
+          <h2>ملاحظة: موردون تكرر التكليف لهم أكثر من مرتين هذا العام</h2>
+          <p>للتذكير بتوسيع دعوات عروض الأسعار وتنويع الموردين؛ القائمة تفرغ تلقائياً عندما لا يوجد تكرار.</p>
+          <Table heads={['المورد', 'عدد التكليفات', 'إجمالي القيمة']}>
+            {d.alerts.repeatSuppliers.map((r: Row) => (
+              <tr key={r.name}>
+                <td>
+                  <b>{r.name}</b>
+                </td>
+                <td>{r.count}</td>
+                <td>{currency(r.value)} ر.ق</td>
+              </tr>
+            ))}
+          </Table>
+        </section>
+      )}
 
       {(d.alerts?.replenish?.length > 0 || d.alerts?.lateOrders?.length > 0) && (
         <section className="panel alerts">
@@ -174,6 +226,7 @@ export function Dashboard() {
           onClick={() => w.go('registry')}
         />
         <Stat label="كتب التغطية" value={doc.certificates.covers} hint="تصدر مع الشهادة" onClick={() => w.go('registry')} />
+        <Stat label="مصروفات مباشرة" value={doc.direct.count} hint={currency(doc.direct.value) + ' ر.ق'} onClick={() => w.go('budget')} />
         <Stat
           label="فواتير العهد"
           value={doc.imprests.invoices}
@@ -196,6 +249,7 @@ export function Dashboard() {
               { key: 'orders', label: 'التكليفات' },
               { key: 'certificates', label: 'شهادات الإنجاز (صافي)' },
               { key: 'imprests', label: 'مصروفات العهد' },
+              { key: 'direct', label: 'مصروفات مباشرة', color: '#b08d57' },
             ]}
           />
         </Panel>

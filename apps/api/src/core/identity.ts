@@ -23,28 +23,48 @@ const SESSION_HOURS = 8,
 
 export const passwordHash = (p: string) => argon2.hash(p, { type: argon2.argon2id, memoryCost: 65536, timeCost: 3, parallelism: 1 });
 
-/** In-memory login throttling: 10 attempts per key per 10 minutes (single-instance deployment). */
+/**
+ * In-memory login throttling per 10 minutes (single-instance deployment): 10 attempts per account,
+ * 30 per network address — several accountants of one school usually share one address.
+ */
 const buckets = new Map<string, { n: number; start: number }>();
-export function throttle(key: string) {
+export function throttle(key: string, limit = 10) {
   const now = Date.now();
   let b = buckets.get(key);
   if (!b || now - b.start > 600000) {
     b = { n: 0, start: now };
     buckets.set(key, b);
   }
-  if (++b.n > 10) throw new HttpException('محاولات كثيرة؛ حاول بعد عشر دقائق', 429);
+  if (++b.n > limit) throw new HttpException('محاولات كثيرة؛ حاول بعد عشر دقائق', 429);
   if (buckets.size > 10000) for (const [k, v] of buckets) if (now - v.start > 600000) buckets.delete(k);
 }
 
 let dummy: Promise<string>;
-export async function login(username: string, password: string, req: Request, res: Response) {
-  throttle(req.ip || 'unknown');
+export async function login(
+  username: string,
+  password: string,
+  req: Request,
+  res: Response,
+  location?: { lat: number; lng: number; accuracy?: number },
+) {
+  throttle(req.ip || 'unknown', 30);
   throttle('u:' + hash(username.toLowerCase()));
   const user = await db.user.findUnique({ where: { username } });
   dummy ??= passwordHash(randomBytes(30).toString('hex'));
   const valid = await argon2.verify(user?.passwordHash ?? (await dummy), password).catch(() => false);
   if (!valid || !user?.active) throw new UnauthorizedException('بيانات الدخول غير صحيحة');
   await db.user.update({ where: { id: user.id }, data: { lastLoginAt: new Date() } });
+  // Sign-in record for the administrator: address, browser and the device location when the user allowed it.
+  await db.loginLog.create({
+    data: {
+      userId: user.id,
+      ip: String(req.ip || req.socket?.remoteAddress || 'unknown').slice(0, 64),
+      userAgent: String(req.headers['user-agent'] ?? '').slice(0, 300),
+      lat: location?.lat,
+      lng: location?.lng,
+      accuracy: location?.accuracy,
+    },
+  });
   const token = randomBytes(32).toString('hex'),
     csrf = randomBytes(32).toString('hex');
   await db.session.create({

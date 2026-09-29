@@ -1,5 +1,6 @@
 'use client';
 import React, { useState } from 'react';
+import { DateInput } from './DateInput';
 import { NumberInput, toNumberText } from './NumberInput';
 import { Select } from './Select';
 import type { Row } from '../lib/api';
@@ -85,7 +86,15 @@ export function FormDialog({ dialog, onClose, onSaved }: { dialog: Dialog; onClo
                   />
                 ) : f.type === 'textarea' ? (
                   <textarea name={f.name} defaultValue={f.value as string} required={f.required !== false} rows={3} />
-                ) : f.type === 'checkbox' ? null : f.type === 'number' ? (
+                ) : f.type === 'checkbox' ? null : f.type === 'date' ? (
+                  <DateInput
+                    name={f.name}
+                    defaultValue={f.value as string}
+                    required={f.required !== false}
+                    min={f.min}
+                    ariaLabel={f.label}
+                  />
+                ) : f.type === 'number' ? (
                   <NumberInput name={f.name} defaultValue={f.value as string} required={f.required !== false} integer={f.step === '1'} />
                 ) : (
                   <input

@@ -954,3 +954,154 @@ test('REFERENCES: assignment letters numbered SCHOOL/YEAR/NNN; certificates carr
   const letter = (await req(acc, `schools/${order.schoolId}/cases/${order.id}/order-print`)).body.html;
   assert.ok(letter.includes('<th>المرجع</th>') && letter.includes(order.cells[1]));
 });
+test('ARCHIVE: every accountant adds and downloads shared documents; only the administrator removes', async () => {
+  const pdf = Buffer.from('%PDF-1.4\n1 0 obj<<>>endobj\ntrailer<<>>\n%%EOF').toString('base64');
+  const doc = await req(acc, 'admin/archive', 'POST', {
+    kind: 'CR',
+    company: 'شركة الاختبار للتجارة',
+    title: 'سجل تجاري ساري حتى 2027',
+    note: 'رقم 123456',
+    name: 'cr.pdf',
+    mime: 'application/pdf',
+    base64: pdf,
+  });
+  assert.ok(doc.status < 300, JSON.stringify(doc.body));
+  // 'other' was signed out by the administrator's password reset above; sign in again with the new password.
+  const o = await (async () => {
+    const r = await req(null, 'auth/login', 'POST', { username: 'other', password: 'Brand-New-Password-1' });
+    return { cookie: r.cookie, csrf: r.body.csrf };
+  })();
+  const list = (await req(o, 'admin/archive?q=' + encodeURIComponent('الاختبار'))).body;
+  assert.equal(list.rows.length, 1, 'another school sees the shared document');
+  assert.equal(list.canDelete, false);
+  const file = (await req(o, 'admin/archive/' + doc.body.id)).body;
+  assert.equal(file.base64, pdf);
+  assert.equal((await req(acc, 'admin/archive/' + doc.body.id, 'DELETE')).status, 403);
+  assert.equal(
+    (
+      await req(acc, 'admin/archive', 'POST', {
+        ...{ kind: 'CR', company: 'x', title: 'y', name: 'a.exe', mime: 'application/x-msdownload', base64: pdf },
+      })
+    ).status,
+    400,
+  );
+  assert.ok((await req(admin, 'admin/archive/' + doc.body.id, 'DELETE')).status < 300);
+  assert.equal((await req(acc, 'admin/archive')).body.rows.length, 0);
+});
+test('NOTES: shared board is read by everyone and written by the administrator only', async () => {
+  assert.equal((await req(acc, 'admin/notes', 'POST', { title: 'x', body: 'y' })).status, 403);
+  const n = await req(admin, 'admin/notes', 'POST', {
+    title: 'قيد تسوية العهدة',
+    body: 'من حـ/ المصروفات\n  إلى حـ/ العهدة',
+    category: 'قيود عامة',
+    sort: 1,
+  });
+  assert.ok(n.status < 300, JSON.stringify(n.body));
+  assert.ok((await req(acc, 'admin/notes')).body.some((x: any) => x.id === n.body.id));
+  assert.ok(
+    (await req(admin, 'admin/notes/' + n.body.id, 'PATCH', { title: 'قيد تسوية العهدة (محدث)', body: 'نص', sort: 2 })).status < 300,
+  );
+  assert.equal((await req(acc, 'admin/notes')).body.find((x: any) => x.id === n.body.id).title, 'قيد تسوية العهدة (محدث)');
+});
+test('LOGINS: sign-ins are recorded with the shared location and shown to the administrator only', async () => {
+  const r = await req(null, 'auth/login', 'POST', {
+    username: 'accountant',
+    password,
+    location: { lat: 25.2854, lng: 51.531, accuracy: 20 },
+  });
+  assert.equal(r.status, 201, JSON.stringify(r.body));
+  assert.equal((await req(acc, 'admin/logins')).status, 403);
+  const rows = (await req(admin, 'admin/logins?take=5')).body;
+  assert.ok(rows.length >= 1);
+  assert.equal(rows[0].user.username, 'accountant');
+  assert.equal(rows[0].lat, 25.2854);
+  assert.ok(rows[0].ip);
+  assert.equal((await req(null, 'auth/login', 'POST', { username: 'accountant', password, location: { lat: 200, lng: 0 } })).status, 400);
+});
+test('ERP CODE: the school keeps its ERP code for the accountant', async () => {
+  const s = (await req(acc, route('setup'))).body.school;
+  await ok(
+    acc,
+    'school',
+    {
+      name: s.name,
+      principal: s.principal,
+      pettyCustodian: s.pettyCustodian,
+      educationCustodian: s.educationCustodian,
+      bookCustodian: s.bookCustodian,
+      erpCode: 'ERP-9021',
+    },
+    'PATCH',
+  );
+  assert.equal((await req(acc, route('setup'))).body.school.erpCode, 'ERP-9021');
+});
+test('DIRECT EXPENSES: post to the line at once; Excel template imports all rows or nothing; administrator deletes with reversal', async () => {
+  const before = (await req(acc, route('setup'))).body.budgets.find((b: any) => b.id === budget);
+  const e = await ok(acc, 'direct-expenses', {
+    yearId: year,
+    budgetId: budget,
+    date: '2026-09-10',
+    description: 'شراء طابعة',
+    vendor: 'مكتبة الجامعة',
+    reference: 'INV-77',
+    amount: '350.25',
+  });
+  let line = (await req(acc, route('setup'))).body.budgets.find((b: any) => b.id === budget);
+  assert.equal((Number(line.spent) - Number(before.spent)).toFixed(2), '350.25');
+  assert.equal(
+    (
+      await req(acc, route('direct-expenses'), 'POST', {
+        yearId: year,
+        budgetId: budget,
+        date: '2099-01-01',
+        description: 'x',
+        amount: '1',
+      })
+    ).status,
+    400,
+  );
+  const template = (await req(acc, route(`direct-expenses/template?year=${year}`))).body;
+  assert.ok(template.base64.length > 1000 && template.name.endsWith('.xlsx'));
+  const ExcelJS = (await import('exceljs')).default;
+  const wb = new ExcelJS.Workbook();
+  await wb.xlsx.load(Buffer.from(template.base64, 'base64') as any);
+  const ws = wb.getWorksheet('المصروفات')!;
+  ws.spliceRows(2, 1);
+  ws.addRow(['2026-09-11', '510401', 'مستلزمات معمل', 'شركة المعامل', 'A-1', 120.5, '']);
+  ws.addRow(['2026-09-12', '510401', 'أحبار', 'مكتبة', 'A-2', '٧٩٫٥٠'.replace('٫', '.'), 'أرقام عربية']);
+  const good = Buffer.from(await wb.xlsx.writeBuffer()).toString('base64');
+  ws.addRow(['2026-09-13', '999999', 'بند غير موجود', '', '', 10, '']);
+  const bad = Buffer.from(await wb.xlsx.writeBuffer()).toString('base64');
+  const rejected = await req(acc, route('direct-expenses/import'), 'POST', { yearId: year, base64: bad });
+  assert.equal(rejected.status, 400);
+  assert.match(rejected.body.message, /الصف 4/);
+  assert.equal((await req(acc, route('direct-expenses?year=' + year))).body.rows.length, 1, 'nothing saved from a bad file');
+  const imported = await ok(acc, 'direct-expenses/import', { yearId: year, base64: good });
+  assert.equal(imported.count, 2);
+  assert.equal(imported.total, '200.00');
+  line = (await req(acc, route('setup'))).body.budgets.find((b: any) => b.id === budget);
+  assert.equal((Number(line.spent) - Number(before.spent)).toFixed(2), '550.25');
+  const d = (await req(acc, route('dashboard?year=' + year))).body;
+  assert.equal(d.documents.direct.count, 3);
+  assert.equal((await req(acc, route('direct-expenses/' + e.id), 'DELETE')).status, 400);
+  assert.ok((await req(admin, route('direct-expenses/' + e.id), 'DELETE')).status < 300);
+  line = (await req(acc, route('setup'))).body.budgets.find((b: any) => b.id === budget);
+  assert.equal((Number(line.spent) - Number(before.spent)).toFixed(2), '200.00');
+});
+test('REPEAT SUPPLIERS: the home screen lists companies assigned more than twice in the year', async () => {
+  const d = (await req(acc, route('dashboard?year=' + year))).body;
+  assert.ok(Array.isArray(d.alerts.repeatSuppliers));
+  for (const r of d.alerts.repeatSuppliers) assert.ok(r.count > 2);
+});
+test('AI: status and a clear message when no key is configured; only the administrator sets the key', async () => {
+  const st = (await req(acc, 'ai/status')).body;
+  assert.equal(typeof st.configured, 'boolean');
+  if (!st.configured) {
+    const r = await req(acc, 'ai/chat', 'POST', { school, year, messages: [{ role: 'user', content: 'مرحبا' }] });
+    assert.equal(r.status, 400);
+    assert.match(r.body.message, /غير مفعّل/);
+  }
+  assert.equal((await req(acc, 'ai/key', 'POST', { key: 'sk-ant-abcdefghijklmnopqrstuvwxyz' })).status, 403);
+  assert.equal((await req(admin, 'ai/key', 'POST', { key: 'bad-key' })).status, 400);
+  assert.equal((await req(acc, 'ai/chat', 'POST', { school, year, messages: [{ role: 'assistant', content: 'x' }] })).status, 400);
+});

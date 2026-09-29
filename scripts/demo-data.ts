@@ -4,7 +4,7 @@
  * file scripts/seed-people.local.json (not committed) and fall back to role titles.
  */
 export const DEMO_SCHOOLS = [
-  { key: 'ABAF', name: 'محمد بن عبد الوهاب الثانوية للبنين', prefix: 'ABAF' },
+  { key: 'ABAF', name: 'محمد بن عبد الوهاب الثانوية للبنين', prefix: 'ABAF', erpCode: 'SCH-ERP-1042' },
   { key: 'SHFI', name: 'الإمام الشافعي الإعدادية للبنين', prefix: 'SHFI' },
   { key: 'MSAD', name: 'مسيعيد الإبتدائية - الإعدادية - الثانوية للبنات', prefix: 'MSAD' },
   { key: 'SZYD', name: 'سعيد بن زيد الإعدادية للبنين', prefix: 'SZYD' },
@@ -118,3 +118,31 @@ export async function people(): Promise<People> {
   }
   return cached!;
 }
+
+/** Shared notes seeded for the trial (the administrator edits them from the notes screen). */
+export const DEMO_NOTES: { title: string; body: string; category: string; sort: number }[] = [
+  {
+    title: 'قيد تسوية العهدة النثرية (استعاضة)',
+    category: 'قيود عامة',
+    sort: 1,
+    body: 'من حـ/ مصروفات البنود المعنية (حسب كشف التسوية)\n    إلى حـ/ العهدة النثرية\nثم عند الاستعاضة: من حـ/ العهدة النثرية إلى حـ/ البنك بقيمة المنصرف المعتمد.',
+  },
+  {
+    title: 'قيد إقفال عهدة معرض الكتاب',
+    category: 'قيود عامة',
+    sort: 2,
+    body: 'من حـ/ المكتبة (510201) أو الأصل (110805) بقيمة الكتب\nمن حـ/ البنك بالرصيد المعاد\n    إلى حـ/ عهدة معرض الكتاب بكامل قيمتها.',
+  },
+  {
+    title: 'الإهلاكات',
+    category: 'إهلاكات',
+    sort: 3,
+    body: 'الأصول المشتراة على حسابات الأصول (مثل 110805) لا تُحمّل على مصروفات العام؛ تُقيد في سجل الأصول ويُحسب إهلاكها وفق تعميمات الوزارة.',
+  },
+  {
+    title: 'تذكير: التسجيل في ERP',
+    category: 'تنبيهات',
+    sort: 4,
+    body: 'يُسجل رقم القيد من صفحة المعاملة بعد صدور شهادة الإنجاز. كود المدرسة على ERP مسجل في الإعدادات ويظهر في الشاشة الرئيسية.',
+  },
+];

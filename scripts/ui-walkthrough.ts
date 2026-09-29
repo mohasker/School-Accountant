@@ -37,9 +37,9 @@ async function api(page: Page, path: string, method = 'GET', body?: unknown) {
   );
 }
 
-async function shot(page: Page, name: string) {
+async function shot(page: Page, name: string, fullPage = true) {
   await page.waitForTimeout(500);
-  await page.screenshot({ path: `${OUT}/${name}.png`, fullPage: true });
+  await page.screenshot({ path: `${OUT}/${name}.png`, fullPage });
 }
 
 async function printed(page: Page, html: string, name: string) {
@@ -141,6 +141,19 @@ async function main() {
   await acc.click('.modal-actions button.secondary');
   await nav(acc, 'التقارير');
   await shot(acc, '15-reports');
+  await nav(acc, 'الموازنة');
+  await acc.click('button:has-text("مصروف مباشر")');
+  await acc.waitForSelector('.modal');
+  await acc.click('.modal .date-btn');
+  await acc.waitForSelector('.date-pop');
+  await shot(acc, '16-direct-expense-datepicker', false);
+  await acc.click('.modal-actions button.secondary');
+  await nav(acc, 'أرشيف المستندات');
+  await shot(acc, '17-archive');
+  await nav(acc, 'الملاحظات العامة');
+  await shot(acc, '18-notes');
+  await nav(acc, 'المساعد الذكي');
+  await shot(acc, '19-assistant');
   await nav(acc, 'الإعدادات');
   await shot(acc, '13-settings');
   await acc.click('.theme >> nth=2');

@@ -1,6 +1,7 @@
 'use client';
 import { useState } from 'react';
 import { useWorkspace } from '../components/context';
+import { DateInput } from '../components/DateInput';
 import type { Dialog } from '../components/FormDialog';
 import { Badge, DocButtons, Empty, Panel, Stat, Table } from '../components/ui';
 import { useLoad } from '../components/useLoad';
@@ -9,6 +10,73 @@ import { currency, day, downloadFile, ROLE_CHOICES, ROLE_NAMES } from '../lib/fo
 
 const when = (v: unknown) =>
   v ? new Date(String(v)).toLocaleString('en-GB', { timeZone: 'Asia/Qatar', dateStyle: 'short', timeStyle: 'short' }) : '—';
+
+/** Sign-in log: who signed in, from which address and browser, and the device location when it was shared. */
+function LoginLog() {
+  const w = useWorkspace();
+  const [rows] = useLoad<Row[]>(() => w.api('admin/logins?take=200'));
+  const browser = (ua: string) =>
+    /Edg\//.test(ua)
+      ? 'Edge'
+      : /Chrome\//.test(ua)
+        ? 'Chrome'
+        : /Firefox\//.test(ua)
+          ? 'Firefox'
+          : /Safari\//.test(ua)
+            ? 'Safari'
+            : ua
+              ? 'آخر'
+              : '—';
+  const device = (ua: string) =>
+    /Android/.test(ua)
+      ? 'Android'
+      : /iPhone|iPad/.test(ua)
+        ? 'iPhone/iPad'
+        : /Windows/.test(ua)
+          ? 'Windows'
+          : /Mac OS/.test(ua)
+            ? 'Mac'
+            : /Linux/.test(ua)
+              ? 'Linux'
+              : '';
+  return (
+    <Panel title="سجل الدخول ومواقع الأجهزة">
+      <p>يظهر لمسؤول النظام فقط: وقت كل دخول وعنوان الشبكة والمتصفح، وموقع الجهاز إذا سمح المستخدم بمشاركته عند تسجيل الدخول.</p>
+      {rows?.length ? (
+        <Table heads={['الوقت', 'المستخدم', 'عنوان الشبكة', 'الجهاز / المتصفح', 'الموقع']}>
+          {rows.map((r) => (
+            <tr key={r.id}>
+              <td>{when(r.createdAt)}</td>
+              <td>
+                {r.user.name} <small className="mono">{r.user.username}</small>
+              </td>
+              <td className="mono">{r.ip}</td>
+              <td>
+                {device(r.userAgent)} {browser(r.userAgent)}
+              </td>
+              <td>
+                {r.lat != null && r.lng != null ? (
+                  <a
+                    href={`https://www.openstreetmap.org/?mlat=${r.lat}&mlon=${r.lng}#map=16/${r.lat}/${r.lng}`}
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    {Number(r.lat).toFixed(5)}, {Number(r.lng).toFixed(5)}
+                    {r.accuracy ? ` (±${Math.round(r.accuracy)} م)` : ''} ↗
+                  </a>
+                ) : (
+                  <span className="muted">لم يُشارك</span>
+                )}
+              </td>
+            </tr>
+          ))}
+        </Table>
+      ) : (
+        <Empty text="لا توجد سجلات دخول بعد" />
+      )}
+    </Panel>
+  );
+}
 
 /** System administrator console: every account and school, with a full work report per account. */
 export function AdminConsole() {
@@ -244,6 +312,7 @@ export function AdminConsole() {
           ))}
         </Table>
       </Panel>
+      <LoginLog />
       <Panel title="مسح البيانات">
         <p>للتجربة أو لتصحيح الأخطاء. تبقى الحسابات والإجازات والسياسة المالية ودليل البنود.</p>
         <div className="actions">
@@ -302,10 +371,10 @@ function AccountReport({ account, onBack }: { account: Row; onBack: () => void }
           Excel
         </button>
         <label className="inline">
-          من <input type="date" value={period.from} onChange={(e) => setPeriod({ ...period, from: e.target.value })} />
+          من <DateInput value={period.from} onChange={(v) => setPeriod({ ...period, from: v })} ariaLabel="من" />
         </label>
         <label className="inline">
-          إلى <input type="date" value={period.to} onChange={(e) => setPeriod({ ...period, to: e.target.value })} />
+          إلى <DateInput value={period.to} onChange={(v) => setPeriod({ ...period, to: v })} ariaLabel="إلى" />
         </label>
       </div>
       {!r ? (

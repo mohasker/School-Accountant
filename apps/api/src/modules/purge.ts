@@ -56,6 +56,9 @@ export async function deleteImprest(t: Tx, imprestId: string) {
 
 /** Transactions of a school (purchase files, imprests, saved reports); its setup stays. */
 async function clearSchool(t: Tx, schoolId: string) {
+  const direct = await t.directExpense.findMany({ where: { schoolId }, select: { id: true } });
+  await reverseLedger(t, { eventKey: { in: direct.flatMap((d) => ['direct:' + d.id, 'direct-reverse:' + d.id]) } });
+  await t.directExpense.deleteMany({ where: { schoolId } });
   for (const c of await t.case.findMany({ where: { schoolId }, select: { id: true } })) await deleteCase(t, c.id);
   for (const a of await t.imprest.findMany({ where: { schoolId }, select: { id: true } })) await deleteImprest(t, a.id);
   await t.reportRun.deleteMany({ where: { schoolId } });

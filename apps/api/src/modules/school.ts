@@ -48,6 +48,7 @@ export async function writeSchool({ s, school, t, body }: WriteCtx) {
         educationCustodian: z.string().max(100),
         bookCustodian: z.string().max(100),
         purchasingOfficer: z.string().max(100).optional(),
+        erpCode: z.string().trim().max(40).optional(),
         orderPrefix: z
           .string()
           .regex(/^[A-Za-z0-9]{0,12}$/, 'رمز أوامر الشراء: حروف إنجليزية وأرقام فقط')

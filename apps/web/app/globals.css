@@ -2464,3 +2464,280 @@ button.mini {
 .quick-link:hover {
   transform: translateY(-1px);
 }
+
+/* Round 5 — welcome header, calendar, chat, notes, archive, repeat-supplier note */
+.welcome {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+  padding: 16px 22px;
+  margin-bottom: 14px;
+  border-radius: 14px;
+  background: linear-gradient(120deg, var(--wine-soft), #fff 60%);
+  border: 1px solid var(--wine-line);
+}
+.welcome h2 {
+  margin: 0 0 4px;
+  font-size: 20px;
+  color: var(--wine-dark);
+}
+.welcome p {
+  margin: 0;
+  color: var(--ink);
+}
+.welcome-erp {
+  padding: 8px 14px;
+  border-radius: 10px;
+  background: white;
+  border: 1px solid var(--line);
+  font-size: 13px;
+}
+.alerts.repeat {
+  border-right: 4px solid var(--gold);
+}
+.alerts.repeat table {
+  margin-top: 6px;
+}
+
+/* Date picker */
+.date {
+  position: relative;
+}
+.date-field {
+  display: flex;
+  align-items: stretch;
+}
+.date-field .date-text {
+  flex: 1;
+  border-radius: 0 10px 10px 0;
+  direction: ltr;
+  text-align: left;
+  font-variant-numeric: tabular-nums;
+  min-width: 118px;
+}
+.date-btn {
+  border: 1px solid var(--line);
+  border-right: 0;
+  border-radius: 10px 0 0 10px;
+  background: #f7f9fb;
+  color: var(--wine);
+  padding: 0 10px;
+  display: grid;
+  place-items: center;
+}
+.date-btn:hover {
+  background: var(--wine-soft);
+  color: var(--wine-dark);
+}
+.date-pop {
+  position: absolute;
+  z-index: 60;
+  top: calc(100% + 6px);
+  right: 0;
+  width: 272px;
+  background: white;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  box-shadow: var(--shadow-md);
+  padding: 10px;
+  animation: popIn 0.16s var(--ease);
+}
+.date-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 6px;
+}
+.date-head b {
+  font-size: 14px;
+}
+.date-head .date-nav {
+  background: white;
+  color: var(--wine);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  display: grid;
+  place-items: center;
+  box-shadow: none;
+}
+.date-head .date-nav:hover {
+  background: var(--wine-soft);
+  color: var(--wine-dark);
+}
+.date-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 2px;
+}
+.date-grid .dn {
+  font-size: 10.5px;
+  color: var(--muted);
+  text-align: center;
+  padding: 4px 0;
+}
+.date-grid button {
+  background: none;
+  color: var(--ink);
+  border: 0;
+  border-radius: 8px;
+  height: 32px;
+  padding: 0;
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+}
+.date-grid button:hover {
+  background: var(--wine-soft);
+  color: var(--wine-dark);
+}
+.date-grid button.we {
+  color: var(--muted);
+}
+.date-grid button.today {
+  box-shadow: inset 0 0 0 1px var(--wine-line);
+}
+.date-grid button.on {
+  background: var(--wine);
+  color: white;
+}
+.date-grid button:disabled {
+  opacity: 0.3;
+}
+.date-foot {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 6px;
+  border-top: 1px solid var(--line);
+  padding-top: 6px;
+}
+
+/* Assistant */
+.chat {
+  min-height: 260px;
+  max-height: 56vh;
+  overflow: auto;
+  padding: 10px 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.chat-suggest {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.bubble {
+  max-width: 82%;
+  padding: 10px 14px;
+  border-radius: 14px;
+  animation: itemIn 0.2s var(--ease);
+}
+.bubble pre {
+  margin: 0;
+  white-space: pre-wrap;
+  font-family: inherit;
+  font-size: 14px;
+  line-height: 1.7;
+}
+.bubble.user {
+  align-self: flex-start;
+  background: var(--wine);
+  color: white;
+  border-bottom-right-radius: 4px;
+}
+.bubble.assistant {
+  align-self: flex-end;
+  background: #f3f6f8;
+  border: 1px solid var(--line);
+  border-bottom-left-radius: 4px;
+}
+.bubble.typing {
+  display: flex;
+  gap: 5px;
+  padding: 14px 16px;
+}
+.bubble.typing span {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--muted);
+  animation: blink 1s infinite;
+}
+.bubble.typing span:nth-child(2) {
+  animation-delay: 0.2s;
+}
+.bubble.typing span:nth-child(3) {
+  animation-delay: 0.4s;
+}
+@keyframes blink {
+  0%,
+  80%,
+  100% {
+    opacity: 0.25;
+  }
+  40% {
+    opacity: 1;
+  }
+}
+.chat-form {
+  display: flex;
+  gap: 8px;
+  align-items: flex-end;
+  margin-top: 8px;
+}
+.chat-form textarea {
+  flex: 1;
+  resize: vertical;
+}
+
+/* Notes board */
+.notes-group h3 {
+  margin: 16px 0 8px;
+  color: var(--wine-dark);
+  font-size: 15px;
+}
+.note {
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 12px 16px;
+  margin-bottom: 10px;
+  background: #fffdf9;
+  border-right: 4px solid var(--gold);
+}
+.note-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+}
+.note-body {
+  margin: 8px 0 0;
+  white-space: pre-wrap;
+  font-family: inherit;
+  font-size: 14px;
+  line-height: 1.8;
+}
+.muted {
+  color: var(--muted);
+}
+.login form .check {
+  font-size: 13px;
+  color: var(--muted);
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+@keyframes popIn {
+  from {
+    opacity: 0;
+    transform: translateY(-4px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}

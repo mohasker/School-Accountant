@@ -40,12 +40,13 @@ export function Settings() {
       { name: 'educationCustodian', label: 'مسؤول عهدة يوم التعليم', value: s.educationCustodian, required: false },
       { name: 'bookCustodian', label: 'مسؤول عهدة معرض الكتاب', value: s.bookCustodian, required: false },
       { name: 'purchasingOfficer', label: 'مسؤول المشتريات (يوقع تقرير عروض الأسعار)', value: s.purchasingOfficer, required: false },
+      { name: 'erpCode', label: 'كود المدرسة على نظام ERP (للتذكير عند التسجيل)', value: s.erpCode, required: false },
       {
         name: 'orderPrefix',
         label: 'رمز أوامر الشراء (مثل MBAM)',
         value: s.orderPrefix,
         required: false,
-        help: 'رقم الأمر: الرمز/السنة-الشهراليوم',
+        help: 'رقم التكليف: الرمز/السنة/التسلسل',
       },
     ],
     save: (v) => w.api(w.root('school'), 'PATCH', v),
@@ -76,6 +77,10 @@ export function Settings() {
           <tr>
             <td>مسؤول المشتريات</td>
             <td>{s.purchasingOfficer || '—'}</td>
+          </tr>
+          <tr>
+            <td>كود المدرسة على ERP</td>
+            <td className="mono">{s.erpCode || '—'}</td>
           </tr>
           <tr>
             <td>رمز أوامر الشراء</td>

@@ -4,6 +4,7 @@ import { transact } from '../core/transaction';
 import { readBudgetEstimate, readLedger, writeBudget, writeBudgetPlan } from './budgets';
 import { readCases, readCertificate, readDashboard, readEvidence, writeCases } from './cases';
 import type { Reader, Writer } from './context';
+import { readDirectExpenses, writeDirectExpenses } from './direct';
 import { readFinancialReport } from './finance';
 import { readImprests, writeImprests } from './imprests';
 import { readAudit, readReportRuns, readTransactionsReport } from './reports';
@@ -22,6 +23,7 @@ const READERS: Record<string, Reader> = {
   'budget-estimate': readBudgetEstimate,
   reports: readTransactionsReport,
   'financial-report': readFinancialReport,
+  'direct-expenses': readDirectExpenses,
   'report-runs': readReportRuns,
   audit: readAudit,
 };
@@ -37,6 +39,7 @@ const WRITERS: Record<string, Writer> = {
   'budget-plan': writeBudgetPlan,
   cases: writeCases,
   imprests: writeImprests,
+  'direct-expenses': writeDirectExpenses,
 };
 
 export function read(s: Identity, school: string, path: string[], query: Record<string, any>) {

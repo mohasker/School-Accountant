@@ -7,6 +7,7 @@ import { parse } from '../common/validation';
 import { authenticate, clearSessionCookie, login, passwordHash } from '../core/identity';
 import { htmlToPdf } from '../core/pdf';
 import { transact } from '../core/transaction';
+import { aiStatus, chat, saveAiKey } from '../modules/ai';
 import { caseRegister, certificateRegistry } from '../modules/reports';
 import { mutate, read } from '../modules/router';
 import { readTenant, writeTenant } from '../modules/tenant';
@@ -30,8 +31,24 @@ export class AuthController {
   }
 
   @Post('auth/login') async login(@Body() b: any, @Req() req: Request, @Res({ passthrough: true }) res: Response) {
-    const p = parse(z.object({ username: z.string().min(3).max(50), password: z.string().min(8).max(128) }).strict(), b);
-    return login(p.username, p.password, req, res);
+    const p = parse(
+      z
+        .object({
+          username: z.string().min(3).max(50),
+          password: z.string().min(8).max(128),
+          location: z
+            .object({
+              lat: z.number().min(-90).max(90),
+              lng: z.number().min(-180).max(180),
+              accuracy: z.number().min(0).max(1e7).optional(),
+            })
+            .strict()
+            .optional(),
+        })
+        .strict(),
+      b,
+    );
+    return login(p.username, p.password, req, res, p.location);
   }
 
   @Get('auth/me') async me(@Req() req: Request) {
@@ -96,6 +113,17 @@ export class WorkspaceController {
     const s = await authenticate(req);
     if (query.pdf === '1') return maybePdf(query, await caseRegister(s, { ...query, format: 'print' }));
     return caseRegister(s, query);
+  }
+
+  /** Assistant: availability, the administrator's key, and the chat itself (never inside a DB transaction). */
+  @Get('ai/status') async aiStatus(@Req() req: Request) {
+    return aiStatus(await authenticate(req));
+  }
+  @Post('ai/key') async aiKey(@Req() req: Request, @Body() b: any) {
+    return saveAiKey(await authenticate(req), b ?? {});
+  }
+  @Post('ai/chat') async aiChat(@Req() req: Request, @Body() b: any) {
+    return chat(await authenticate(req), b ?? {});
   }
 
   /** Tenant-wide settings: holidays, policy, budget catalog, schools, memberships. */

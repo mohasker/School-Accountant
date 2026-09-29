@@ -16,6 +16,9 @@ model Tenant {
   holidays Holiday[]
   policies PolicySetting[]
   catalog  BudgetCatalog[]
+  archives Archive[]
+  notes    Note[]
+  aiKey    String          @default("")
 }
 
 model User {
@@ -30,6 +33,7 @@ model User {
   sessions      Session[]
   isTenantAdmin Boolean      @default(false)
   lastLoginAt   DateTime?
+  logins        LoginLog[]
 
   @@unique([id, tenantId])
 }
@@ -51,6 +55,7 @@ model School {
   cases              Case[]
   orderPrefix        String       @default("")
   purchasingOfficer  String       @default("")
+  erpCode            String       @default("")
   plans              BudgetPlan[]
 
   @@unique([id, tenantId])
@@ -91,6 +96,7 @@ model FiscalYear {
   budgets   Budget[]
   imprests  Imprest[]
   plans     BudgetPlan[]
+  direct    DirectExpense[]
 
   @@unique([id, schoolId])
   @@unique([schoolId, label])
@@ -127,6 +133,7 @@ model Budget {
   entries      Ledger[]
   items        Item[]
   expenses     Expense[]
+  direct       DirectExpense[]
   nameEn       String     @default("")
   assetCode    String     @default("")
   groupKey     String     @default("")
@@ -501,4 +508,75 @@ model BudgetPlan {
   updatedAt       DateTime   @updatedAt
 
   @@unique([schoolId, yearId])
+}
+
+/// Expenses paid directly (not through an imprest) or entered from prior records; they post to the budget line.
+model DirectExpense {
+  id          String     @id @default(uuid()) @db.Uuid
+  schoolId    String     @db.Uuid
+  yearId      String     @db.Uuid
+  year        FiscalYear @relation(fields: [yearId, schoolId], references: [id, schoolId])
+  budgetId    String     @db.Uuid
+  budget      Budget     @relation(fields: [budgetId, schoolId, yearId], references: [id, schoolId, yearId])
+  date        DateTime   @db.Date
+  vendor      String     @default("")
+  reference   String     @default("")
+  description String
+  amount      Decimal    @db.Decimal(18, 2)
+  source      String     @default("MANUAL")
+  note        String     @default("")
+  createdBy   String     @db.Uuid
+  createdAt   DateTime   @default(now())
+
+  @@index([schoolId, yearId])
+}
+
+/// Shared document library: commercial registrations, undertakings and similar papers of companies.
+model Archive {
+  id           String   @id @default(uuid()) @db.Uuid
+  tenantId     String   @db.Uuid
+  tenant       Tenant   @relation(fields: [tenantId], references: [id])
+  kind         String
+  company      String
+  title        String
+  note         String   @default("")
+  fileName     String
+  mime         String
+  size         Int
+  hash         String
+  data         Bytes
+  uploadedBy   String   @db.Uuid
+  uploaderName String
+  createdAt    DateTime @default(now())
+
+  @@index([tenantId, company])
+}
+
+/// Shared notes board (general entries, settlements, depreciation…); read by all, edited by the administrator.
+model Note {
+  id        String   @id @default(uuid()) @db.Uuid
+  tenantId  String   @db.Uuid
+  tenant    Tenant   @relation(fields: [tenantId], references: [id])
+  title     String
+  body      String
+  category  String   @default("")
+  sort      Int      @default(0)
+  updatedBy String   @db.Uuid
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+/// Sign-in record: address, browser and (with the user's consent) the device location; visible to the administrator.
+model LoginLog {
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String   @db.Uuid
+  user      User     @relation(fields: [userId], references: [id])
+  ip        String
+  userAgent String   @default("")
+  lat       Float?
+  lng       Float?
+  accuracy  Float?
+  createdAt DateTime @default(now())
+
+  @@index([userId, createdAt])
 }
