@@ -74,6 +74,7 @@ ADMIN_USERNAME=$ADMIN_USERNAME
 ADMIN_NAME="${ADMIN_NAME//\"/}"
 ADMIN_PASSWORD="$ADMIN_PASSWORD"
 TENANT_NAME="MOESAS"
+SECRETS_KEY=$(openssl rand -hex 32)
 EOF
 fi
 
@@ -88,6 +89,8 @@ fi
 
 say "بناء وتشغيل النظام (أول مرة 5–10 دقائق)"
 "${COMPOSE[@]}" up --build -d
+
+grep -q '^SECRETS_KEY=.' .env || printf 'SECRETS_KEY=%s\n' "$(openssl rand -hex 32)" >> .env
 
 if [ ! -f .bootstrapped ]; then
   say "إنشاء مدير النظام ودليل بنود الموازنة"

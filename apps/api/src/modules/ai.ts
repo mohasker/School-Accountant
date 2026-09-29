@@ -7,6 +7,7 @@ import { fail, id, parse } from '../common/validation';
 import { loadPolicy } from '../core/policy';
 import { STATE_NAMES } from '../core/documents';
 import { requireTenantAdmin, scope, type Identity } from '../core/identity';
+import { seal, unseal } from '../core/secrets';
 
 /**
  * Assistant for the accountants: answers questions about the system, the procurement rules and the
@@ -26,14 +27,14 @@ export async function aiStatus(s: Identity) {
 async function apiKey(tenantId: string) {
   if (process.env.ANTHROPIC_API_KEY) return process.env.ANTHROPIC_API_KEY;
   const t = await db.tenant.findUnique({ where: { id: tenantId }, select: { aiKey: true } });
-  return t?.aiKey || '';
+  return unseal(t?.aiKey || '');
 }
 
 export async function saveAiKey(s: Identity, body: any) {
   requireTenantAdmin(s);
   const p = parse(z.object({ key: z.string().trim().max(300) }).strict(), body);
   if (p.key && !/^sk-ant-[A-Za-z0-9_-]{20,}$/.test(p.key)) fail('صيغة المفتاح غير صحيحة (يبدأ بـ sk-ant-)');
-  await db.tenant.update({ where: { id: s.user.tenantId }, data: { aiKey: p.key } });
+  await db.tenant.update({ where: { id: s.user.tenantId }, data: { aiKey: seal(p.key) } });
   return { configured: Boolean(p.key || process.env.ANTHROPIC_API_KEY) };
 }
 

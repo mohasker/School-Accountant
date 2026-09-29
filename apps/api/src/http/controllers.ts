@@ -8,6 +8,8 @@ import { authenticate, clearSessionCookie, login, passwordHash } from '../core/i
 import { htmlToPdf } from '../core/pdf';
 import { transact } from '../core/transaction';
 import { aiStatus, chat, saveAiKey } from '../modules/ai';
+import { discardOrphan, migrateArchive, prepareArchive, removeRemote } from '../modules/library';
+import { completeConnect } from '../modules/onedrive';
 import { caseRegister, certificateRegistry } from '../modules/reports';
 import { mutate, read } from '../modules/router';
 import { readTenant, writeTenant } from '../modules/tenant';
@@ -115,6 +117,23 @@ export class WorkspaceController {
     return caseRegister(s, query);
   }
 
+  /**
+   * Microsoft sends the browser back here after the OneDrive sign-in. The session cookie is not sent on this
+   * cross-site navigation, so the request is tied to the administrator by the one-time `state` issued earlier.
+   */
+  @Get('onedrive/callback') async oneDriveCallback(@Query() q: any, @Res() res: Response) {
+    const web = (process.env.WEB_ORIGIN || 'http://localhost:3000').replace(/\/$/, '');
+    const back = (params: Record<string, string>) => res.redirect(302, `${web}/?${new URLSearchParams(params)}`);
+    if (q.error) return back({ onedrive: 'error', message: String(q.error_description || q.error).slice(0, 300) });
+    try {
+      const account = await completeConnect(String(q.code ?? ''), String(q.state ?? ''));
+      return back({ onedrive: 'ok', account });
+    } catch (e: any) {
+      const m = e?.response?.message ?? e?.message ?? 'تعذر إكمال الربط';
+      return back({ onedrive: 'error', message: String(Array.isArray(m) ? m.join('، ') : m).slice(0, 300) });
+    }
+  }
+
   /** Assistant: availability, the administrator's key, and the chat itself (never inside a DB transaction). */
   @Get('ai/status') async aiStatus(@Req() req: Request) {
     return aiStatus(await authenticate(req));
@@ -131,8 +150,23 @@ export class WorkspaceController {
     const s = await authenticate(req);
     const [resource, rid, action] = segments(path);
     if (req.method === 'GET') return maybePdf(query, await readTenant(s, resource, rid, action, query));
-    return transact(s, s.user.tenantId, `${req.method}:admin/${segments(path).join('/')}`, b ?? {}, idempotencyKey(req), (t) =>
-      writeTenant(s, t, resource, rid, action, req.method, b ?? {}),
-    );
+    // Archive uploads and the move to OneDrive talk to Microsoft, so they run outside the database transaction.
+    if (resource === 'archive' && req.method === 'POST' && rid === 'migrate') return migrateArchive(s);
+    const prepared = resource === 'archive' && req.method === 'POST' && !rid ? await prepareArchive(s, b ?? {}) : undefined;
+    try {
+      const result: any = await transact(
+        s,
+        s.user.tenantId,
+        `${req.method}:admin/${segments(path).join('/')}`,
+        b ?? {},
+        idempotencyKey(req),
+        (t) => writeTenant(s, t, resource, rid, action, req.method, prepared ?? b ?? {}),
+      );
+      if (resource === 'archive' && req.method === 'DELETE' && result?.storage === 'ONEDRIVE' && result.remoteId)
+        await removeRemote(s, result.id, result.remoteId);
+      return result;
+    } finally {
+      if (prepared) await discardOrphan(s.user.tenantId, prepared);
+    }
   }
 }

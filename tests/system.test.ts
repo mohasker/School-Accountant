@@ -107,6 +107,7 @@ before(
     process.env.DATABASE_URL = 'postgresql://postgres:postgres@127.0.0.1:55433/postgres?connection_limit=1';
     process.env.DEMO_MODE = 'true';
     process.env.DB_POOL_SIZE = '1';
+    process.env.SECRETS_KEY = 'test-secrets-key-0123456789';
     process.env.PORT = '3101';
     process.env.WEB_ORIGIN = origin;
     engine = await PGlite.create();
@@ -1104,4 +1105,160 @@ test('AI: status and a clear message when no key is configured; only the adminis
   assert.equal((await req(acc, 'ai/key', 'POST', { key: 'sk-ant-abcdefghijklmnopqrstuvwxyz' })).status, 403);
   assert.equal((await req(admin, 'ai/key', 'POST', { key: 'bad-key' })).status, 400);
   assert.equal((await req(acc, 'ai/chat', 'POST', { school, year, messages: [{ role: 'assistant', content: 'x' }] })).status, 400);
+});
+test('ONEDRIVE: archive files go to the linked OneDrive; secrets stay encrypted; falls back to the database when unlinked', async () => {
+  const { createServer } = await import('node:http');
+  const files = new Map<string, Buffer>();
+  const counters = { n: 0, refreshValid: true, refreshUses: 0 };
+  const chunks = (q: any) =>
+    new Promise<Buffer>((res) => {
+      const parts: Buffer[] = [];
+      q.on('data', (d: Buffer) => parts.push(d)).on('end', () => res(Buffer.concat(parts)));
+    });
+  let mock = '';
+  const ms = createServer(async (q, r) => {
+    const url = q.url || '';
+    const body = await chunks(q);
+    const json = (code: number, o: any) => (r.writeHead(code, { 'Content-Type': 'application/json' }), r.end(JSON.stringify(o)));
+    if (url.endsWith('/oauth2/v2.0/token')) {
+      const p = new URLSearchParams(body.toString());
+      if (p.get('client_secret') !== 'the-client-secret-value') return json(401, { error: 'invalid_client' });
+      if (p.get('grant_type') === 'refresh_token') {
+        counters.refreshUses++;
+        if (!counters.refreshValid) return json(400, { error: 'invalid_grant' });
+        return json(200, { access_token: 'AT-' + ++counters.n, refresh_token: 'RT-' + counters.n, expires_in: 1 });
+      }
+      return json(200, { access_token: 'AT-0', refresh_token: 'RT-0', expires_in: 1 });
+    }
+    if (url === '/v1.0/me') return json(200, { userPrincipalName: 'archive@hotmail.test' });
+    if (q.method === 'PUT' && url.startsWith('/upload/')) {
+      const id = 'item-' + ++counters.n;
+      files.set(id, body);
+      return json(201, { id, webUrl: 'https://onedrive.test/' + id });
+    }
+    if (!q.headers.authorization?.startsWith('Bearer AT-')) return json(401, { error: { message: 'no token' } });
+    let m: RegExpMatchArray | null;
+    if (q.method === 'PUT' && /\/me\/drive\/root:\/.+:\/content/.test(url)) {
+      const id = 'item-' + ++counters.n;
+      files.set(id, body);
+      return json(201, { id, webUrl: 'https://onedrive.test/' + id });
+    }
+    if (q.method === 'POST' && url.includes(':/createUploadSession'))
+      return json(200, { uploadUrl: `${mock}/upload/session-${++counters.n}` });
+    if ((m = url.match(/\/me\/drive\/items\/([^/]+)/))) {
+      const id = decodeURIComponent(m[1]);
+      if (!files.has(id)) return json(404, { error: { message: 'not found' } });
+      if (q.method === 'DELETE') return (files.delete(id), r.writeHead(204), r.end());
+      return (r.writeHead(200), r.end(files.get(id)));
+    }
+    return json(404, {});
+  });
+  await new Promise<void>((res) => ms.listen(0, '127.0.0.1', res));
+  mock = `http://127.0.0.1:${(ms.address() as any).port}`;
+  process.env.OD_LOGIN_BASE = mock;
+  process.env.OD_GRAPH_BASE = mock + '/v1.0';
+  try {
+    const pdf = (extra = 0) => Buffer.concat([Buffer.from('%PDF-1.4\n1 0 obj<<>>endobj\ntrailer<<>>\n%%EOF'), Buffer.alloc(extra, 32)]);
+    const add = (b: Buffer, company = 'شركة السحابة') =>
+      req(acc, 'admin/archive', 'POST', {
+        kind: 'CR',
+        company,
+        title: 'سجل',
+        name: 'cr.pdf',
+        mime: 'application/pdf',
+        base64: b.toString('base64'),
+      });
+
+    // Unlinked: stored in the database, and only the administrator sees or changes the settings.
+    const early = await add(pdf());
+    assert.ok(early.status < 300, JSON.stringify(early.body));
+    assert.equal((await req(acc, 'admin/onedrive')).status, 403);
+    assert.equal(
+      (await req(acc, 'admin/onedrive/config', 'POST', { clientId: '', secret: 'x', authority: 'common', folder: 'A' })).status,
+      403,
+    );
+    assert.equal(
+      (await req(admin, 'admin/onedrive/config', 'POST', { clientId: 'not-a-guid', secret: 'x', authority: 'common', folder: 'A' })).status,
+      400,
+    );
+    assert.equal((await req(admin, 'admin/onedrive/connect')).status, 400, 'connecting needs saved settings');
+
+    const cfg = { clientId: randomUUID(), secret: 'the-client-secret-value', authority: 'common', folder: 'MOESAS-Test' };
+    assert.ok((await req(admin, 'admin/onedrive/config', 'POST', cfg)).status < 300);
+    const st = await req(admin, 'admin/onedrive');
+    assert.equal(st.body.configured, true);
+    assert.equal(st.body.connected, false);
+    assert.equal(st.body.inDatabase, 1);
+    assert.ok(!JSON.stringify(st.body).includes(cfg.secret), 'the secret is never returned');
+    const row = await db.tenant.findFirst({ where: { odClientId: cfg.clientId } });
+    assert.match(row.odSecret, /^enc:v1:/);
+    assert.ok(!row.odSecret.includes(cfg.secret));
+
+    // Sign-in: the callback needs the one-time state and never reuses it.
+    const url = new URL((await req(admin, 'admin/onedrive/connect')).body.url);
+    assert.equal(url.origin, mock);
+    assert.equal(url.searchParams.get('client_id'), cfg.clientId);
+    assert.equal(url.searchParams.get('redirect_uri'), origin + '/api/onedrive/callback');
+    const state = url.searchParams.get('state')!;
+    const cb = (s: string) => fetch(`${base}/onedrive/callback?code=abc&state=${s}`, { redirect: 'manual' });
+    const bad = await cb('forged');
+    assert.equal(bad.status, 302);
+    assert.match(bad.headers.get('location')!, /onedrive=error/);
+    const good = await cb(state);
+    assert.equal(good.status, 302);
+    assert.match(good.headers.get('location')!, /onedrive=ok/);
+    assert.match((await cb(state)).headers.get('location')!, /onedrive=error/, 'state is single use');
+    const linked = (await req(admin, 'admin/onedrive')).body;
+    assert.equal(linked.connected, true);
+    assert.equal(linked.account, 'archive@hotmail.test');
+    assert.match((await db.tenant.findFirst({ where: { odClientId: cfg.clientId } })).odRefresh, /^enc:v1:/);
+
+    // New files go to OneDrive (the database row keeps no bytes); large files use an upload session.
+    const small = pdf();
+    const a = await add(small);
+    assert.ok(a.status < 300, JSON.stringify(a.body));
+    const rowA = await db.archive.findUnique({ where: { id: a.body.id } });
+    assert.equal(rowA.storage, 'ONEDRIVE');
+    assert.equal(rowA.data, null);
+    assert.equal(files.get(rowA.remoteId)?.equals(small), true);
+    assert.equal((await req(acc, 'admin/archive/' + a.body.id)).body.base64, small.toString('base64'), 'download comes back from OneDrive');
+    const bigFile = pdf(4.5 * 1024 * 1024);
+    const big = await add(bigFile);
+    assert.ok(big.status < 300, JSON.stringify(big.body));
+    const rowB = await db.archive.findUnique({ where: { id: big.body.id } });
+    assert.equal(files.get(rowB.remoteId)?.length, bigFile.length);
+    const list = (await req(acc, 'admin/archive')).body;
+    assert.ok(!list.rows.find((r: any) => r.id === a.body.id).remoteUrl, 'link is for the administrator only');
+    assert.ok((await req(admin, 'admin/archive')).body.rows.find((r: any) => r.id === a.body.id).remoteUrl);
+
+    // Existing database documents move over on request.
+    const moved = await req(admin, 'admin/archive/migrate', 'POST', {});
+    assert.equal(moved.body.moved, 1, JSON.stringify(moved.body));
+    assert.equal(moved.body.remaining, 0);
+    const rowE = await db.archive.findUnique({ where: { id: early.body.id } });
+    assert.equal(rowE.storage, 'ONEDRIVE');
+    assert.equal(rowE.data, null);
+    assert.equal((await req(acc, 'admin/archive/' + early.body.id)).body.base64, pdf().toString('base64'));
+    assert.equal((await req(acc, 'admin/archive/migrate', 'POST', {})).status, 403);
+
+    // Deleting removes the file from OneDrive too.
+    assert.ok((await req(admin, 'admin/archive/' + a.body.id, 'DELETE')).status < 300);
+    assert.equal(files.has(rowA.remoteId), false);
+
+    // Microsoft revoking the link gives a clear error instead of a crash.
+    counters.refreshValid = false;
+    const revoked = await req(acc, 'admin/archive/' + big.body.id);
+    assert.equal(revoked.status, 409);
+    assert.match(revoked.body.message, /OneDrive/);
+
+    // Unlinking returns to the database.
+    assert.ok((await req(admin, 'admin/onedrive/disconnect', 'POST', {})).status < 300);
+    assert.equal((await req(admin, 'admin/onedrive')).body.connected, false);
+    const after = await add(pdf(), 'شركة بعد الفصل');
+    assert.equal((await db.archive.findUnique({ where: { id: after.body.id } })).storage, 'DATABASE');
+  } finally {
+    delete process.env.OD_LOGIN_BASE;
+    delete process.env.OD_GRAPH_BASE;
+    await new Promise((res) => ms.close(res));
+  }
 });

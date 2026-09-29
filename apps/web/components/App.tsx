@@ -100,6 +100,15 @@ export default function App() {
   useEffect(() => applyTheme(loadTheme()), []);
 
   useEffect(() => {
+    const q = new URLSearchParams(window.location.search),
+      od = q.get('onedrive');
+    if (!od) return;
+    if (od === 'ok') setNotice(`تم ربط حساب OneDrive${q.get('account') ? ' (' + q.get('account') + ')' : ''}`);
+    else setError(q.get('message') || 'تعذر ربط حساب OneDrive');
+    window.history.replaceState(null, '', window.location.pathname);
+  }, []);
+
+  useEffect(() => {
     request('auth/me')
       .then((m) => {
         setMe(m);

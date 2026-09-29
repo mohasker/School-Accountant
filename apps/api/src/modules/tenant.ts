@@ -7,6 +7,7 @@ import { passwordHash, requireTenantAdmin, ROLES, schoolIds, type Identity } fro
 import { loadPolicy, POLICY, policyKeys, type PolicyKey } from '../core/policy';
 import { adminOverview, manageUser, userReport } from './admin';
 import { readArchive, readLogins, readNotes, writeArchive, writeNotes } from './library';
+import { connectUrl, disconnect, saveConfig, status as oneDriveStatus } from './onedrive';
 import { purge } from './purge';
 
 /**
@@ -50,6 +51,8 @@ export async function readTenant(
       return db.budgetCatalog.findMany({ where: { tenantId }, orderBy: [{ sort: 'asc' }, { code: 'asc' }] });
     case 'archive':
       return readArchive(s, rid, query);
+    case 'onedrive':
+      return rid === 'connect' ? connectUrl(s) : oneDriveStatus(s);
     case 'notes':
       return readNotes(s);
     case 'logins':
@@ -215,6 +218,10 @@ export async function writeTenant(
       return purge(s, t, body);
     case 'archive':
       return writeArchive(s, t, rid, method, body);
+    case 'onedrive':
+      if (rid === 'disconnect') return disconnect(s, t);
+      if (rid === 'config') return saveConfig(s, t, body);
+      throw new NotFoundException();
     case 'notes':
       return writeNotes(s, t, rid, method, body);
     case 'users':

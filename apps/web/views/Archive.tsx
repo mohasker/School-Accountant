@@ -99,9 +99,15 @@ export function Archive() {
               <td>{when(r.createdAt)}</td>
               <td>
                 <div className="actions">
+                  {r.storage === 'ONEDRIVE' && <span className="badge">☁ OneDrive</span>}
                   <button className="link" onClick={() => download(r)}>
                     ⤓ تحميل
                   </button>
+                  {r.remoteUrl && (
+                    <a className="link" href={r.remoteUrl} target="_blank" rel="noreferrer">
+                      فتح في OneDrive
+                    </a>
+                  )}
                   {data.canDelete && (
                     <button
                       className="link danger"

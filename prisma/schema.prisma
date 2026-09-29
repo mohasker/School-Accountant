@@ -9,16 +9,22 @@ datasource db {
 }
 
 model Tenant {
-  id       String          @id @default(uuid()) @db.Uuid
-  name     String
-  schools  School[]
-  users    User[]
-  holidays Holiday[]
-  policies PolicySetting[]
-  catalog  BudgetCatalog[]
-  archives Archive[]
-  notes    Note[]
-  aiKey    String          @default("")
+  id          String          @id @default(uuid()) @db.Uuid
+  name        String
+  schools     School[]
+  users       User[]
+  holidays    Holiday[]
+  policies    PolicySetting[]
+  catalog     BudgetCatalog[]
+  archives    Archive[]
+  notes       Note[]
+  aiKey       String          @default("")
+  odClientId  String          @default("")
+  odSecret    String          @default("")
+  odAuthority String          @default("common")
+  odRefresh   String          @default("")
+  odAccount   String          @default("")
+  odFolder    String          @default("MOESAS-Archive")
 }
 
 model User {
@@ -85,13 +91,13 @@ model Session {
 }
 
 model FiscalYear {
-  id        String       @id @default(uuid()) @db.Uuid
-  schoolId  String       @db.Uuid
-  school    School       @relation(fields: [schoolId], references: [id])
+  id        String          @id @default(uuid()) @db.Uuid
+  schoolId  String          @db.Uuid
+  school    School          @relation(fields: [schoolId], references: [id])
   label     String
-  startDate DateTime     @db.Date
-  endDate   DateTime     @db.Date
-  closed    Boolean      @default(false)
+  startDate DateTime        @db.Date
+  endDate   DateTime        @db.Date
+  closed    Boolean         @default(false)
   cases     Case[]
   budgets   Budget[]
   imprests  Imprest[]
@@ -121,25 +127,25 @@ model Supplier {
 }
 
 model Budget {
-  id           String     @id @default(uuid()) @db.Uuid
-  schoolId     String     @db.Uuid
-  yearId       String     @db.Uuid
-  year         FiscalYear @relation(fields: [yearId, schoolId], references: [id, schoolId])
+  id           String          @id @default(uuid()) @db.Uuid
+  schoolId     String          @db.Uuid
+  yearId       String          @db.Uuid
+  year         FiscalYear      @relation(fields: [yearId, schoolId], references: [id, schoolId])
   code         String
   name         String
-  approved     Decimal    @db.Decimal(18, 2)
-  committed    Decimal    @default(0) @db.Decimal(18, 2)
-  spent        Decimal    @default(0) @db.Decimal(18, 2)
+  approved     Decimal         @db.Decimal(18, 2)
+  committed    Decimal         @default(0) @db.Decimal(18, 2)
+  spent        Decimal         @default(0) @db.Decimal(18, 2)
   entries      Ledger[]
   items        Item[]
   expenses     Expense[]
   direct       DirectExpense[]
-  nameEn       String     @default("")
-  assetCode    String     @default("")
-  groupKey     String     @default("")
-  schoolAmount Decimal    @default(0) @db.Decimal(18, 2)
-  kgAmount     Decimal    @default(0) @db.Decimal(18, 2)
-  sort         Int        @default(0)
+  nameEn       String          @default("")
+  assetCode    String          @default("")
+  groupKey     String          @default("")
+  schoolAmount Decimal         @default(0) @db.Decimal(18, 2)
+  kgAmount     Decimal         @default(0) @db.Decimal(18, 2)
+  sort         Int             @default(0)
 
   @@unique([id, schoolId, yearId])
   @@unique([schoolId, yearId, code])
@@ -544,7 +550,10 @@ model Archive {
   mime         String
   size         Int
   hash         String
-  data         Bytes
+  data         Bytes?
+  storage      String   @default("DATABASE")
+  remoteId     String   @default("")
+  remoteUrl    String   @default("")
   uploadedBy   String   @db.Uuid
   uploaderName String
   createdAt    DateTime @default(now())

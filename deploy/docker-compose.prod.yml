@@ -13,6 +13,7 @@ services:
       ADMIN_NAME: ${ADMIN_NAME:-}
       ADMIN_PASSWORD: ${ADMIN_PASSWORD:-}
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      SECRETS_KEY: ${SECRETS_KEY:-}
       TENANT_NAME: ${TENANT_NAME:-}
       UPLOAD_SCANNER: ${UPLOAD_SCANNER:-clamscan}
     restart: unless-stopped
