@@ -1,5 +1,6 @@
 'use client';
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { Select } from '../components/Select';
 import { caseDialogs } from './CaseDetail';
 import { useWorkspace } from '../components/context';
@@ -12,7 +13,31 @@ import { currency, day, METHOD_NAMES, STATE_NAMES, STATES } from '../lib/format'
 /** Quick actions of a file in the list: its next step, and reprint of every document already issued. */
 function RowActions({ r }: { r: Row }) {
   const w = useWorkspace();
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState<{ top: number; left: number; up: boolean } | null>(null);
+  const btn = useRef<HTMLButtonElement>(null);
+  const menu = useRef<HTMLSpanElement>(null);
+  // The menu is drawn over the page (not inside the scrolling table) so it is never cut off.
+  useEffect(() => {
+    if (!open) return;
+    const close = (e: Event) => {
+      if (e.type === 'mousedown' && (menu.current?.contains(e.target as Node) || btn.current?.contains(e.target as Node))) return;
+      setOpen(null);
+    };
+    document.addEventListener('mousedown', close);
+    window.addEventListener('scroll', close, true);
+    window.addEventListener('resize', close);
+    return () => {
+      document.removeEventListener('mousedown', close);
+      window.removeEventListener('scroll', close, true);
+      window.removeEventListener('resize', close);
+    };
+  }, [open]);
+  const toggle = () => {
+    if (open || !btn.current) return setOpen(null);
+    const b = btn.current.getBoundingClientRect();
+    const up = window.innerHeight - b.bottom < 60 + docs.length * 44;
+    setOpen({ top: up ? b.top - 4 : b.bottom + 4, left: Math.max(8, Math.min(b.left, window.innerWidth - 210)), up });
+  };
   const cert = r.certificates?.[0];
   const docs = [
     r.evaluationHtml && { label: 'تقرير عروض الأسعار', path: w.root(`cases/${r.id}/report-print`) },
@@ -47,18 +72,24 @@ function RowActions({ r }: { r: Row }) {
       )}
       {docs.length > 0 && (
         <span className="send">
-          <button className="mini secondary" onClick={() => setOpen((o) => !o)} aria-expanded={open}>
+          <button ref={btn} className="mini secondary" onClick={toggle} aria-expanded={Boolean(open)}>
             ⎙ طباعة ▾
           </button>
-          {open && (
-            <span className="send-menu" onMouseLeave={() => setOpen(false)}>
-              {docs.map((d) => (
-                <button key={d.label} type="button" onClick={() => (setOpen(false), w.print(d.path))}>
-                  {d.label}
-                </button>
-              ))}
-            </span>
-          )}
+          {open &&
+            createPortal(
+              <span
+                ref={menu}
+                className="send-menu floating"
+                style={{ top: open.top, left: open.left, transform: open.up ? 'translateY(-100%)' : undefined }}
+              >
+                {docs.map((d) => (
+                  <button key={d.label} type="button" onClick={() => (setOpen(null), w.print(d.path))}>
+                    {d.label}
+                  </button>
+                ))}
+              </span>,
+              document.body,
+            )}
         </span>
       )}
       <button className="link" onClick={() => w.go('case', r.id)}>

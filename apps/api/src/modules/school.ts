@@ -53,10 +53,14 @@ export async function writeSchool({ s, school, t, body }: WriteCtx) {
           .string()
           .regex(/^[A-Za-z0-9]{0,12}$/, 'رمز أوامر الشراء: حروف إنجليزية وأرقام فقط')
           .optional(),
+        lat: z.number().min(-90).max(90).nullable().optional(),
+        lng: z.number().min(-180).max(180).nullable().optional(),
       })
+      .partial()
       .strict(),
     body,
   );
+  if ((p.lat == null) !== (p.lng == null)) fail('موقع المدرسة: خط العرض وخط الطول معاً');
   return t.school.update({ where: { id: school }, data: p });
 }
 
@@ -67,7 +71,7 @@ export async function writeUser({ s, school, t, body }: WriteCtx) {
       .object({
         username: z.string().regex(/^[a-zA-Z0-9_.-]{3,50}$/),
         name: text,
-        password: z.string().min(12).max(128),
+        password: z.string().min(8).max(128),
         roles: z.array(z.enum(ROLES)).min(1),
       })
       .strict(),

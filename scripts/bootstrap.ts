@@ -12,7 +12,7 @@ import { BUDGET_CATALOG } from './catalog';
 async function main() {
   const { ADMIN_USERNAME, ADMIN_NAME, ADMIN_PASSWORD, TENANT_NAME } = process.env;
   if (!ADMIN_USERNAME || !/^[a-zA-Z0-9_.-]{3,50}$/.test(ADMIN_USERNAME)) throw new Error('Set ADMIN_USERNAME (letters, digits, . _ -).');
-  if (!ADMIN_PASSWORD || ADMIN_PASSWORD.length < 12) throw new Error('Set ADMIN_PASSWORD with 12+ characters.');
+  if (!ADMIN_PASSWORD || ADMIN_PASSWORD.length < 8) throw new Error('Set ADMIN_PASSWORD with 8+ characters.');
   if (await db.tenant.count()) throw new Error('Database already initialised; bootstrap runs once on an empty database.');
   const tenant = await db.tenant.create({ data: { name: TENANT_NAME || 'MOESAS' } });
   await db.user.create({

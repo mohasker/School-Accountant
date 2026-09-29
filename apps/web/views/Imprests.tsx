@@ -76,6 +76,11 @@ export function Imprests() {
         { name: 'custodian', label: 'مسؤول / ة العهدة', value: a.custodian },
         { name: 'principal', label: 'مدير / ة المدرسة', value: school.principal },
         { name: 'reason', label: 'ملاحظات', required: false },
+        {
+          name: 'returnReference',
+          label: 'عند اختيار الإغلاق: مرجع إيصال إعادة الرصيد المتبقي (إن وجد)',
+          required: false,
+        },
       ],
       body: (
         <InvoiceRows budgets={w.setup.budgets || []} vendors={vendors} limit={a.type === 'PETTY' ? Number(policy.singleQuoteLimit) : 0} />
@@ -132,42 +137,37 @@ export function Imprests() {
                     <button onClick={() => w.open(settleDialog(a))}>
                       {a.type === 'PETTY' ? 'تسوية / استعاضة — إدخال الفواتير' : 'تسوية العهدة — إدخال الفواتير'}
                     </button>
-                    <button
-                      className="secondary"
-                      onClick={() =>
-                        w.open({
-                          title: 'إغلاق العهدة وإعادة الرصيد المتبقي',
-                          intro: <p>يتطلب تسوية كل الفواتير بكشف تسوية. الرصيد المتبقي: {currency(a.balance)} ر.ق.</p>,
-                          fields: [{ name: 'returnReference', label: 'مرجع إيصال إعادة الرصيد' }],
-                          save: (v) => post(a, 'close', v),
-                        })
-                      }
-                    >
-                      إغلاق العهدة
-                    </button>
+                    {a.status.unsettledCount === 0 && (
+                      <button
+                        className="secondary"
+                        onClick={() =>
+                          w.open({
+                            title: 'إغلاق العهدة وإعادة الرصيد المتبقي',
+                            intro: <p>يتطلب تسوية كل الفواتير بكشف تسوية. الرصيد المتبقي: {currency(a.balance)} ر.ق.</p>,
+                            fields: [{ name: 'returnReference', label: 'مرجع إيصال إعادة الرصيد' }],
+                            save: (v) => post(a, 'close', v),
+                          })
+                        }
+                      >
+                        إغلاق العهدة
+                      </button>
+                    )}
                   </>
                 )}
               </div>
             </>
           )}
-          <Table heads={['م', 'المورد', 'رقم الفاتورة', 'التاريخ', 'البيان', 'البند', 'المبلغ', 'ملاحظات', 'التسوية']}>
-            {a.expenses.map((e: Row, i: number) => (
-              <tr key={e.id}>
-                <td>{i + 1}</td>
-                <td>{e.vendor}</td>
-                <td>{e.invoice || '—'}</td>
-                <td>{day(e.date)}</td>
-                <td>{e.description}</td>
-                <td>
-                  {e.budget?.name}
-                  <small>{e.budget?.code}</small>
-                </td>
-                <td>{currency(e.amount)}</td>
-                <td>{e.note}</td>
-                <td>{e.settlementId ? 'مسوى' : 'لم يسوَّ'}</td>
-              </tr>
-            ))}
-          </Table>
+          {a.expenses.some((e: Row) => !e.settlementId) && (
+            <>
+              <p className="muted">فواتير لم يصدر لها كشف بعد (تُضم إلى الكشف القادم):</p>
+              <InvoiceTable rows={a.expenses.filter((e: Row) => !e.settlementId)} />
+            </>
+          )}
+          {!a.settlements.length && !a.expenses.length && (
+            <p className="muted">
+              لم يصدر كشف بعد. عند اكتمال فواتير الفترة لدى أمين العهدة اضغط زر التسوية وأدخلها مرة واحدة؛ يصدر الكشف وكتاب التغطية معاً.
+            </p>
+          )}
           {w.me.user.isTenantAdmin && (
             <button
               className="link danger"
@@ -185,7 +185,7 @@ export function Imprests() {
             </button>
           )}
           {a.settlements.map((st: Row) => (
-            <div className="settlement" key={st.id}>
+            <Statement key={st.id} invoices={a.expenses.filter((e: Row) => e.settlementId === st.id)}>
               <b>
                 كشف رقم {st.number} — {st.type === 'REPLENISH' ? 'استعاضة' : 'تسوية وإغلاق'} — {currency(st.amount)} ر.ق
               </b>
@@ -221,11 +221,49 @@ export function Imprests() {
                   استلام الاستعاضة
                 </button>
               )}
-            </div>
+            </Statement>
           ))}
         </Panel>
       ))}
     </>
+  );
+}
+
+/** One settlement statement: its figures and documents, with its invoices shown on request (entered once, never twice). */
+function Statement({ invoices, children }: { invoices: Row[]; children: React.ReactNode }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div className="settlement-block">
+      <div className="settlement">
+        {children}
+        <button className="link" onClick={() => setOpen((o) => !o)}>
+          {open ? 'إخفاء الفواتير' : `الفواتير (${invoices.length})`}
+        </button>
+      </div>
+      {open && <InvoiceTable rows={invoices} />}
+    </div>
+  );
+}
+
+function InvoiceTable({ rows }: { rows: Row[] }) {
+  return (
+    <Table heads={['م', 'المورد', 'رقم الفاتورة', 'التاريخ', 'البيان', 'البند', 'المبلغ', 'ملاحظات']}>
+      {rows.map((e: Row, i: number) => (
+        <tr key={e.id}>
+          <td>{i + 1}</td>
+          <td>{e.vendor}</td>
+          <td>{e.invoice || '—'}</td>
+          <td>{day(e.date)}</td>
+          <td>{e.description}</td>
+          <td>
+            {e.budget?.name}
+            <small>{e.budget?.code}</small>
+          </td>
+          <td>{currency(e.amount)}</td>
+          <td>{e.note}</td>
+        </tr>
+      ))}
+    </Table>
   );
 }
 

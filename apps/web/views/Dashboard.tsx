@@ -152,17 +152,25 @@ export function Dashboard() {
         </div>
       </section>
 
-      {d.alerts?.repeatSuppliers?.length > 0 && (
+      {d.alerts?.repeatSuppliers?.rows?.length > 0 && (
         <section className="panel alerts repeat">
-          <h2>ملاحظة: موردون تكرر التكليف لهم أكثر من مرتين هذا العام</h2>
-          <p>للتذكير بتوسيع دعوات عروض الأسعار وتنويع الموردين؛ القائمة تفرغ تلقائياً عندما لا يوجد تكرار.</p>
-          <Table heads={['المورد', 'عدد التكليفات', 'إجمالي القيمة']}>
-            {d.alerts.repeatSuppliers.map((r: Row) => (
+          <h2>ملاحظة: موردون تكرر الشراء منهم أكثر من مرتين خلال العام الميلادي {d.alerts.repeatSuppliers.year}</h2>
+          <p>
+            تُحسب التكليفات (من إصدار تقرير العروض) والمصروفات المباشرة وفواتير العهد. للتذكير بتوسيع دعوات عروض الأسعار وتنويع الموردين؛
+            القائمة تفرغ تلقائياً عندما لا يوجد تكرار.
+          </p>
+          <Table heads={['المورد', 'مرات الشراء', 'تكليفات', 'مصروفات مباشرة', 'فواتير عهد', 'إجمالي القيمة']}>
+            {d.alerts.repeatSuppliers.rows.map((r: Row) => (
               <tr key={r.name}>
                 <td>
                   <b>{r.name}</b>
                 </td>
-                <td>{r.count}</td>
+                <td>
+                  <b>{r.count}</b>
+                </td>
+                <td>{r.orders}</td>
+                <td>{r.direct}</td>
+                <td>{r.invoices}</td>
                 <td>{currency(r.value)} ر.ق</td>
               </tr>
             ))}
@@ -228,15 +236,9 @@ export function Dashboard() {
         <Stat label="كتب التغطية" value={doc.certificates.covers} hint="تصدر مع الشهادة" onClick={() => w.go('registry')} />
         <Stat label="مصروفات مباشرة" value={doc.direct.count} hint={currency(doc.direct.value) + ' ر.ق'} onClick={() => w.go('budget')} />
         <Stat
-          label="فواتير العهد"
-          value={doc.imprests.invoices}
-          hint={currency(doc.imprests.spent) + ' ر.ق'}
-          onClick={() => w.go('imprests')}
-        />
-        <Stat
-          label="تسويات العهد"
+          label="كشوف تسوية العهد"
           value={doc.imprests.settlements}
-          hint={`${currency(doc.imprests.settled)} ر.ق · ${doc.imprests.open} عهدة مفتوحة`}
+          hint={`${doc.imprests.invoices} فاتورة · ${currency(doc.imprests.spent)} ر.ق · ${doc.imprests.open} عهدة مفتوحة`}
           onClick={() => w.go('imprests')}
         />
       </div>

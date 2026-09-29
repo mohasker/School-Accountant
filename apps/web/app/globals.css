@@ -1987,6 +1987,11 @@ label .select {
   flex-direction: column;
   animation: pop 0.18s var(--ease) both;
 }
+.send-menu.floating {
+  position: fixed;
+  z-index: 200;
+  animation: none;
+}
 .send-menu button {
   background: transparent !important;
   color: var(--ink) !important;
@@ -2740,4 +2745,51 @@ button.mini {
     opacity: 1;
     transform: none;
   }
+}
+
+/* Round 7 — accountant file, totals report, settlement statements, first school */
+.link.strong {
+  font-weight: 700;
+  font-size: 14.5px;
+  padding: 0;
+  text-align: right;
+}
+tr.total-row td {
+  font-weight: 700;
+  background: var(--wine-soft);
+}
+.usage-bars {
+  display: grid;
+  gap: 6px;
+}
+.usage-bars > div {
+  display: grid;
+  grid-template-columns: 70px 1fr 40px;
+  gap: 10px;
+  align-items: center;
+  font-size: 13px;
+}
+.usage-bars .bar {
+  background: var(--line);
+  border-radius: 6px;
+  height: 10px;
+  overflow: hidden;
+}
+.usage-bars .bar span {
+  display: block;
+  height: 100%;
+  background: var(--wine);
+  border-radius: 6px;
+}
+.settlement-block {
+  border-top: 1px solid var(--line);
+}
+.settlement-block .settlement {
+  border-top: 0;
+}
+.first-school {
+  max-width: 720px;
+}
+.first-school ol {
+  line-height: 2;
 }

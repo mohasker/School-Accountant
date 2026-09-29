@@ -5,7 +5,7 @@ import { isoDay, today } from '../common/dates';
 import { date, fail, id, optionalText, parse, text } from '../common/validation';
 import { passwordHash, requireTenantAdmin, ROLES, schoolIds, type Identity } from '../core/identity';
 import { loadPolicy, POLICY, policyKeys, type PolicyKey } from '../core/policy';
-import { adminOverview, manageUser, userReport } from './admin';
+import { accountantsReport, accountProfile, adminOverview, manageUser, userReport } from './admin';
 import { readArchive, readLogins, readNotes, writeArchive, writeNotes } from './library';
 import { connectUrl, disconnect, saveConfig, status as oneDriveStatus } from './onedrive';
 import { purge } from './purge';
@@ -64,8 +64,16 @@ export async function readTenant(
       });
     case 'overview':
       return adminOverview(s);
+    case 'accountants-report':
+      return accountantsReport(s, query);
+    case 'school-names': {
+      // Names only (no data), to pick a school name when adding one; each accountant enters the data.
+      const rows = await db.school.findMany({ where: { tenantId }, select: { name: true }, distinct: ['name'], orderBy: { name: 'asc' } });
+      return rows.map((r) => r.name);
+    }
     case 'users':
       if (rid && action === 'report') return userReport(s, rid, query);
+      if (rid && action === 'profile') return accountProfile(s, rid);
       requireTenantAdmin(s);
       return db.user.findMany({
         where: { tenantId },
@@ -175,10 +183,14 @@ export async function writeTenant(
               .regex(/^[A-Za-z0-9]{0,12}$/, 'رمز أوامر الشراء: حروف إنجليزية وأرقام فقط')
               .default(''),
             active: z.boolean().optional(),
+            erpCode: z.string().trim().max(40).optional(),
+            lat: z.number().min(-90).max(90).nullable().optional(),
+            lng: z.number().min(-180).max(180).nullable().optional(),
           })
           .strict(),
         body,
       );
+      if ((p.lat == null) !== (p.lng == null)) fail('موقع المدرسة: خط العرض وخط الطول معاً');
       if (rid) {
         const row = await t.school.findFirst({ where: { id: parse(id, rid), tenantId } });
         if (!row) throw new NotFoundException();
@@ -188,7 +200,7 @@ export async function writeTenant(
       }
       const code = p.code || `SCH-${String((await t.school.count({ where: { tenantId } })) + 1).padStart(3, '0')}`;
       if (await t.school.findFirst({ where: { tenantId, code } })) fail('رمز المدرسة مستخدم');
-      const created = await t.school.create({ data: { ...p, code, active: p.active ?? true, tenantId } });
+      const created = await t.school.create({ data: { ...p, code, active: p.active ?? true, tenantId, createdBy: s.user.id } });
       // The user who adds a school works in it right away; the current fiscal year is opened for it.
       await t.membership.create({
         data: { tenantId, schoolId: created.id, userId: s.user.id, roles: s.user.isTenantAdmin ? ['ACCOUNTANT', 'ADMIN'] : ['ACCOUNTANT'] },
@@ -232,7 +244,7 @@ export async function writeTenant(
           .object({
             username: z.string().regex(/^[a-zA-Z0-9_.-]{3,50}$/),
             name: z.string().trim().max(150).optional(),
-            password: z.string().min(12).max(128).optional(),
+            password: z.string().min(8).max(128).optional(),
             schoolId: id,
             roles: z.array(z.enum(ROLES)),
           })
@@ -250,7 +262,7 @@ export async function writeTenant(
         return { id: user.id, removed: true };
       }
       if (!user) {
-        if (!p.name || !p.password) fail('مستخدم جديد: الاسم وكلمة المرور (12 حرفاً على الأقل) مطلوبان');
+        if (!p.name || !p.password) fail('مستخدم جديد: الاسم وكلمة المرور (8 أحرف على الأقل) مطلوبان');
         user = await t.user.create({
           data: { tenantId, username: p.username, name: p.name, passwordHash: await passwordHash(p.password) },
         });

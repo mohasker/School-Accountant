@@ -83,6 +83,8 @@ const MIME_SIGNATURE: Record<string, (b: Buffer) => boolean> = {
 /** Outside demo mode every upload must pass the configured virus scanner (ClamAV by default). */
 function scan(data: Buffer) {
   if (process.env.DEMO_MODE === 'true') return 'DEMO_UNSCANNED';
+  // A personal installation on a Windows PC has no ClamAV; the file type is still checked and the PC's own antivirus scans the disk.
+  if (process.env.UPLOAD_SCANNER === 'none') return 'NOT_SCANNED';
   const dir = mkdtempSync(join(tmpdir(), 'sa-scan-'));
   try {
     const path = join(dir, 'upload');
@@ -141,7 +143,8 @@ export async function verifyEvidence({ s, school, t, body, c }: Ctx) {
   const e = await t.evidence.findUnique({ where: { id: p.evidenceId, caseId: c.id } });
   if (!e) throw new NotFoundException();
   if (c.state === 'REGISTERED') fail('المعاملة مسجلة؛ يلزم تصحيح مستقل');
-  if (p.decision === 'VERIFIED' && process.env.DEMO_MODE !== 'true' && e.scanStatus !== 'CLEAN') fail('يلزم فحص الملف');
+  if (p.decision === 'VERIFIED' && process.env.DEMO_MODE !== 'true' && !['CLEAN', 'NOT_SCANNED'].includes(e.scanStatus))
+    fail('يلزم فحص الملف');
   return t.evidence.update({ where: { id: e.id }, data: { status: p.decision, verifiedBy: s.user.id, reason: p.reason } });
 }
 

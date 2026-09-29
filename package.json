@@ -15,6 +15,7 @@
     "test": "node --import tsx --test --test-concurrency=1 tests/*.test.ts",
     "db:local": "node --import tsx scripts/pglite.ts",
     "demo": "node --import tsx scripts/demo.ts",
+    "local": "node --import tsx scripts/start.ts",
     "start:api": "node dist/main.js",
     "start:web": "next start apps/web --hostname 0.0.0.0",
     "typecheck": "tsc -p apps/api/tsconfig.json --noEmit",

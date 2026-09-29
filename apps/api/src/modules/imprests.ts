@@ -184,6 +184,7 @@ export async function writeImprests(ctx: WriteCtx) {
           custodian: z.string().trim().max(150).optional(),
           principal: z.string().trim().max(150).optional(),
           reason: z.string().trim().max(500).default(''),
+          returnReference: z.string().trim().max(100).default(''),
           invoices: z.array(z.record(z.string(), z.unknown())).max(300).default([]),
         })
         .strict(),
@@ -226,6 +227,16 @@ export async function writeImprests(ctx: WriteCtx) {
       },
     });
     await t.expense.updateMany({ where: { id: { in: expenses.map((e) => e.id) }, settlementId: null }, data: { settlementId: st.id } });
+    // Settlement and closure is one step: the remaining cash is returned with its receipt reference.
+    if (p.type === 'CLOSE') {
+      const left = (await t.imprest.findUniqueOrThrow({ where: { id: a.id } })).balance;
+      if (left.gt(0) && !p.returnReference) fail(`أدخل مرجع إيصال إعادة الرصيد المتبقي (${amount(left)} ر.ق) لإغلاق العهدة`);
+      if (left.gt(0))
+        await t.cashMovement.create({
+          data: { imprestId: a.id, amount: left.neg(), kind: 'RETURN', reference: p.returnReference, actor: s.user.id },
+        });
+      await t.imprest.update({ where: { id: a.id }, data: { balance: 0, closed: true } });
+    }
     return st;
   }
 

@@ -59,9 +59,9 @@ if [ ! -f .env ]; then
   [[ "$ADMIN_USERNAME" =~ ^[a-zA-Z0-9_.-]{3,50}$ ]] || die "اسم الدخول: حروف إنجليزية وأرقام فقط (3 على الأقل)"
   ADMIN_NAME=$(ask "الاسم الظاهر لمدير النظام: ")
   while true; do
-    read -r -s -p "كلمة مرور مدير النظام (12 حرفاً على الأقل): " ADMIN_PASSWORD < /dev/tty; echo
+    read -r -s -p "كلمة مرور مدير النظام (8 أحرف على الأقل): " ADMIN_PASSWORD < /dev/tty; echo
     read -r -s -p "أعد كتابتها: " again < /dev/tty; echo
-    if [ ${#ADMIN_PASSWORD} -lt 12 ]; then echo "قصيرة، أعد المحاولة."
+    if [ ${#ADMIN_PASSWORD} -lt 8 ]; then echo "قصيرة، أعد المحاولة."
     elif [ "$ADMIN_PASSWORD" != "$again" ]; then echo "غير متطابقتين، أعد المحاولة."
     elif [[ "$ADMIN_PASSWORD" =~ [\"\$\`\\\'] ]]; then echo "لا تستخدم الرموز \" ' \$ \` \\"
     else break; fi

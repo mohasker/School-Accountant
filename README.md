@@ -22,13 +22,13 @@ V0 هو إعادة هيكلة النسخة التجريبية 0.2.0 مع الإ�
 | PDF | تصدير كل النماذج إلى PDF من الخادم بخط Calibri للأرقام والنص اللاتيني وArial للعربي (مع بدائل مفتوحة مطابقة القياس على الخادم: Carlito وNoto Sans Arabic) وتنسيق A4 احترافي وترقيم الصفحات؛ الخطابات وشهادة الإنجاز في صفحة واحدة. |
 | الشعار | شعار الوزارة الجديد في شاشات النظام، وترويسة الوزارة في كل التقارير المطبوعة. |
 | المكتبة | بند المكتبة على حساب المصروف 510201، وشراء الكتب يُقيد على حساب الأصل 110805 من نفس البند، ويظهر كل حساب منفصلاً في ملخص كشف النثرية. |
-| الكود | تقسيم إلى طبقات ووحدات منظمة (انظر «بنية المشروع»)، وتنسيق موحد بـ Prettier. 47 اختباراً آلياً. |
+| الكود | تقسيم إلى طبقات ووحدات منظمة (انظر «بنية المشروع»)، وتنسيق موحد بـ Prettier. 50 اختباراً آلياً. |
 
 لقطات الشاشات والنماذج المطبوعة: [`docs/screenshots`](docs/screenshots)، ونماذج PDF: [`docs/screenshots/pdf`](docs/screenshots/pdf).
 
-## أسهل تجربة: على جهاز Windows بضغطة واحدة
+## أسهل تشغيل: على جهاز Windows بضغطة واحدة (النسخة العادية)
 
-ثبّت Node.js (LTS) من nodejs.org مرة واحدة، ثم اضغط مرتين على **`Start-Madar.bat`**؛ يفتح النظام في المتصفح على `http://localhost:3000` (كلمة المرور `Madar-Trial-2026`).
+ثبّت Node.js (LTS) من nodejs.org مرة واحدة، ثم اضغط مرتين على **`Start-Madar.bat`**؛ يفتح النظام في المتصفح على `http://localhost:3000`. أول مرة تنشئ حساب مدير النظام، ثم تضيف المحاسبين، وكل محاسب يضيف مدارسه. البيانات في `.data/moesas` مع نسخة يومية في `.data/backups`. (البيانات الوهمية للمطورين فقط: `npm run demo`.)
 
 ## تجربة أونلاين: GitHub Codespaces
 
@@ -77,7 +77,7 @@ docker compose -f docker-compose.yml -f deploy/docker-compose.prod.yml run --rm 
 
 ```bash
 npm run typecheck
-npm test            # 47 اختباراً عبر HTTP فعلي على PostgreSQL (PGlite) في الذاكرة
+npm test            # 50 اختباراً عبر HTTP فعلي على PostgreSQL (PGlite) في الذاكرة
 npm run build
 npm run walkthrough # مع تشغيل demo: لقطات لكل الشاشات والنماذج في docs/screenshots
 ```
@@ -104,7 +104,7 @@ apps/web
   public/brand/           شعار الوزارة (الشاشات) وترويسة التقارير
   public/fonts/           خطوط التقارير البديلة: Carlito وNoto Sans Arabic (رخصة OFL)
 prisma/                   المخطط والترحيلات (القيود المالية والسجل غير القابل للتعديل)
-scripts/                  demo، seed (تجريبي)، bootstrap (إنتاج)، catalog (البنود الرسمية)، ui-walkthrough
+scripts/                  start (النسخة العادية على الجهاز)، demo، seed (تجريبي)، bootstrap (إنتاج)، catalog (البنود الرسمية)، ui-walkthrough
 tests/                    اختبارات النظام
 ```
 

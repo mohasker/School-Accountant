@@ -63,9 +63,15 @@ model School {
   purchasingOfficer  String       @default("")
   erpCode            String       @default("")
   plans              BudgetPlan[]
+  /// The account that added the school; its data is entered by that accountant and seen by the administrator.
+  createdBy          String?      @db.Uuid
+  lat                Float?
+  lng                Float?
+  createdAt          DateTime     @default(now())
 
   @@unique([id, tenantId])
   @@unique([tenantId, code])
+  @@index([createdBy])
 }
 
 model Membership {

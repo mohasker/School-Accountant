@@ -105,6 +105,7 @@ export async function runScenario(api: string, origin: string, password: string)
     await call(root(`imprests/${book.id}/settle`), 'POST', {
       type: 'CLOSE',
       date: '2026-05-20',
+      returnReference: 'إيصال إعادة رصيد 2026/14',
       invoices: [
         {
           vendor: 'دار الثقافة للطباعة و الصحافة و النشر و التوزيع',

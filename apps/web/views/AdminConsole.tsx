@@ -11,6 +11,24 @@ import { currency, day, downloadFile, ROLE_CHOICES, ROLE_NAMES } from '../lib/fo
 const when = (v: unknown) =>
   v ? new Date(String(v)).toLocaleString('en-GB', { timeZone: 'Asia/Qatar', dateStyle: 'short', timeStyle: 'short' }) : '—';
 
+const distanceText = (m: number) => (m < 1000 ? `${m} م` : `${(m / 1000).toFixed(1)} كم`);
+const mapLink = (lat: number, lng: number) => `https://www.google.com/maps?q=${lat},${lng}`;
+
+/** The school nearest to a sign-in location (schools get a location from their data screen). */
+function Nearest({ n, located }: { n: Row | null; located: boolean }) {
+  if (!located) return <span className="muted">—</span>;
+  if (!n) return <span className="muted">لم تُحدد مواقع المدارس</span>;
+  return n.near ? (
+    <span className="badge s-REGISTERED">
+      في {n.name} ({distanceText(n.metres)})
+    </span>
+  ) : (
+    <small>
+      أقرب مدرسة: {n.name} على {distanceText(n.metres)}
+    </small>
+  );
+}
+
 /** Sign-in log: who signed in, from which address and browser, and the device location when it was shared. */
 function LoginLog() {
   const w = useWorkspace();
@@ -43,7 +61,7 @@ function LoginLog() {
     <Panel title="سجل الدخول ومواقع الأجهزة">
       <p>يظهر لمسؤول النظام فقط: وقت كل دخول وعنوان الشبكة والمتصفح، وموقع الجهاز إذا سمح المستخدم بمشاركته عند تسجيل الدخول.</p>
       {rows?.length ? (
-        <Table heads={['الوقت', 'المستخدم', 'عنوان الشبكة', 'الجهاز / المتصفح', 'الموقع']}>
+        <Table heads={['الوقت', 'المستخدم', 'عنوان الشبكة', 'الجهاز / المتصفح', 'الموقع', 'أقرب مدرسة']}>
           {rows.map((r) => (
             <tr key={r.id}>
               <td>{when(r.createdAt)}</td>
@@ -56,17 +74,16 @@ function LoginLog() {
               </td>
               <td>
                 {r.lat != null && r.lng != null ? (
-                  <a
-                    href={`https://www.openstreetmap.org/?mlat=${r.lat}&mlon=${r.lng}#map=16/${r.lat}/${r.lng}`}
-                    target="_blank"
-                    rel="noreferrer"
-                  >
+                  <a href={mapLink(r.lat, r.lng)} target="_blank" rel="noreferrer">
                     {Number(r.lat).toFixed(5)}, {Number(r.lng).toFixed(5)}
                     {r.accuracy ? ` (±${Math.round(r.accuracy)} م)` : ''} ↗
                   </a>
                 ) : (
                   <span className="muted">لم يُشارك</span>
                 )}
+              </td>
+              <td>
+                <Nearest n={r.nearest} located={r.lat != null} />
               </td>
             </tr>
           ))}
@@ -83,10 +100,13 @@ export function AdminConsole() {
   const w = useWorkspace();
   const [data] = useLoad<Row>(() => w.api('admin/overview'));
   const [selected, setSelected] = useState<Row | null>(null);
+  const [profile, setProfile] = useState<Row | null>(null);
   const [filter, setFilter] = useState('');
   if (!w.me.user.isTenantAdmin) return <Empty text="هذه الشاشة لمسؤول النظام فقط" />;
   if (!data) return <p>جارٍ التحميل…</p>;
   if (selected) return <AccountReport account={selected} onBack={() => setSelected(null)} />;
+  if (profile)
+    return <AccountProfile account={profile} onBack={() => setProfile(null)} onReport={() => (setSelected(profile), setProfile(null))} />;
   const t = data.totals;
   const accounts: Row[] = data.accounts.filter(
     (a: Row) => !filter || a.name.includes(filter) || a.username.includes(filter) || a.schools.some((s: Row) => s.name.includes(filter)),
@@ -95,7 +115,7 @@ export function AdminConsole() {
   const passwordDialog = (a: Row): Dialog => ({
     title: 'إعادة تعيين كلمة مرور: ' + a.name,
     intro: <p>تُلغى جميع جلسات المستخدم الحالية. سلّم كلمة المرور الجديدة للمستخدم بطريقة آمنة.</p>,
-    fields: [{ name: 'password', label: 'كلمة المرور الجديدة — 12 حرفاً على الأقل', type: 'password' }],
+    fields: [{ name: 'password', label: 'كلمة المرور الجديدة — 8 أحرف على الأقل', type: 'password' }],
     save: (v) => w.api(`admin/users/${a.id}/password`, 'POST', v),
   });
   const profileDialog = (a: Row): Dialog => ({
@@ -131,14 +151,18 @@ export function AdminConsole() {
   });
   const newUserDialog: Dialog = {
     title: 'حساب جديد',
-    intro: <p>المحاسب يعمل كل خطوات المعاملة والعهد في المدارس المسندة له. يمكن إسناد مدارس أخرى لاحقاً من «الصلاحيات».</p>,
+    intro: (
+      <p>
+        يبدأ الحساب بدون مدارس: يضيف المحاسب مدارسه بنفسه (يدوياً أو باختيار اسم المدرسة) ويدخل بياناتها المالية والإدارية وصلاحيات التوقيع،
+        وتظهر لك كاملة. يمكنك أيضاً إسناد مدرسة قائمة من «الصلاحيات».
+      </p>
+    ),
     fields: [
       { name: 'name', label: 'الاسم الظاهر في المستندات' },
       { name: 'username', label: 'اسم الدخول بالإنجليزية' },
-      { name: 'password', label: 'كلمة المرور — 12 حرفاً على الأقل', type: 'password' },
-      { name: 'schoolId', label: 'المدرسة', type: 'select', options: data.schools.map((s: Row) => ({ value: s.id, label: s.name })) },
+      { name: 'password', label: 'كلمة المرور — 8 أحرف على الأقل', type: 'password' },
     ],
-    save: (v) => w.api('admin/memberships', 'POST', { ...v, roles: ['ACCOUNTANT'] }),
+    save: (v) => w.api('admin/users', 'POST', v),
   };
   const purgeDialog = (title: string, text: string, body: Row): Dialog => ({
     title,
@@ -169,33 +193,27 @@ export function AdminConsole() {
         }
       >
         <p>
-          المنجزة: المعاملات التي صدرت لها شهادة الإنجاز وكتاب التغطية. قيد الإعداد: من تقرير العروض حتى قبل الشهادة. لمدير النظام كامل
-          الصلاحيات على كل المدارس والحسابات، ويفتح «تقرير الأعمال» لأي حساب عند الطلب.
+          اضغط اسم المحاسب لفتح ملفه: بيانات مدارسه كاملة، والتقرير الفني، ومواقع الدخول مع أقرب مدرسة، والاستخدام. المنجزة: المعاملات التي
+          صدرت لها شهادة الإنجاز وكتاب التغطية؛ قيد الإعداد: من تقرير العروض حتى قبل الشهادة.
         </p>
-        <Table
-          heads={['الحساب', 'المدارس والصلاحيات', 'منجزة', 'قيد الإعداد', 'تقارير / شهادات', 'فواتير العهد', 'آخر دخول', 'الحالة', '']}
-        >
+        <Table heads={['الحساب', 'المدارس', 'المعاملات', 'منجزة', 'قيد الإعداد', 'مصروفات مباشرة', 'كشوف العهد', 'آخر دخول', 'الحالة', '']}>
           {accounts.map((a) => (
             <tr key={a.id} className={a.active ? '' : 'inactive'}>
               <td>
-                <b>{a.name}</b>
+                <button className="link strong" onClick={() => setProfile(a)} title="بيانات المدارس والتقرير الفني والمواقع والاستخدام">
+                  {a.name}
+                </button>
                 <small className="mono">
                   {a.username}
                   {a.isTenantAdmin ? ' · مسؤول النظام' : ''}
                 </small>
               </td>
               <td>
-                {a.isTenantAdmin ? (
-                  <small>كل المدارس — كامل الصلاحيات</small>
-                ) : a.schools.length ? (
-                  a.schools.map((s: Row) => (
-                    <small key={s.schoolId}>
-                      {s.name}: {s.roles.map((r: string) => ROLE_NAMES[r] || r).join('، ')}
-                    </small>
-                  ))
-                ) : (
-                  <small>—</small>
-                )}
+                <b>{a.schoolCount}</b>
+                <small>{a.isTenantAdmin ? 'كل المدارس' : `أضاف ${a.schoolsAdded}`}</small>
+              </td>
+              <td>
+                <b>{a.totalCases}</b>
               </td>
               <td>
                 <b>{a.cases.done}</b>
@@ -206,11 +224,12 @@ export function AdminConsole() {
                 <small>{currency(a.cases.openValue)} ر.ق</small>
               </td>
               <td>
-                {a.approvals} / {a.certificates}
+                {a.directCount}
+                <small>{currency(a.directAmount)} ر.ق</small>
               </td>
               <td>
-                {a.pettyInvoices}
-                <small>{currency(a.pettyAmount)} ر.ق</small>
+                {a.settlements}
+                <small>{currency(a.settledAmount)} ر.ق</small>
               </td>
               <td>
                 <small>{when(a.lastLoginAt)}</small>
@@ -218,6 +237,9 @@ export function AdminConsole() {
               <td>{a.active ? <span className="badge s-REGISTERED">فعال</span> : <span className="badge s-CANCELLED">موقوف</span>}</td>
               <td>
                 <div className="actions">
+                  <button className="link" onClick={() => setProfile(a)}>
+                    الملف
+                  </button>
                   <button className="link" onClick={() => setSelected(a)}>
                     تقرير الأعمال
                   </button>
@@ -263,7 +285,7 @@ export function AdminConsole() {
           heads={[
             'المدرسة',
             'المدير',
-            'الحسابات',
+            'أضافها / المحاسبون',
             'منجزة',
             'قيد الإعداد',
             'الشهادات',
@@ -278,8 +300,14 @@ export function AdminConsole() {
                 <b>{s.name}</b>
                 <small className="mono">{s.code}</small>
               </td>
-              <td>{s.principal}</td>
-              <td>{s.users}</td>
+              <td>
+                {s.principal}
+                {!s.located && <small className="muted">الموقع غير محدد</small>}
+              </td>
+              <td>
+                {s.owner || '—'}
+                {s.accountants && s.accountants !== s.owner && <small>{s.accountants}</small>}
+              </td>
               <td>{s.casesDone}</td>
               <td>{s.casesOpen}</td>
               <td>{s.certificates}</td>
@@ -312,6 +340,7 @@ export function AdminConsole() {
           ))}
         </Table>
       </Panel>
+      <AccountantsTotals />
       <LoginLog />
       <Panel title="مسح البيانات">
         <p>للتجربة أو لتصحيح الأخطاء. تبقى الحسابات والإجازات والسياسة المالية ودليل البنود.</p>
@@ -488,6 +517,287 @@ function AccountReport({ account, onBack }: { account: Row; onBack: () => void }
           </div>
         </>
       )}
+    </>
+  );
+}
+
+/** Totals of every accountant's transactions for a period, with print, PDF and Excel. */
+function AccountantsTotals() {
+  const w = useWorkspace();
+  const [period, setPeriod] = useState({ from: '', to: '' });
+  const qs = new URLSearchParams(Object.entries(period).filter(([, v]) => v) as [string, string][]).toString();
+  const [r] = useLoad<Row>(() => w.api('admin/accountants-report' + (qs ? '?' + qs : '')), [qs]);
+  const base = 'admin/accountants-report?format=print' + (qs ? '&' + qs : '');
+  return (
+    <Panel title="تقرير إجمالي معاملات كل محاسب">
+      <div className="actions">
+        <label className="inline">
+          من <DateInput value={period.from} onChange={(v) => setPeriod({ ...period, from: v })} ariaLabel="من" />
+        </label>
+        <label className="inline">
+          إلى <DateInput value={period.to} onChange={(v) => setPeriod({ ...period, to: v })} ariaLabel="إلى" />
+        </label>
+        <DocButtons path={base} label="التقرير" />
+        <button
+          className="secondary"
+          onClick={async () => {
+            try {
+              downloadFile(await w.api('admin/accountants-report?format=xlsx' + (qs ? '&' + qs : '')));
+            } catch (e) {
+              w.fail(e);
+            }
+          }}
+        >
+          تنزيل Excel
+        </button>
+      </div>
+      {!r ? (
+        <p>جارٍ التحميل…</p>
+      ) : (
+        <Table
+          heads={[
+            'المحاسب',
+            'المدارس',
+            'المعاملات',
+            'منجزة / قيد الإعداد',
+            'التكليفات',
+            'الشهادات',
+            'مصروفات مباشرة',
+            'فواتير العهد',
+            'كشوف التسوية',
+          ]}
+        >
+          {[...r.rows, { ...r.totals, id: 'total', name: 'الإجمالي', total: true }].map((x: Row) => (
+            <tr key={x.id} className={x.total ? 'total-row' : ''}>
+              <td>
+                <b>{x.name}</b>
+              </td>
+              <td>
+                {x.schools}
+                {!x.total && <small>أضاف {x.schoolsAdded}</small>}
+              </td>
+              <td>
+                {x.cases}
+                <small>{currency(x.casesValue)} ر.ق</small>
+              </td>
+              <td>
+                {x.done} / {x.open}
+              </td>
+              <td>
+                {x.orders}
+                <small>{currency(x.ordersValue)} ر.ق</small>
+              </td>
+              <td>
+                {x.certificates}
+                <small>{currency(x.certificatesNet)} ر.ق</small>
+              </td>
+              <td>
+                {x.direct}
+                <small>{currency(x.directValue)} ر.ق</small>
+              </td>
+              <td>
+                {x.invoices}
+                <small>{currency(x.invoicesValue)} ر.ق</small>
+              </td>
+              <td>
+                {x.statements}
+                <small>{currency(x.statementsValue)} ر.ق</small>
+              </td>
+            </tr>
+          ))}
+        </Table>
+      )}
+    </Panel>
+  );
+}
+
+/** One accountant's file: their schools with full data, the technical report, sign-in locations and usage. */
+function AccountProfile({ account, onBack, onReport }: { account: Row; onBack: () => void; onReport: () => void }) {
+  const w = useWorkspace();
+  const [p] = useLoad<Row>(() => w.api(`admin/users/${account.id}/profile`));
+  if (!p)
+    return (
+      <>
+        <button className="secondary" onClick={onBack}>
+          ← كل الحسابات
+        </button>
+        <p>جارٍ التحميل…</p>
+      </>
+    );
+  const t = p.technical,
+    d = p.usage.documents;
+  const max = Math.max(1, ...p.usage.monthly.map((m: Row) => m.count));
+  return (
+    <>
+      <div className="actions">
+        <button className="secondary" onClick={onBack}>
+          ← كل الحسابات
+        </button>
+        <button className="secondary" onClick={onReport}>
+          تقرير الأعمال التفصيلي
+        </button>
+      </div>
+      <Panel title={`ملف المحاسب: ${p.user.name}`}>
+        <p>
+          <span className="mono">{p.user.username}</span> — {p.user.active ? 'فعال' : 'موقوف'}
+          {p.user.isTenantAdmin ? ' — مسؤول النظام' : ''} — آخر دخول: {when(t.lastLogin)}
+        </p>
+        <div className="cards">
+          <Stat label="المدارس" value={p.schools.length} hint={`أضاف ${p.schools.filter((x: Row) => x.addedByAccount).length}`} />
+          <Stat label="المعاملات" value={d.cases} hint={`تكليفات ${d.orders} · شهادات ${d.certificates}`} />
+          <Stat label="عمليات الدخول" value={t.logins} hint={`بموقع ${t.sharedLocation}`} />
+          <Stat label="العمليات المسجلة" value={t.actions} hint={'آخر نشاط ' + when(t.lastActivity)} />
+        </div>
+      </Panel>
+
+      <Panel title="المدارس وبياناتها (يدخلها المحاسب)">
+        {p.schools.length ? (
+          <Table
+            heads={['المدرسة', 'الإدارة وصلاحيات التوقيع', 'العهد والمشتريات', 'البيانات المالية (العام المفتوح)', 'النشاط', 'الموقع']}
+          >
+            {p.schools.map((x: Row) => (
+              <tr key={x.id} className={x.active ? '' : 'inactive'}>
+                <td>
+                  <b>{x.name}</b>
+                  <small className="mono">
+                    {x.code}
+                    {x.erpCode ? ' · ERP ' + x.erpCode : ''}
+                  </small>
+                  <small>
+                    {x.addedByAccount ? 'أضافها المحاسب' : 'مسندة'} · {day(x.createdAt)} · {x.roles.join('، ')}
+                  </small>
+                </td>
+                <td>
+                  المدير: {x.principal || '—'}
+                  <small>مسؤول المشتريات: {x.purchasingOfficer || '—'}</small>
+                </td>
+                <td>
+                  <small>النثرية: {x.pettyCustodian || '—'}</small>
+                  <small>يوم التعليم: {x.educationCustodian || '—'}</small>
+                  <small>معرض الكتاب: {x.bookCustodian || '—'}</small>
+                  <small className="mono">رمز الأوامر: {x.orderPrefix || 'PO'}</small>
+                </td>
+                <td>
+                  <small>معتمد {currency(x.approved)}</small>
+                  <small>مرتبط {currency(x.committed)}</small>
+                  <small>مصروف {currency(x.spent)}</small>
+                  <small>الأعوام: {x.years.join('، ') || '—'}</small>
+                </td>
+                <td>
+                  <small>
+                    معاملات {x.cases} ({currency(x.casesValue)} ر.ق)
+                  </small>
+                  <small>
+                    عهد مفتوحة {x.openImprests} · موردون {x.suppliers}
+                  </small>
+                </td>
+                <td>
+                  {x.lat != null ? (
+                    <a href={mapLink(x.lat, x.lng)} target="_blank" rel="noreferrer">
+                      على الخريطة ↗
+                    </a>
+                  ) : (
+                    <span className="muted">غير محدد</span>
+                  )}
+                </td>
+              </tr>
+            ))}
+          </Table>
+        ) : (
+          <Empty text="لم يضف المحاسب مدارس بعد" />
+        )}
+      </Panel>
+
+      <div className="grid2">
+        <Panel title="التقرير الفني">
+          <Table heads={['البيان', 'القيمة']}>
+            <tr>
+              <td>أول دخول / آخر دخول</td>
+              <td>
+                {when(t.firstLogin)} / {when(t.lastLogin)}
+              </td>
+            </tr>
+            <tr>
+              <td>الجلسات المفتوحة الآن</td>
+              <td>
+                {t.activeSessions}
+                {t.lastSeen ? ` — آخر ظهور ${when(t.lastSeen)}` : ''}
+              </td>
+            </tr>
+            <tr>
+              <td>الأجهزة والمتصفحات</td>
+              <td>{t.devices.map((x: Row) => `${x.name} (${x.count})`).join('، ') || '—'}</td>
+            </tr>
+            <tr>
+              <td>عناوين الشبكة</td>
+              <td className="mono">{t.ips.join('، ') || '—'}</td>
+            </tr>
+            <tr>
+              <td>المستندات</td>
+              <td>
+                تقارير عروض {d.quoteReports} · تكليفات {d.orders} · شهادات {d.certificates} · مصروفات مباشرة {d.direct} · فواتير عهد{' '}
+                {d.invoices} · كشوف تسوية {d.statements}
+              </td>
+            </tr>
+          </Table>
+        </Panel>
+        <Panel title="الاستخدام الشهري (آخر 12 شهراً)">
+          {p.usage.monthly.length ? (
+            <div className="usage-bars">
+              {p.usage.monthly.map((m: Row) => (
+                <div key={m.month}>
+                  <span className="mono">{m.month}</span>
+                  <span className="bar">
+                    <span style={{ width: `${(100 * m.count) / max}%` }} />
+                  </span>
+                  <b>{m.count}</b>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <Empty text="لا يوجد نشاط مسجل" />
+          )}
+        </Panel>
+      </div>
+
+      <Panel title="مواقع الدخول وأقرب مدرسة">
+        {p.locations.length ? (
+          <Table heads={['الوقت', 'الموقع', 'أقرب مدرسة', 'عنوان الشبكة']}>
+            {p.locations.map((l: Row) => (
+              <tr key={l.id}>
+                <td>{when(l.createdAt)}</td>
+                <td>
+                  <a href={mapLink(l.lat, l.lng)} target="_blank" rel="noreferrer">
+                    {Number(l.lat).toFixed(5)}, {Number(l.lng).toFixed(5)}
+                    {l.accuracy ? ` (±${Math.round(l.accuracy)} م)` : ''} ↗
+                  </a>
+                </td>
+                <td>
+                  <Nearest n={l.nearest} located />
+                </td>
+                <td className="mono">{l.ip}</td>
+              </tr>
+            ))}
+          </Table>
+        ) : (
+          <Empty text="لم يشارك المحاسب موقعه عند الدخول" />
+        )}
+      </Panel>
+
+      <Panel title="الاستخدام حسب نوع العملية">
+        {p.usage.byAction.length ? (
+          <Table heads={['العملية', 'العدد']}>
+            {p.usage.byAction.slice(0, 25).map((x: Row) => (
+              <tr key={x.action}>
+                <td className="mono">{x.action}</td>
+                <td>{x.count}</td>
+              </tr>
+            ))}
+          </Table>
+        ) : (
+          <Empty />
+        )}
+      </Panel>
     </>
   );
 }

@@ -46,6 +46,8 @@ async function main() {
     const user = await db.user.create({ data: { tenantId: t.id, username, name, passwordHash, isTenantAdmin } });
     for (const sc of list) await db.membership.create({ data: { tenantId: t.id, userId: user.id, schoolId: sc.id, roles: [...roles] } });
   }
+  // Each trial school belongs to the accountant who works in it (as if they had added it).
+  await db.$executeRaw`UPDATE "School" s SET "createdBy" = (SELECT m."userId" FROM "Membership" m JOIN "User" u ON u."id" = m."userId" WHERE m."schoolId" = s."id" ORDER BY u."isTenantAdmin" ASC LIMIT 1)`;
 
   await db.budgetCatalog.createMany({ data: BUDGET_CATALOG.map((c) => ({ ...c, tenantId: t.id })) });
   for (const { row } of schools) {

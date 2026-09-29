@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { db, type Tx } from '../common/db';
 import { hash } from '../common/crypto';
 import { fail, id, optionalText, parse, text } from '../common/validation';
+import { nearestSchool } from '../core/geo';
 import { requireTenantAdmin, type Identity } from '../core/identity';
 import { audit } from '../core/transaction';
 import { download, isConnected, remove, upload } from './onedrive';
@@ -245,10 +246,15 @@ export async function writeNotes(s: Identity, t: Tx, rid: string | undefined, me
 export async function readLogins(s: Identity, query: Record<string, any>) {
   requireTenantAdmin(s);
   const user = query.user ? parse(id, query.user) : undefined;
-  return db.loginLog.findMany({
-    where: { user: { tenantId: s.user.tenantId }, ...(user ? { userId: user } : {}) },
-    include: { user: { select: { name: true, username: true } } },
-    orderBy: { createdAt: 'desc' },
-    take: Math.min(Number(query.take) || 300, 2000),
-  });
+  const [rows, schools] = await Promise.all([
+    db.loginLog.findMany({
+      where: { user: { tenantId: s.user.tenantId }, ...(user ? { userId: user } : {}) },
+      include: { user: { select: { name: true, username: true } } },
+      orderBy: { createdAt: 'desc' },
+      take: Math.min(Number(query.take) || 300, 2000),
+    }),
+    db.school.findMany({ where: { tenantId: s.user.tenantId, lat: { not: null } }, select: { name: true, lat: true, lng: true } }),
+  ]);
+  // With every located sign-in: the nearest school whose location was entered.
+  return rows.map((r) => ({ ...r, nearest: nearestSchool(r, schools) }));
 }

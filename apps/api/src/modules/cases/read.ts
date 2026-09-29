@@ -83,6 +83,53 @@ const inPeriod = (d: Date | string | null | undefined, from: string, to: string)
   const v = typeof d === 'string' ? d.slice(0, 10) : isoDay(d);
   return v >= from && v <= to;
 };
+/** Name key that treats «SMARTQAT  Trading» and «smartqat trading» as the same company. */
+const supplierKey = (v: string) => v.replace(/\s+/g, ' ').trim().toLowerCase();
+
+/**
+ * Companies the school bought from more than twice in one calendar year (January–December), counting
+ * assignments (from the issued quote report on), direct expenses and imprest invoices. It is a reminder
+ * to widen the quotes and vary the suppliers, not a ban. The calendar year is the current one when it
+ * falls inside the fiscal year, otherwise the fiscal year's first year.
+ */
+export async function repeatPurchases(school: string, start: string, end: string) {
+  const now = today().slice(0, 4);
+  const y = now >= start.slice(0, 4) && now <= end.slice(0, 4) ? now : start.slice(0, 4);
+  const range = { gte: new Date(`${y}-01-01`), lte: new Date(`${y}-12-31T23:59:59Z`) };
+  const [cases, direct, invoices] = await Promise.all([
+    db.case.findMany({
+      where: { schoolId: school, supplierId: { not: null }, state: { notIn: ['DRAFT', 'CANCELLED'] } },
+      select: { total: true, issueDate: true, reportDate: true, createdAt: true, supplier: { select: { name: true } } },
+    }),
+    db.directExpense.findMany({ where: { schoolId: school, date: range, vendor: { not: '' } }, select: { vendor: true, amount: true } }),
+    db.expense.findMany({ where: { schoolId: school, date: range, vendor: { not: '' } }, select: { vendor: true, amount: true } }),
+  ]);
+  type Tally = { name: string; count: number; orders: number; direct: number; invoices: number; value: InstanceType<typeof D> };
+  const rows = new Map<string, Tally>();
+  const add = (name: string, amount: unknown, kind: 'orders' | 'direct' | 'invoices') => {
+    const key = supplierKey(name);
+    if (!key) return;
+    const r = rows.get(key) ?? { name: name.trim(), count: 0, orders: 0, direct: 0, invoices: 0, value: new D(0) };
+    r.count++;
+    r[kind]++;
+    r.value = r.value.plus(amount as any);
+    rows.set(key, r);
+  };
+  for (const c of cases) {
+    const when = isoDay(c.issueDate ?? c.reportDate ?? c.createdAt);
+    if (when.startsWith(y)) add(c.supplier!.name, c.total, 'orders');
+  }
+  for (const e of direct) add(e.vendor, e.amount, 'direct');
+  for (const e of invoices) add(e.vendor, e.amount, 'invoices');
+  return {
+    year: y,
+    rows: [...rows.values()]
+      .filter((r) => r.count > 2)
+      .sort((a, b) => b.count - a.count || b.value.comparedTo(a.value))
+      .map((r) => ({ ...r, value: num(r.value) })),
+  };
+}
+
 const monthOf = (d: Date | string) => (typeof d === 'string' ? d : isoDay(d)).slice(0, 7);
 
 /**
@@ -133,18 +180,7 @@ export async function readDashboard({ s, school, query }: ReadCtx) {
   const certificates = cases.flatMap((c) => c.certificates.map((x) => ({ ...x, case: c }))).filter((x) => inPeriod(certDate(x), from, to));
   const expenses = imprests.flatMap((a) => a.expenses).filter((e) => inPeriod(e.date, from, to));
   const direct = directAll.filter((e) => inPeriod(e.date, from, to));
-  // Companies assigned more than twice in the fiscal year: a reminder to widen the quotes (not a ban).
-  const bySupplier = new Map<string, { name: string; count: number; value: InstanceType<typeof D> }>();
-  for (const c of cases.filter((c) => c.issueDate && c.supplier)) {
-    const row = bySupplier.get(c.supplier!.name) ?? { name: c.supplier!.name, count: 0, value: new D(0) };
-    row.count += 1;
-    row.value = row.value.plus(c.total);
-    bySupplier.set(c.supplier!.name, row);
-  }
-  const repeatSuppliers = [...bySupplier.values()]
-    .filter((r) => r.count > 2)
-    .sort((a, b) => b.count - a.count)
-    .map((r) => ({ name: r.name, count: r.count, value: num(r.value) }));
+  const repeatSuppliers = await repeatPurchases(school, isoDay(year.startDate), isoDay(year.endDate));
   const settlements = imprests
     .flatMap((a) => a.settlements)
     .filter((x) => inPeriod(String((x.details as any)?.date ?? isoDay(x.createdAt)), from, to));

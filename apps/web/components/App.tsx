@@ -7,7 +7,7 @@ import { downloadFile, ERP_URL, ROLE_NAMES, showPrint } from '../lib/format';
 import { WorkspaceContext, type View, type Workspace } from './context';
 import { FormDialog, type Dialog } from './FormDialog';
 import { Logo } from './ui';
-import { APP_NAME, APP_TITLE, COPYRIGHT, CREDIT } from '../lib/brand';
+import { APP_NAME, APP_TITLE, COPYRIGHT } from '../lib/brand';
 import { AdminConsole } from '../views/AdminConsole';
 import { Archive } from '../views/Archive';
 import { Assistant } from '../views/Assistant';
@@ -22,7 +22,7 @@ import { Imprests } from '../views/Imprests';
 import { Policy } from '../views/Policy';
 import { Registry } from '../views/Registry';
 import { Reports } from '../views/Reports';
-import { Settings } from '../views/Settings';
+import { FirstSchool, Settings } from '../views/Settings';
 import { Suppliers } from '../views/Suppliers';
 
 const NAV: { view: View; icon: string; label: string; show?: (w: { can: Workspace['can']; me: Row }) => boolean }[] = [
@@ -218,7 +218,6 @@ export default function App() {
               </div>
             </div>
             <Logo />
-            <p className="credit">{CREDIT}</p>
           </div>
           <nav>
             {NAV.filter((n) => !n.show || n.show({ can, me })).map((n) => (
@@ -310,7 +309,17 @@ export default function App() {
                 </button>
               </div>
             )}
-            {year ? (
+            {view === 'admin' ? (
+              <AdminConsole />
+            ) : view === 'archive' ? (
+              <Archive />
+            ) : view === 'notes' ? (
+              <Notes />
+            ) : view === 'policy' ? (
+              <Policy />
+            ) : !me.schools.length ? (
+              <FirstSchool />
+            ) : year ? (
               <>
                 {view === 'dashboard' && <Dashboard />}
                 {view === 'cases' && <Cases />}
@@ -319,17 +328,13 @@ export default function App() {
                 {view === 'budget' && <Budget />}
                 {view === 'imprests' && <Imprests />}
                 {view === 'reports' && <Reports />}
-                {view === 'archive' && <Archive />}
-                {view === 'notes' && <Notes />}
                 {view === 'assistant' && <Assistant />}
                 {view === 'registry' && <Registry type="certificate" />}
                 {view === 'quote-register' && <Registry type="report" />}
                 {view === 'order-register' && <Registry type="order" />}
                 {view === 'holidays' && <Holidays />}
-                {view === 'policy' && <Policy />}
                 {view === 'settings' && <Settings />}
                 {view === 'audit' && <Audit />}
-                {view === 'admin' && <AdminConsole />}
               </>
             ) : (
               <p>{setup.school?.id === school ? 'لا يوجد عام مالي لهذه المدرسة؛ أضفه من الإعدادات.' : 'جارٍ التحميل…'}</p>
@@ -337,7 +342,7 @@ export default function App() {
           </main>
           <footer className="page-footer">
             <span>
-              {APP_NAME} · {APP_TITLE} · {CREDIT}
+              {APP_NAME} · {APP_TITLE}
             </span>
             <b className="copyright">{COPYRIGHT}</b>
           </footer>
@@ -376,7 +381,13 @@ function deviceLocation(): Promise<{ lat: number; lng: number; accuracy?: number
 
 function Login({ onLogin }: { onLogin: (me: Row) => void }) {
   const [busy, setBusy] = useState(false),
-    [error, setError] = useState('');
+    [error, setError] = useState(''),
+    [setup, setSetup] = useState(false);
+  useEffect(() => {
+    request('auth/setup')
+      .then((r) => setSetup(Boolean(r.needed)))
+      .catch(() => {});
+  }, []);
   return (
     <div className="login">
       <section>
@@ -385,7 +396,6 @@ function Login({ onLogin }: { onLogin: (me: Row) => void }) {
           <Logo />
         </div>
         <h2>{APP_TITLE}</h2>
-        <p className="credit">{CREDIT}</p>
         <p>
           التكليفات وشهادات الإنجاز والعهد والموازنة
           <br />
@@ -406,12 +416,19 @@ function Login({ onLogin }: { onLogin: (me: Row) => void }) {
           setError('');
           const fd = new FormData(e.currentTarget);
           try {
-            const location = fd.get('share') === 'on' ? await deviceLocation() : undefined;
-            await request('auth/login', 'POST', {
-              username: String(fd.get('username') ?? ''),
-              password: String(fd.get('password') ?? ''),
-              ...(location ? { location } : {}),
-            });
+            if (setup)
+              await request('auth/setup', 'POST', {
+                name: String(fd.get('name') ?? ''),
+                username: String(fd.get('username') ?? ''),
+                password: String(fd.get('password') ?? ''),
+              });
+            const location = !setup && fd.get('share') === 'on' ? await deviceLocation() : undefined;
+            if (!setup)
+              await request('auth/login', 'POST', {
+                username: String(fd.get('username') ?? ''),
+                password: String(fd.get('password') ?? ''),
+                ...(location ? { location } : {}),
+              });
             onLogin(await request('auth/me'));
           } catch (err: any) {
             setError(err.message);
@@ -420,27 +437,51 @@ function Login({ onLogin }: { onLogin: (me: Row) => void }) {
           }
         }}
       >
-        <span className="eyebrow">مرحباً بعودتك</span>
-        <h2>تسجيل الدخول</h2>
-        <p>استخدم الحساب الذي أعده مسؤول النظام.</p>
+        {setup ? (
+          <>
+            <span className="eyebrow">التشغيل الأول</span>
+            <h2>إنشاء حساب مدير النظام</h2>
+            <p>هذه أول مرة يعمل فيها النظام على هذا الجهاز. أنشئ حسابك (مدير النظام)، ثم أضف المدارس والمحاسبين.</p>
+          </>
+        ) : (
+          <>
+            <span className="eyebrow">مرحباً بعودتك</span>
+            <h2>تسجيل الدخول</h2>
+            <p>استخدم الحساب الذي أعده مسؤول النظام.</p>
+          </>
+        )}
         {error && (
           <div className="error" role="alert">
             {error}
           </div>
         )}
+        {setup && (
+          <label>
+            الاسم الظاهر في المستندات
+            <input name="name" required minLength={2} />
+          </label>
+        )}
         <label>
-          اسم المستخدم
+          {setup ? 'اسم الدخول بالإنجليزية' : 'اسم المستخدم'}
           <input autoComplete="username" name="username" required />
         </label>
         <label>
-          كلمة المرور
-          <input type="password" autoComplete="current-password" name="password" required />
+          {setup ? 'كلمة المرور — 8 أحرف على الأقل' : 'كلمة المرور'}
+          <input
+            type="password"
+            autoComplete={setup ? 'new-password' : 'current-password'}
+            name="password"
+            required
+            minLength={setup ? 8 : 1}
+          />
         </label>
-        <label className="check">
-          <input type="checkbox" name="share" defaultChecked />
-          مشاركة موقع الجهاز مع مسؤول النظام عند الدخول
-        </label>
-        <button disabled={busy}>{busy ? 'جارٍ التحقق…' : 'الدخول إلى مساحة العمل'}</button>
+        {!setup && (
+          <label className="check">
+            <input type="checkbox" name="share" defaultChecked />
+            مشاركة موقع الجهاز مع مسؤول النظام عند الدخول
+          </label>
+        )}
+        <button disabled={busy}>{busy ? 'جارٍ التحقق…' : setup ? 'إنشاء الحساب والدخول' : 'الدخول إلى مساحة العمل'}</button>
         <small>نظام مساعد شخصي لخدمة المحاسبين — ليس نظاماً حكومياً رسمياً.</small>
       </form>
       <footer className="login-footer">{COPYRIGHT}</footer>

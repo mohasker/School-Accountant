@@ -442,8 +442,11 @@ test('IMPREST: book fair imprest is settled and closed, never replenished', asyn
     amount: '2500',
   });
   assert.equal((await req(acc, route(`imprests/${a.id}/settle`), 'POST', { type: 'REPLENISH' })).status, 400);
-  const st = await ok(acc, `imprests/${a.id}/settle`, { type: 'CLOSE' });
+  const st = await ok(acc, `imprests/${a.id}/settle`, { type: 'CLOSE', returnReference: 'إيصال 55' });
   assert.ok((await req(acc, route(`imprests/${a.id}/${st.id}`))).body.cover.includes('تسوية وإغلاق'));
+  const closed = (await req(acc, route('imprests?year=' + year))).body.find((x: any) => x.id === a.id);
+  assert.equal(closed.closed, true, 'settlement and closure are one step');
+  assert.equal(Number(closed.balance), 0);
 });
 test('REPORTS: headers include school accountant period and isolation', async () => {
   const r = await req(acc, route(`reports?year=${year}&from=2026-01-01&to=2026-12-31`));
@@ -676,7 +679,7 @@ test('LIBRARY: expense account 510201 with books on asset account 110805', async
       .status,
     400,
   );
-  const st = await ok(acc, `imprests/${a.id}/settle`, { type: 'CLOSE' });
+  const st = await ok(acc, `imprests/${a.id}/settle`, { type: 'CLOSE', returnReference: 'إيصال 56' });
   const html = (await req(acc, route(`imprests/${a.id}/${st.id}`))).body.html;
   assert.ok(html.includes('110805') && html.includes('510201') && html.includes('المكتبة (أصول)'));
 });
@@ -919,7 +922,7 @@ test('SETTLEMENT: all invoices entered once on the settlement screen (Arabic dig
   assert.equal(bad.status, 400);
   assert.match(bad.body.message, /الفاتورة 1/);
   assert.equal((await req(acc, route('imprests?year=' + year))).body.find((x: any) => x.id === a.id).expenses.length, 0, 'rolled back');
-  const st = await ok(acc, `imprests/${a.id}/settle`, { type: 'CLOSE', invoices });
+  const st = await ok(acc, `imprests/${a.id}/settle`, { type: 'CLOSE', invoices, returnReference: 'إيصال 57' });
   assert.equal(Number(st.amount), 470.5);
   const after = (await req(acc, route('imprests?year=' + year))).body.find((x: any) => x.id === a.id);
   assert.equal(after.expenses.length, 2);
@@ -1089,10 +1092,21 @@ test('DIRECT EXPENSES: post to the line at once; Excel template imports all rows
   line = (await req(acc, route('setup'))).body.budgets.find((b: any) => b.id === budget);
   assert.equal((Number(line.spent) - Number(before.spent)).toFixed(2), '200.00');
 });
-test('REPEAT SUPPLIERS: the home screen lists companies assigned more than twice in the year', async () => {
-  const d = (await req(acc, route('dashboard?year=' + year))).body;
-  assert.ok(Array.isArray(d.alerts.repeatSuppliers));
-  for (const r of d.alerts.repeatSuppliers) assert.ok(r.count > 2);
+test('REPEAT SUPPLIERS: companies bought from more than twice in the calendar year appear on the home screen', async () => {
+  const buy = (vendor: string, date: string) =>
+    ok(acc, 'direct-expenses', { yearId: year, budgetId: budget, date, description: 'قرطاسية', vendor, reference: '', amount: '10' });
+  const list = async () => (await req(acc, route('dashboard?year=' + year))).body.alerts.repeatSuppliers;
+  await buy('مؤسسة التكرار للتجارة', '2026-02-01');
+  await buy('مؤسسة  التكرار للتجارة ', '2026-03-01');
+  assert.ok(!(await list()).rows.some((r: any) => r.name.includes('التكرار')), 'twice is not a repeat');
+  await buy('مؤسسة التكرار للتجارة', '2026-04-01');
+  const r = await list();
+  assert.equal(r.year, '2026');
+  const row = r.rows.find((x: any) => x.name.includes('التكرار'));
+  assert.ok(row, JSON.stringify(r));
+  assert.equal(row.count, 3);
+  assert.equal(row.direct, 3);
+  for (const x of r.rows) assert.ok(x.count > 2);
 });
 test('AI: status and a clear message when no key is configured; only the administrator sets the key', async () => {
   const st = (await req(acc, 'ai/status')).body;
@@ -1260,5 +1274,81 @@ test('ONEDRIVE: archive files go to the linked OneDrive; secrets stay encrypted;
     delete process.env.OD_LOGIN_BASE;
     delete process.env.OD_GRAPH_BASE;
     await new Promise((res) => ms.close(res));
+  }
+});
+
+test('ACCOUNTS: a new accountant starts with no schools, adds their own, and the administrator sees everything', async () => {
+  // 8-character passwords are accepted; an account is created without a school.
+  const username = 'fresh.acc';
+  assert.equal((await req(acc, 'admin/users', 'POST', { name: 'محاسب جديد', username, password: 'Abcd1234' })).status, 403);
+  assert.equal((await req(admin, 'admin/users', 'POST', { name: 'محاسب جديد', username, password: 'short' })).status, 400);
+  const u = await req(admin, 'admin/users', 'POST', { name: 'محاسب جديد', username, password: 'Abcd1234' });
+  assert.ok(u.status < 300, JSON.stringify(u.body));
+  const r = await req(null, 'auth/login', 'POST', {
+    username,
+    password: 'Abcd1234',
+    location: { lat: 25.2855, lng: 51.531, accuracy: 20 },
+  });
+  const fresh = { cookie: r.cookie, csrf: r.body.csrf };
+  assert.equal((await req(fresh, 'auth/me')).body.schools.length, 0, 'no schools at first');
+  assert.equal((await req(fresh, 'admin/schools')).body.length, 0, 'sees only their own schools');
+  const names = (await req(fresh, 'admin/school-names')).body;
+  assert.ok(names.length > 0 && names.every((n: any) => typeof n === 'string'), 'school names to pick from, without data');
+  const sc = await req(fresh, 'admin/schools', 'POST', {
+    name: names[0],
+    principal: 'مدير تجريبي',
+    purchasingOfficer: 'مسؤول مشتريات',
+    erpCode: 'ERP-900',
+    lat: 25.2854,
+    lng: 51.5309,
+  });
+  assert.ok(sc.status < 300, JSON.stringify(sc.body));
+  const me = (await req(fresh, 'auth/me')).body;
+  assert.equal(me.schools.length, 1);
+  assert.equal((await req(fresh, 'admin/schools')).body.length, 1);
+  assert.equal((await req(fresh, `schools/${sc.body.id}/setup`)).status, 200);
+  assert.equal((await req(fresh, route('setup'))).status, 403, "another accountant's school stays closed");
+
+  // The administrator: schools added per account, the account file and the sign-in near the school.
+  const o = (await req(admin, 'admin/overview')).body;
+  const row = o.accounts.find((a: any) => a.username === username);
+  assert.equal(row.schoolCount, 1);
+  assert.equal(row.schoolsAdded, 1);
+  assert.equal(o.schools.find((x: any) => x.id === sc.body.id).owner, 'محاسب جديد');
+  assert.equal((await req(acc, `admin/users/${u.body.id}/profile`)).status, 403);
+  const p = (await req(admin, `admin/users/${u.body.id}/profile`)).body;
+  assert.equal(p.schools.length, 1);
+  assert.equal(p.schools[0].erpCode, 'ERP-900');
+  assert.equal(p.schools[0].addedByAccount, true);
+  assert.equal(p.technical.logins, 1);
+  assert.equal(p.locations.length, 1);
+  assert.equal(p.locations[0].nearest.name, names[0]);
+  assert.equal(p.locations[0].nearest.near, true);
+  assert.ok(p.locations[0].nearest.metres < 100);
+  const logins = (await req(admin, 'admin/logins?user=' + u.body.id)).body;
+  assert.equal(logins[0].nearest.near, true);
+});
+test('ACCOUNTANTS REPORT: totals per accountant for a period, printable and as Excel', async () => {
+  assert.equal((await req(acc, 'admin/accountants-report')).status, 403);
+  const r = (await req(admin, 'admin/accountants-report?from=2026-01-01&to=2026-12-31')).body;
+  const a = r.rows.find((x: any) => x.username === 'accountant');
+  assert.ok(a.cases >= 1 && a.direct >= 1, JSON.stringify(a));
+  assert.equal(
+    r.totals.cases,
+    r.rows.reduce((n: number, x: any) => n + x.cases, 0),
+  );
+  const html = (await req(admin, 'admin/accountants-report?format=print')).body.html;
+  assert.ok(html.includes('تقرير إجمالي معاملات المحاسبين') && html.includes('الإجمالي'));
+  assert.ok((await req(admin, 'admin/accountants-report?format=xlsx')).body.base64.length > 1000);
+});
+test('SETUP: the first-run administrator form exists only for a new local installation', async () => {
+  assert.equal((await req(null, 'auth/setup')).body.needed, false);
+  assert.equal((await req(null, 'auth/setup', 'POST', { name: 'x y', username: 'intruder', password: 'Abcd1234' })).status, 404);
+  process.env.LOCAL_SETUP = 'true';
+  try {
+    assert.equal((await req(null, 'auth/setup')).body.needed, false, 'accounts exist');
+    assert.equal((await req(null, 'auth/setup', 'POST', { name: 'x y', username: 'intruder', password: 'Abcd1234' })).status, 401);
+  } finally {
+    delete process.env.LOCAL_SETUP;
   }
 });

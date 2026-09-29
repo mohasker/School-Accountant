@@ -1,5 +1,5 @@
 @echo off
-rem MOESAS V0 - one-click trial on Windows (synthetic data, stored in the .data folder).
+rem MOESAS - one-click start on Windows (your real data, kept in the .data\moesas folder; a daily copy goes to .data\backups).
 rem Needs Node.js 22.12+ (https://nodejs.org). Keep this window open while using the system.
 title MOESAS V0 - Government Schools Accountants System
 cd /d "%~dp0"
@@ -36,18 +36,17 @@ if errorlevel 1 goto failed
 if exist VERSION copy /y VERSION apps\web\.next\madar-version >nul
 :run
 
-if "%DEMO_PASSWORD%"=="" set "DEMO_PASSWORD=Madar-Trial-2026"
 echo.
 echo  ============================================================
 echo    MOESAS is starting. The browser opens by itself when ready.
 echo    Address : http://localhost:3000
-echo    Users   : accountant / admin / other
-echo    Password: %DEMO_PASSWORD%
+echo    First time: create the system administrator account on the page.
+echo    Your data: %~dp0.data\moesas   (daily copies in .data\backups)
 echo    To stop : close this window
 echo  ============================================================
 echo.
 start "" /b powershell -NoProfile -Command "for($i=0;$i -lt 90;$i++){try{Invoke-WebRequest -UseBasicParsing http://localhost:3000 -TimeoutSec 2 | Out-Null; Start-Process 'http://localhost:3000'; break}catch{Start-Sleep 2}}"
-call npm run demo
+call npm run local
 goto end
 
 :failed
