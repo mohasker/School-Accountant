@@ -11,25 +11,7 @@ import { currency, day, downloadFile, ROLE_CHOICES, ROLE_NAMES } from '../lib/fo
 const when = (v: unknown) =>
   v ? new Date(String(v)).toLocaleString('en-GB', { timeZone: 'Asia/Qatar', dateStyle: 'short', timeStyle: 'short' }) : '—';
 
-const distanceText = (m: number) => (m < 1000 ? `${m} م` : `${(m / 1000).toFixed(1)} كم`);
-const mapLink = (lat: number, lng: number) => `https://www.google.com/maps?q=${lat},${lng}`;
-
-/** The school nearest to a sign-in location (schools get a location from their data screen). */
-function Nearest({ n, located }: { n: Row | null; located: boolean }) {
-  if (!located) return <span className="muted">—</span>;
-  if (!n) return <span className="muted">لم تُحدد مواقع المدارس</span>;
-  return n.near ? (
-    <span className="badge s-REGISTERED">
-      في {n.name} ({distanceText(n.metres)})
-    </span>
-  ) : (
-    <small>
-      أقرب مدرسة: {n.name} على {distanceText(n.metres)}
-    </small>
-  );
-}
-
-/** Sign-in log: who signed in, from which address and browser, and the device location when it was shared. */
+/** Sign-in log: who signed in, from which address, device and browser. */
 function LoginLog() {
   const w = useWorkspace();
   const [rows] = useLoad<Row[]>(() => w.api('admin/logins?take=200'));
@@ -58,10 +40,10 @@ function LoginLog() {
               ? 'Linux'
               : '';
   return (
-    <Panel title="سجل الدخول ومواقع الأجهزة">
-      <p>يظهر لمسؤول النظام فقط: وقت كل دخول وعنوان الشبكة والمتصفح، وموقع الجهاز إذا سمح المستخدم بمشاركته عند تسجيل الدخول.</p>
+    <Panel title="سجل الدخول">
+      <p>يظهر لمسؤول النظام فقط: وقت كل دخول وعنوان الشبكة والجهاز والمتصفح.</p>
       {rows?.length ? (
-        <Table heads={['الوقت', 'المستخدم', 'عنوان الشبكة', 'الجهاز / المتصفح', 'الموقع', 'أقرب مدرسة']}>
+        <Table heads={['الوقت', 'المستخدم', 'عنوان الشبكة', 'الجهاز / المتصفح']}>
           {rows.map((r) => (
             <tr key={r.id}>
               <td>{when(r.createdAt)}</td>
@@ -71,19 +53,6 @@ function LoginLog() {
               <td className="mono">{r.ip}</td>
               <td>
                 {device(r.userAgent)} {browser(r.userAgent)}
-              </td>
-              <td>
-                {r.lat != null && r.lng != null ? (
-                  <a href={mapLink(r.lat, r.lng)} target="_blank" rel="noreferrer">
-                    {Number(r.lat).toFixed(5)}, {Number(r.lng).toFixed(5)}
-                    {r.accuracy ? ` (±${Math.round(r.accuracy)} م)` : ''} ↗
-                  </a>
-                ) : (
-                  <span className="muted">لم يُشارك</span>
-                )}
-              </td>
-              <td>
-                <Nearest n={r.nearest} located={r.lat != null} />
               </td>
             </tr>
           ))}
@@ -193,14 +162,14 @@ export function AdminConsole() {
         }
       >
         <p>
-          اضغط اسم المحاسب لفتح ملفه: بيانات مدارسه كاملة، والتقرير الفني، ومواقع الدخول مع أقرب مدرسة، والاستخدام. المنجزة: المعاملات التي
-          صدرت لها شهادة الإنجاز وكتاب التغطية؛ قيد الإعداد: من تقرير العروض حتى قبل الشهادة.
+          اضغط اسم المحاسب لفتح ملفه: بيانات مدارسه كاملة، والتقرير الفني، والاستخدام. المنجزة: المعاملات التي صدرت لها شهادة الإنجاز وكتاب
+          التغطية؛ قيد الإعداد: من تقرير العروض حتى قبل الشهادة.
         </p>
         <Table heads={['الحساب', 'المدارس', 'المعاملات', 'منجزة', 'قيد الإعداد', 'مصروفات مباشرة', 'كشوف العهد', 'آخر دخول', 'الحالة', '']}>
           {accounts.map((a) => (
             <tr key={a.id} className={a.active ? '' : 'inactive'}>
               <td>
-                <button className="link strong" onClick={() => setProfile(a)} title="بيانات المدارس والتقرير الفني والمواقع والاستخدام">
+                <button className="link strong" onClick={() => setProfile(a)} title="بيانات المدارس والتقرير الفني والاستخدام">
                   {a.name}
                 </button>
                 <small className="mono">
@@ -300,10 +269,7 @@ export function AdminConsole() {
                 <b>{s.name}</b>
                 <small className="mono">{s.code}</small>
               </td>
-              <td>
-                {s.principal}
-                {!s.located && <small className="muted">الموقع غير محدد</small>}
-              </td>
+              <td>{s.principal}</td>
               <td>
                 {s.owner || '—'}
                 {s.accountants && s.accountants !== s.owner && <small>{s.accountants}</small>}
@@ -611,7 +577,7 @@ function AccountantsTotals() {
   );
 }
 
-/** One accountant's file: their schools with full data, the technical report, sign-in locations and usage. */
+/** One accountant's file: their schools with full data, the technical report and usage. */
 function AccountProfile({ account, onBack, onReport }: { account: Row; onBack: () => void; onReport: () => void }) {
   const w = useWorkspace();
   const [p] = useLoad<Row>(() => w.api(`admin/users/${account.id}/profile`));
@@ -645,7 +611,7 @@ function AccountProfile({ account, onBack, onReport }: { account: Row; onBack: (
         <div className="cards">
           <Stat label="المدارس" value={p.schools.length} hint={`أضاف ${p.schools.filter((x: Row) => x.addedByAccount).length}`} />
           <Stat label="المعاملات" value={d.cases} hint={`تكليفات ${d.orders} · شهادات ${d.certificates}`} />
-          <Stat label="عمليات الدخول" value={t.logins} hint={`بموقع ${t.sharedLocation}`} />
+          <Stat label="عمليات الدخول" value={t.logins} />
           <Stat label="العمليات المسجلة" value={t.actions} hint={'آخر نشاط ' + when(t.lastActivity)} />
         </div>
       </Panel>
@@ -690,15 +656,6 @@ function AccountProfile({ account, onBack, onReport }: { account: Row; onBack: (
                   <small>
                     عهد مفتوحة {x.openImprests} · موردون {x.suppliers}
                   </small>
-                </td>
-                <td>
-                  {x.lat != null ? (
-                    <a href={mapLink(x.lat, x.lng)} target="_blank" rel="noreferrer">
-                      على الخريطة ↗
-                    </a>
-                  ) : (
-                    <span className="muted">غير محدد</span>
-                  )}
                 </td>
               </tr>
             ))}
@@ -759,30 +716,6 @@ function AccountProfile({ account, onBack, onReport }: { account: Row; onBack: (
           )}
         </Panel>
       </div>
-
-      <Panel title="مواقع الدخول وأقرب مدرسة">
-        {p.locations.length ? (
-          <Table heads={['الوقت', 'الموقع', 'أقرب مدرسة', 'عنوان الشبكة']}>
-            {p.locations.map((l: Row) => (
-              <tr key={l.id}>
-                <td>{when(l.createdAt)}</td>
-                <td>
-                  <a href={mapLink(l.lat, l.lng)} target="_blank" rel="noreferrer">
-                    {Number(l.lat).toFixed(5)}, {Number(l.lng).toFixed(5)}
-                    {l.accuracy ? ` (±${Math.round(l.accuracy)} م)` : ''} ↗
-                  </a>
-                </td>
-                <td>
-                  <Nearest n={l.nearest} located />
-                </td>
-                <td className="mono">{l.ip}</td>
-              </tr>
-            ))}
-          </Table>
-        ) : (
-          <Empty text="لم يشارك المحاسب موقعه عند الدخول" />
-        )}
-      </Panel>
 
       <Panel title="الاستخدام حسب نوع العملية">
         {p.usage.byAction.length ? (

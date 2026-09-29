@@ -13,7 +13,7 @@ export function Suppliers() {
     title: r ? 'تعديل المورد' : 'إضافة مورد',
     fields: [
       { name: 'name', label: 'الاسم القانوني كما في السجل التجاري', value: r?.name },
-      { name: 'cr', label: 'رقم السجل التجاري', value: r?.cr },
+      { name: 'cr', label: 'رقم السجل التجاري', value: r?.cr, required: false },
       { name: 'phone', label: 'الهاتف', value: r?.phone, required: false },
       { name: 'email', label: 'البريد الإلكتروني', value: r?.email, required: false },
       { name: 'iban', label: 'IBAN (تعديله يحتاج معتمداً)', value: r?.iban, required: false },
@@ -37,6 +37,18 @@ export function Suppliers() {
         editor && (
           <>
             <button onClick={() => w.open(form())}>＋ إضافة مورد</button>
+            <button
+              className="secondary"
+              title="الموردون الواردون في شيت شهادة الإنجاز وشيت التكليف؛ يُضاف الناقص فقط"
+              onClick={() =>
+                w.task(async () => {
+                  const r = await w.api(w.root('supplier-standard'), 'POST', {});
+                  if (!r.added) throw Error('كل موردي الشيتات موجودون بالفعل');
+                }, 'أُضيف موردو الشيتات الناقصون')
+              }
+            >
+              إضافة موردي الشيتات
+            </button>
             <button className="secondary" onClick={() => w.open(importDialog)}>
               استيراد CSV
             </button>

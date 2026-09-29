@@ -1,3 +1,4 @@
+import { addStandardSuppliers } from '../core/suppliers-list';
 import { ConflictException, NotFoundException } from '@nestjs/common';
 import { z } from 'zod';
 import { fail, id, parse, text } from '../common/validation';
@@ -88,4 +89,10 @@ export async function importSuppliers({ s, school, t, body }: WriteCtx) {
   }
   await t.supplier.createMany({ data: p.rows.map((r) => ({ ...r, schoolId: school })) });
   return { count: p.rows.length };
+}
+
+/** Adds the suppliers of the approved workbooks that the school does not have yet (existing ones stay as edited). */
+export async function addStandard({ s, school, t }: WriteCtx) {
+  scope(s, school, EDITORS);
+  return { added: await addStandardSuppliers(t, school) };
 }

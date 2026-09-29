@@ -1341,14 +1341,32 @@ test('ACCOUNTANTS REPORT: totals per accountant for a period, printable and as E
   assert.ok(html.includes('تقرير إجمالي معاملات المحاسبين') && html.includes('الإجمالي'));
   assert.ok((await req(admin, 'admin/accountants-report?format=xlsx')).body.base64.length > 1000);
 });
-test('SETUP: the first-run administrator form exists only for a new local installation', async () => {
-  assert.equal((await req(null, 'auth/setup')).body.needed, false);
-  assert.equal((await req(null, 'auth/setup', 'POST', { name: 'x y', username: 'intruder', password: 'Abcd1234' })).status, 404);
-  process.env.LOCAL_SETUP = 'true';
-  try {
-    assert.equal((await req(null, 'auth/setup')).body.needed, false, 'accounts exist');
-    assert.equal((await req(null, 'auth/setup', 'POST', { name: 'x y', username: 'intruder', password: 'Abcd1234' })).status, 401);
-  } finally {
-    delete process.env.LOCAL_SETUP;
-  }
+
+test('SUPPLIERS: a new school starts with the suppliers of the approved sheets, editable; missing ones are added on request', async () => {
+  const { STANDARD_SUPPLIERS } = await import('../apps/api/src/core/suppliers-list');
+  const sc = await req(acc, 'admin/schools', 'POST', { name: 'مدرسة موردي الشيتات', principal: 'مدير' });
+  assert.ok(sc.status < 300, JSON.stringify(sc.body));
+  const s1 = (await req(acc, `schools/${sc.body.id}/setup`)).body;
+  assert.equal(s1.suppliers.length, STANDARD_SUPPLIERS.length);
+  const one = s1.suppliers.find((x: any) => x.name === 'مكتبة كلمات');
+  const edited = await req(acc, `schools/${sc.body.id}/suppliers/${one.id}`, 'PATCH', {
+    name: 'مكتبة كلمات ذ.م.م.',
+    cr: '12345',
+    phone: '44440000',
+    email: '',
+    iban: '',
+    version: one.version,
+    active: true,
+  });
+  assert.ok(edited.status < 300, JSON.stringify(edited.body));
+  const other = s1.suppliers.find((x: any) => x.name === 'مكتبة ألف ذ.م.م.');
+  assert.ok((await req(acc, `schools/${sc.body.id}/suppliers/${other.id}`, 'DELETE')).status < 300);
+  const added = await req(acc, `schools/${sc.body.id}/supplier-standard`, 'POST', {});
+  assert.equal(added.body.added, 2, 'the deleted one and the renamed one come back; the edit stays');
+  const names = (await req(acc, `schools/${sc.body.id}/setup`)).body.suppliers.map((x: any) => x.name);
+  assert.ok(names.includes('مكتبة كلمات ذ.م.م.'));
+});
+test('LOGIN: user names are not case sensitive', async () => {
+  const r = await req(null, 'auth/login', 'POST', { username: 'ACCOUNTANT', password });
+  assert.ok(r.status < 300, JSON.stringify(r.body));
 });

@@ -9,6 +9,7 @@ import { accountantsReport, accountProfile, adminOverview, manageUser, userRepor
 import { readArchive, readLogins, readNotes, writeArchive, writeNotes } from './library';
 import { connectUrl, disconnect, saveConfig, status as oneDriveStatus } from './onedrive';
 import { purge } from './purge';
+import { addStandardSuppliers } from '../core/suppliers-list';
 
 /**
  * Tenant-wide settings under /api/admin/…. Every user may maintain the official holidays and add
@@ -224,6 +225,7 @@ export async function writeTenant(
           approved: 0,
         })),
       });
+      await addStandardSuppliers(t, created.id);
       return created;
     }
     case 'purge':

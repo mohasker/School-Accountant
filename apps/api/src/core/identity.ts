@@ -49,7 +49,10 @@ export async function login(
 ) {
   throttle(req.ip || 'unknown', 30);
   throttle('u:' + hash(username.toLowerCase()));
-  const user = await db.user.findUnique({ where: { username } });
+  // «Admin» and «admin» are the same account at sign-in.
+  const user =
+    (await db.user.findUnique({ where: { username } })) ??
+    (await db.user.findFirst({ where: { username: { equals: username.trim(), mode: 'insensitive' } } }));
   dummy ??= passwordHash(randomBytes(30).toString('hex'));
   const valid = await argon2.verify(user?.passwordHash ?? (await dummy), password).catch(() => false);
   if (!valid || !user?.active) throw new UnauthorizedException('بيانات الدخول غير صحيحة');

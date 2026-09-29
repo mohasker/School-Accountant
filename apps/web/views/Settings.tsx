@@ -50,15 +50,8 @@ export function Settings() {
         required: false,
         help: 'رقم التكليف: الرمز/السنة/التسلسل',
       },
-      {
-        name: 'location',
-        label: 'موقع المدرسة (خط العرض، خط الطول) — انسخه من خرائط جوجل',
-        value: s.lat != null ? `${s.lat}, ${s.lng}` : '',
-        required: false,
-        help: 'مثل: 25.28545, 51.53096 — يُستخدم لإظهار أقرب مدرسة لموقع الدخول',
-      },
     ],
-    save: ({ location: at, ...v }) => w.api(w.root('school'), 'PATCH', { ...v, ...parseLocation(String(at ?? '')) }),
+    save: (v) => w.api(w.root('school'), 'PATCH', v),
   };
 
   return (
@@ -94,23 +87,6 @@ export function Settings() {
           <tr>
             <td>رمز أوامر الشراء</td>
             <td className="mono">{s.orderPrefix || 'PO'}</td>
-          </tr>
-          <tr>
-            <td>موقع المدرسة</td>
-            <td>
-              {s.lat != null ? (
-                <a href={`https://www.google.com/maps?q=${s.lat},${s.lng}`} target="_blank" rel="noreferrer">
-                  {Number(s.lat).toFixed(5)}, {Number(s.lng).toFixed(5)} ↗
-                </a>
-              ) : (
-                'غير محدد'
-              )}{' '}
-              {w.can('ACCOUNTANT') && (
-                <button className="link" onClick={() => saveMyLocation(w)}>
-                  تحديد من موقعي الحالي (وأنا في المدرسة)
-                </button>
-              )}
-            </td>
           </tr>
         </Table>
       </Panel>
@@ -319,31 +295,6 @@ function ThemePicker() {
   );
 }
 
-/** «lat, lng» typed or pasted from a map → numbers; empty clears the location. */
-export function parseLocation(v: string): { lat: number | null; lng: number | null } {
-  const t = v.replace(/[٠-٩]/g, (d) => String(d.charCodeAt(0) - 0x0660)).trim();
-  if (!t) return { lat: null, lng: null };
-  const m = t.match(/(-?\d+(?:\.\d+)?)\s*[,،\s]\s*(-?\d+(?:\.\d+)?)/);
-  const lat = m ? Number(m[1]) : NaN,
-    lng = m ? Number(m[2]) : NaN;
-  if (!(Math.abs(lat) <= 90 && Math.abs(lng) <= 180)) throw Error('اكتب الموقع هكذا: 25.28545, 51.53096');
-  return { lat, lng };
-}
-
-/** Saves the device's current position as the school's location (used while at the school). */
-function saveMyLocation(w: Workspace) {
-  if (!navigator.geolocation) return w.fail(Error('المتصفح لا يدعم تحديد الموقع'));
-  navigator.geolocation.getCurrentPosition(
-    (p) =>
-      w.task(
-        () => w.api(w.root('school'), 'PATCH', { lat: Number(p.coords.latitude.toFixed(6)), lng: Number(p.coords.longitude.toFixed(6)) }),
-        'حُفظ موقع المدرسة',
-      ),
-    () => w.fail(Error('لم يُسمح بتحديد الموقع؛ اسمح للمتصفح أو أدخل الموقع يدوياً من «تعديل البيانات»')),
-    { enableHighAccuracy: true, timeout: 15000 },
-  );
-}
-
 /** Adding a school: typed by hand or picked from the names of schools already in the system; the data is the accountant's own. */
 export function addSchoolDialog(w: Workspace, names: string[]) {
   return {
@@ -363,7 +314,6 @@ export function addSchoolDialog(w: Workspace, names: string[]) {
       { name: 'bookCustodian', label: 'مسؤول عهدة معرض الكتاب', required: false },
       { name: 'erpCode', label: 'كود المدرسة على نظام ERP', required: false },
       { name: 'orderPrefix', label: 'رمز أوامر الشراء بالإنجليزية (مثل ABAF)', required: false },
-      { name: 'location', label: 'موقع المدرسة (خط العرض، خط الطول) — اختياري', required: false },
     ],
     body: (
       <datalist id="school-names">
@@ -373,8 +323,8 @@ export function addSchoolDialog(w: Workspace, names: string[]) {
       </datalist>
     ),
     submit: 'إضافة المدرسة',
-    save: async ({ location: at, ...v }: Row) => {
-      await w.api('admin/schools', 'POST', { ...v, ...(at ? parseLocation(String(at)) : {}) });
+    save: async (v: Row) => {
+      await w.api('admin/schools', 'POST', v);
       window.location.reload();
     },
   };

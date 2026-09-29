@@ -365,29 +365,9 @@ export default function App() {
   );
 }
 
-/** Device location, only when the user ticks the box and the browser allows it; a refusal is not an error. */
-function deviceLocation(): Promise<{ lat: number; lng: number; accuracy?: number } | undefined> {
-  return new Promise((resolve) => {
-    if (typeof navigator === 'undefined' || !navigator.geolocation) return resolve(undefined);
-    const done = (v?: { lat: number; lng: number; accuracy?: number }) => resolve(v);
-    const timer = setTimeout(() => done(undefined), 6000);
-    navigator.geolocation.getCurrentPosition(
-      (p) => (clearTimeout(timer), done({ lat: p.coords.latitude, lng: p.coords.longitude, accuracy: p.coords.accuracy })),
-      () => (clearTimeout(timer), done(undefined)),
-      { timeout: 5000, maximumAge: 300000 },
-    );
-  });
-}
-
 function Login({ onLogin }: { onLogin: (me: Row) => void }) {
   const [busy, setBusy] = useState(false),
-    [error, setError] = useState(''),
-    [setup, setSetup] = useState(false);
-  useEffect(() => {
-    request('auth/setup')
-      .then((r) => setSetup(Boolean(r.needed)))
-      .catch(() => {});
-  }, []);
+    [error, setError] = useState('');
   return (
     <div className="login">
       <section>
@@ -396,18 +376,6 @@ function Login({ onLogin }: { onLogin: (me: Row) => void }) {
           <Logo />
         </div>
         <h2>{APP_TITLE}</h2>
-        <p>
-          التكليفات وشهادات الإنجاز والعهد والموازنة
-          <br />
-          بنماذج الطباعة المعتمدة.
-        </p>
-        <div className="login-lines">
-          أيام عمل وإجازات رسمية في حساب الغرامات
-          <br />
-          صلاحيات مستقلة لكل مدرسة
-          <br />
-          سجل مالي يمكن مراجعته
-        </div>
       </section>
       <form
         onSubmit={async (e) => {
@@ -416,19 +384,10 @@ function Login({ onLogin }: { onLogin: (me: Row) => void }) {
           setError('');
           const fd = new FormData(e.currentTarget);
           try {
-            if (setup)
-              await request('auth/setup', 'POST', {
-                name: String(fd.get('name') ?? ''),
-                username: String(fd.get('username') ?? ''),
-                password: String(fd.get('password') ?? ''),
-              });
-            const location = !setup && fd.get('share') === 'on' ? await deviceLocation() : undefined;
-            if (!setup)
-              await request('auth/login', 'POST', {
-                username: String(fd.get('username') ?? ''),
-                password: String(fd.get('password') ?? ''),
-                ...(location ? { location } : {}),
-              });
+            await request('auth/login', 'POST', {
+              username: String(fd.get('username') ?? '').trim(),
+              password: String(fd.get('password') ?? ''),
+            });
             onLogin(await request('auth/me'));
           } catch (err: any) {
             setError(err.message);
@@ -437,52 +396,23 @@ function Login({ onLogin }: { onLogin: (me: Row) => void }) {
           }
         }}
       >
-        {setup ? (
-          <>
-            <span className="eyebrow">التشغيل الأول</span>
-            <h2>إنشاء حساب مدير النظام</h2>
-            <p>هذه أول مرة يعمل فيها النظام على هذا الجهاز. أنشئ حسابك (مدير النظام)، ثم أضف المدارس والمحاسبين.</p>
-          </>
-        ) : (
-          <>
-            <span className="eyebrow">مرحباً بعودتك</span>
-            <h2>تسجيل الدخول</h2>
-            <p>استخدم الحساب الذي أعده مسؤول النظام.</p>
-          </>
-        )}
+        <span className="eyebrow">مرحباً بعودتك</span>
+        <h2>تسجيل الدخول</h2>
+        <p>الحسابات يُنشئها مدير النظام فقط.</p>
         {error && (
           <div className="error" role="alert">
             {error}
           </div>
         )}
-        {setup && (
-          <label>
-            الاسم الظاهر في المستندات
-            <input name="name" required minLength={2} />
-          </label>
-        )}
         <label>
-          {setup ? 'اسم الدخول بالإنجليزية' : 'اسم المستخدم'}
+          اسم المستخدم
           <input autoComplete="username" name="username" required />
         </label>
         <label>
-          {setup ? 'كلمة المرور — 8 أحرف على الأقل' : 'كلمة المرور'}
-          <input
-            type="password"
-            autoComplete={setup ? 'new-password' : 'current-password'}
-            name="password"
-            required
-            minLength={setup ? 8 : 1}
-          />
+          كلمة المرور
+          <input type="password" autoComplete="current-password" name="password" required />
         </label>
-        {!setup && (
-          <label className="check">
-            <input type="checkbox" name="share" defaultChecked />
-            مشاركة موقع الجهاز مع مسؤول النظام عند الدخول
-          </label>
-        )}
-        <button disabled={busy}>{busy ? 'جارٍ التحقق…' : setup ? 'إنشاء الحساب والدخول' : 'الدخول إلى مساحة العمل'}</button>
-        <small>نظام مساعد شخصي لخدمة المحاسبين — ليس نظاماً حكومياً رسمياً.</small>
+        <button disabled={busy}>{busy ? 'جارٍ التحقق…' : 'الدخول إلى مساحة العمل'}</button>
       </form>
       <footer className="login-footer">{COPYRIGHT}</footer>
     </div>

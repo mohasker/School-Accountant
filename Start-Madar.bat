@@ -40,7 +40,7 @@ echo.
 echo  ============================================================
 echo    MOESAS is starting. The browser opens by itself when ready.
 echo    Address : http://localhost:3000
-echo    First time: create the system administrator account on the page.
+echo    Sign in  : Admin / Admin1122334455  (change it after the first sign-in)
 echo    Your data: %~dp0.data\moesas   (daily copies in .data\backups)
 echo    To stop : close this window
 echo  ============================================================

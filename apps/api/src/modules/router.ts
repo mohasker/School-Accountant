@@ -9,7 +9,7 @@ import { readFinancialReport } from './finance';
 import { readImprests, writeImprests } from './imprests';
 import { readAudit, readReportRuns, readTransactionsReport } from './reports';
 import { readSetup, writeSchool, writeUser, writeYear } from './school';
-import { importSuppliers, writeSupplier } from './suppliers';
+import { addStandard, importSuppliers, writeSupplier } from './suppliers';
 
 /** GET schools/:school/:resource[/:id[/:action]] */
 const READERS: Record<string, Reader> = {
@@ -32,6 +32,7 @@ const READERS: Record<string, Reader> = {
 const WRITERS: Record<string, Writer> = {
   suppliers: writeSupplier,
   'supplier-import': importSuppliers,
+  'supplier-standard': addStandard,
   school: writeSchool,
   users: writeUser,
   years: writeYear,

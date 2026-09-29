@@ -32,43 +32,6 @@ export class AuthController {
     return { ok: true };
   }
 
-  /**
-   * First run of a personal installation (Start-Madar.bat): while the database has no account, the
-   * sign-in page offers to create the system administrator. Only when LOCAL_SETUP=true (the local
-   * launcher, bound to 127.0.0.1); a server installation creates its administrator with bootstrap.
-   */
-  @Get('auth/setup') async setupNeeded() {
-    return { needed: process.env.LOCAL_SETUP === 'true' && (await db.user.count()) === 0 };
-  }
-  @Post('auth/setup') async setup(@Body() b: any, @Req() req: Request, @Res({ passthrough: true }) res: Response) {
-    const p = parse(
-      z
-        .object({
-          name: z.string().trim().min(2).max(150),
-          username: z
-            .string()
-            .trim()
-            .regex(/^[a-zA-Z0-9_.-]{3,50}$/, 'اسم الدخول: حروف إنجليزية وأرقام فقط (3 على الأقل)'),
-          password: z.string().min(8).max(128),
-        })
-        .strict(),
-      b,
-    );
-    if (process.env.LOCAL_SETUP !== 'true') throw new NotFoundException();
-    const hashed = await passwordHash(p.password);
-    await db.$transaction(
-      async (t) => {
-        if (await t.user.count()) throw new UnauthorizedException('تم إعداد النظام من قبل؛ سجّل الدخول');
-        const tenant = (await t.tenant.findFirst()) ?? (await t.tenant.create({ data: { name: 'MOESAS' } }));
-        await t.user.create({
-          data: { tenantId: tenant.id, username: p.username, name: p.name, passwordHash: hashed, isTenantAdmin: true },
-        });
-      },
-      { isolationLevel: 'Serializable' },
-    );
-    return login(p.username, p.password, req, res);
-  }
-
   @Post('auth/login') async login(@Body() b: any, @Req() req: Request, @Res({ passthrough: true }) res: Response) {
     const p = parse(
       z

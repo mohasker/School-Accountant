@@ -1,7 +1,8 @@
+import { STANDARD_SUPPLIERS } from '../apps/api/src/core/suppliers-list';
 import * as argon2 from 'argon2';
 import { db } from '../apps/api/src/common/db';
 import { BUDGET_CATALOG } from './catalog';
-import { DEMO_BUDGET, DEMO_HOLIDAYS, DEMO_NOTES, DEMO_SCHOOLS, DEMO_SUPPLIERS, people } from './demo-data';
+import { DEMO_BUDGET, DEMO_HOLIDAYS, DEMO_NOTES, DEMO_SCHOOLS, people } from './demo-data';
 
 /**
  * Trial data on an empty database only (never run against real data): the schools and suppliers of
@@ -69,7 +70,7 @@ async function main() {
           schoolAmount: DEMO_BUDGET[c.code] ?? '0',
         },
       });
-    await db.supplier.createMany({ data: DEMO_SUPPLIERS.map((name) => ({ schoolId: row.id, name })) });
+    await db.supplier.createMany({ data: STANDARD_SUPPLIERS.map((name) => ({ schoolId: row.id, name })) });
   }
 
   for (const [from, to, name] of DEMO_HOLIDAYS)

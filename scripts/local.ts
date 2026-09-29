@@ -14,10 +14,7 @@ import { createHash } from 'node:crypto';
  */
 export async function runLocal(demo: boolean) {
   process.env.DEMO_MODE = demo ? 'true' : 'false';
-  if (!demo) {
-    process.env.LOCAL_SETUP = 'true';
-    process.env.UPLOAD_SCANNER ||= 'none';
-  }
+  if (!demo) process.env.UPLOAD_SCANNER ||= 'none';
   process.env.NODE_ENV = 'development';
   process.env.PORT = '3001';
   process.env.DB_POOL_SIZE = '1';
@@ -65,7 +62,6 @@ export async function runLocal(demo: boolean) {
           [tenant.rows[0].id, c.code, c.nameAr, c.nameEn ?? '', c.assetCode ?? '', c.groupKey, c.note ?? '', c.sort ?? 0],
         );
     });
-    console.log('New installation prepared. Open the address below and create the system administrator account.');
   }
   if (fresh && demo) {
     if (!process.env.DEMO_PASSWORD || process.env.DEMO_PASSWORD.length < 12)
@@ -74,6 +70,7 @@ export async function runLocal(demo: boolean) {
   }
   const { start } = await import('../apps/api/src/main');
   const api = await start();
+  if (!demo) await prepareRegular(engine);
   if (fresh && demo && process.env.DEMO_SCENARIO !== 'false') {
     console.log('Preparing the trial files (quote reports, assignments, certificates, imprests)…');
     const { runScenario } = await import('./demo-scenario');
@@ -124,6 +121,48 @@ export async function runLocal(demo: boolean) {
   process.on('SIGTERM', stop);
   web.on('exit', stop);
 }
+/** The fixed accounts of the regular installation; nobody can register from the sign-in page. */
+export const LOCAL_ACCOUNTS = [
+  { username: 'Admin', name: 'محمد عبد اللاه عسكر', password: 'Admin1122334455', isTenantAdmin: true },
+  { username: 'accountant', name: 'المحاسب', password: 'Accountant2026', isTenantAdmin: false },
+  { username: 'guest', name: 'ضيف', password: 'Guest2026', isTenantAdmin: false },
+];
+
+/**
+ * One-time steps of the regular installation, each recorded so it never repeats: the three accounts
+ * (created only when missing, so a changed password or a deleted account stays as the administrator
+ * left it), and the suppliers of the approved workbooks in schools added before they existed.
+ */
+async function prepareRegular(engine: PGlite) {
+  const { db } = await import('../apps/api/src/common/db');
+  const { passwordHash } = await import('../apps/api/src/core/identity');
+  const { addStandardSuppliers } = await import('../apps/api/src/core/suppliers-list');
+  const once = async (name: string, step: () => Promise<void>) => {
+    if ((await engine.query('SELECT 1 FROM local_migrations WHERE name=$1', [name])).rows.length) return;
+    await step();
+    await engine.query('INSERT INTO local_migrations VALUES ($1,$2)', [name, 'step']);
+  };
+  await once('step:accounts-v1', async () => {
+    const tenant = await db.tenant.findFirstOrThrow();
+    for (const a of LOCAL_ACCOUNTS) {
+      if (await db.user.findFirst({ where: { username: { equals: a.username, mode: 'insensitive' } } })) continue;
+      await db.user.create({
+        data: {
+          tenantId: tenant.id,
+          username: a.username,
+          name: a.name,
+          isTenantAdmin: a.isTenantAdmin,
+          passwordHash: await passwordHash(a.password),
+        },
+      });
+      console.log('Account created: ' + a.username);
+    }
+  });
+  await once('step:suppliers-v1', async () => {
+    for (const s of await db.school.findMany({ select: { id: true } })) await db.$transaction((t) => addStandardSuppliers(t, s.id));
+  });
+}
+
 /** One copy of the data folder per day, taken before the database opens; the 14 newest are kept. */
 function dailyBackup(dataDir: string) {
   if (!existsSync(dataDir) || !readdirSync(dataDir).length) return;

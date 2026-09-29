@@ -2793,3 +2793,67 @@ tr.total-row td {
 .first-school ol {
   line-height: 2;
 }
+
+/* Sign-in page — calm background: a faint geometric pattern over a deep gradient, and a soft paper side */
+.login > section {
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
+  background:
+    radial-gradient(900px 520px at 85% 10%, rgba(138, 21, 56, 0.35), transparent 60%),
+    radial-gradient(700px 480px at 10% 95%, rgba(176, 141, 87, 0.22), transparent 60%),
+    linear-gradient(160deg, #13293a 0%, #0f2130 55%, #0b1822 100%);
+  align-items: center;
+  text-align: center;
+}
+.login > section::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  opacity: 0.09;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='96' height='96' viewBox='0 0 96 96'%3E%3Cg fill='none' stroke='%23ffffff' stroke-width='1.2'%3E%3Cpath d='M48 12l10 26 26 10-26 10-10 26-10-26-26-10 26-10z'/%3E%3Crect x='30' y='30' width='36' height='36' transform='rotate(45 48 48)'/%3E%3Ccircle cx='48' cy='48' r='8'/%3E%3Cpath d='M0 0l12 12M96 0L84 12M0 96l12-12M96 96L84 84'/%3E%3C/g%3E%3C/svg%3E");
+  background-size: 96px 96px;
+  animation: loginDrift 60s linear infinite;
+}
+.login > section::after {
+  content: '';
+  position: absolute;
+  inset: auto -10% -35% -10%;
+  height: 55%;
+  z-index: -1;
+  background: radial-gradient(closest-side, rgba(255, 255, 255, 0.07), transparent);
+}
+.login > section h2 {
+  margin-top: 8px;
+  font-size: 26px;
+  font-weight: 600;
+  letter-spacing: 0.2px;
+  color: #eef3f6;
+}
+.login-logos {
+  margin-inline: auto;
+  box-shadow: 0 25px 60px rgba(0, 0, 0, 0.35);
+}
+.login > form {
+  position: relative;
+}
+.login {
+  background: radial-gradient(600px 400px at 0% 0%, rgba(138, 21, 56, 0.05), transparent 70%), linear-gradient(180deg, #fbfaf7, #f3f1ec);
+}
+@keyframes loginDrift {
+  from {
+    background-position: 0 0;
+  }
+  to {
+    background-position: 96px 192px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .login > section::before {
+    animation: none;
+  }
+}
+.login {
+  grid-template-rows: 1fr auto;
+}
