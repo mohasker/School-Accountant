@@ -301,6 +301,14 @@ export function caseDialogs(w: Workspace, c: Row) {
   return { quotes, report, order, finish, upload };
 }
 
+/** One plain sentence under the big button: what the next step does. */
+const NEXT_HELP: Record<string, string> = {
+  quotes: 'أدخل عروض الأسعار التي وصلتك من الشركات (عرض واحد حتى حد الشراء المباشر، و3 عروض لما يزيد).',
+  report: 'راجع العروض ثم أصدر تقرير دراسة العروض؛ بعده تنتقل مباشرة إلى كتاب التكليف.',
+  order: 'حدد مدة التوريد وتاريخ الإصدار؛ يصدر كتاب التكليف للشركة جاهزاً للطباعة.',
+  finish: 'بعد استلام التوريد أدخل تاريخ الاستلام؛ تصدر شهادة الإنجاز وكتاب التغطية معاً.',
+};
+
 /** The next step of a file, for its main button and the quick actions of the transactions list. */
 export function nextStep(c: Row): { key: 'quotes' | 'report' | 'order' | 'finish'; label: string } | null {
   if (c.state === 'DRAFT')
@@ -406,59 +414,69 @@ export function CaseDetail({ id, intent }: { id: string; intent?: string }) {
 
       <div className="case-layout">
         <div className="case-main">
+          {work && ['CERTIFIED', 'COMPLETE', 'REGISTERED'].includes(c.state) && (
+            <div className="case-finished">✓ المعاملة مكتملة — المستندات جاهزة للطباعة من القائمة أدناه.</div>
+          )}
           {work && c.state !== 'CANCELLED' && (next || c.state === 'DRAFT') && (
-            <div className="actions panel next-step">
+            <div className="panel next-step big" data-tour="next">
               {next && (
-                <button className="primary-lg" onClick={() => w.open((d as Row)[next.key])}>
-                  {next.label} ←
-                </button>
-              )}
-              {c.state === 'DRAFT' && !ministry && c.quotes.length > 0 && (
                 <>
-                  <button className="secondary" onClick={() => w.open(d.quotes)}>
-                    ＋ إضافة عروض
-                  </button>
-                  <button className="secondary" onClick={() => w.print(w.root(`cases/${c.id}/report-print`))}>
-                    معاينة التقرير
+                  <p>
+                    <b>الخطوة التالية:</b> {NEXT_HELP[next.key]}
+                  </p>
+                  <button className="primary-lg" onClick={() => w.open((d as Row)[next.key])}>
+                    {next.label} ←
                   </button>
                 </>
               )}
-              {c.state === 'EVALUATED' && (
-                <button disabled={w.busy} onClick={() => w.task(() => act('approve'), 'تم اعتماد التقرير')}>
-                  اعتماد التقرير
-                </button>
-              )}
-              {c.state === 'APPROVED' && !ministry && (
-                <button
-                  className="secondary"
-                  onClick={() => w.open(simple('إعادة فتح تقرير العروض للتعديل', 'return', [{ name: 'reason', label: 'سبب التعديل' }]))}
-                >
-                  تعديل تقرير العروض
-                </button>
-              )}
-              {['ORDERED', 'PARTIAL'].includes(c.state) && (
-                <button
-                  className="secondary"
-                  onClick={() =>
-                    w.open(
-                      simple('تمديد مدة التنفيذ', 'extend', [
-                        { name: 'due', label: 'الموعد الجديد', type: 'date' },
-                        { name: 'reason', label: 'سبب ومرجع التمديد' },
-                      ]),
-                    )
-                  }
-                >
-                  تمديد المدة
-                </button>
-              )}
-              {['DRAFT', 'EVALUATED', 'APPROVED', 'ORDERED'].includes(c.state) && !c.deliveries.length && (
-                <button
-                  className="secondary danger"
-                  onClick={() => w.open(simple('إلغاء المعاملة', 'cancel', [{ name: 'reason', label: 'سبب الإلغاء' }]))}
-                >
-                  إلغاء المعاملة
-                </button>
-              )}
+              <div className="row">
+                {c.state === 'DRAFT' && !ministry && c.quotes.length > 0 && (
+                  <>
+                    <button className="secondary" onClick={() => w.open(d.quotes)}>
+                      ＋ إضافة عروض
+                    </button>
+                    <button className="secondary" onClick={() => w.print(w.root(`cases/${c.id}/report-print`))}>
+                      معاينة التقرير
+                    </button>
+                  </>
+                )}
+                {c.state === 'EVALUATED' && (
+                  <button disabled={w.busy} onClick={() => w.task(() => act('approve'), 'تم اعتماد التقرير')}>
+                    اعتماد التقرير
+                  </button>
+                )}
+                {c.state === 'APPROVED' && !ministry && (
+                  <button
+                    className="secondary"
+                    onClick={() => w.open(simple('إعادة فتح تقرير العروض للتعديل', 'return', [{ name: 'reason', label: 'سبب التعديل' }]))}
+                  >
+                    تعديل تقرير العروض
+                  </button>
+                )}
+                {['ORDERED', 'PARTIAL'].includes(c.state) && (
+                  <button
+                    className="secondary"
+                    onClick={() =>
+                      w.open(
+                        simple('تمديد مدة التنفيذ', 'extend', [
+                          { name: 'due', label: 'الموعد الجديد', type: 'date' },
+                          { name: 'reason', label: 'سبب ومرجع التمديد' },
+                        ]),
+                      )
+                    }
+                  >
+                    تمديد المدة
+                  </button>
+                )}
+                {['DRAFT', 'EVALUATED', 'APPROVED', 'ORDERED'].includes(c.state) && !c.deliveries.length && (
+                  <button
+                    className="secondary danger"
+                    onClick={() => w.open(simple('إلغاء المعاملة', 'cancel', [{ name: 'reason', label: 'سبب الإلغاء' }]))}
+                  >
+                    إلغاء المعاملة
+                  </button>
+                )}
+              </div>
             </div>
           )}
 

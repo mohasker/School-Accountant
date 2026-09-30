@@ -142,8 +142,17 @@ export function Cases() {
     [search, state],
   );
   return (
-    <Panel title="المعاملات" actions={w.can('ACCOUNTANT') && <button onClick={() => w.open(newCaseDialog(w))}>＋ معاملة جديدة</button>}>
-      <div className="toolbar">
+    <Panel
+      title="المعاملات"
+      actions={
+        w.can('ACCOUNTANT') && (
+          <button data-tour="new-case" onClick={() => w.open(newCaseDialog(w))}>
+            ＋ معاملة جديدة
+          </button>
+        )
+      }
+    >
+      <div className="toolbar" data-tour="search">
         <input
           placeholder="رقم المعاملة أو أمر الشراء أو الشهادة أو الفاتورة أو المورد…"
           aria-label="بحث المعاملات"

@@ -6,6 +6,7 @@ import { useLoad } from '../components/useLoad';
 import type { Row } from '../lib/api';
 import { day, ROLE_CHOICES, ROLE_NAMES } from '../lib/format';
 import { loadTheme, saveTheme, THEMES } from '../lib/theme';
+import { FONT_SIZES, loadFontSize, loadSimpleMenu, saveFontSize, saveSimpleMenu } from '../lib/prefs';
 import { useState } from 'react';
 import type { Workspace } from '../components/context';
 
@@ -232,6 +233,7 @@ export function Settings() {
         </Table>
       </Panel>
 
+      <EasePanel />
       <ThemePicker />
 
       <Panel title="أمان حسابك">
@@ -344,6 +346,61 @@ export function FirstSchool() {
           <li>ابدأ المعاملات والعهد من القائمة الجانبية.</li>
         </ol>
         <button onClick={() => w.open(addSchoolDialog(w, names || []))}>＋ إضافة مدرسة</button>
+      </div>
+    </Panel>
+  );
+}
+
+/** Text size, the simple menu and replaying the screen explanations — saved on this device for this account. */
+function EasePanel() {
+  const w = useWorkspace();
+  const user = w.me.user.id;
+  const [font, setFont] = useState(() => loadFontSize(user));
+  const [simple, setSimple] = useState(() => loadSimpleMenu(user, w.me.user.isTenantAdmin));
+  const changed = () => window.dispatchEvent(new Event('moesas-prefs'));
+  return (
+    <Panel title="سهولة الاستخدام">
+      <div className="ease">
+        <div>
+          <b>حجم الخط</b>
+          <div className="themes">
+            {FONT_SIZES.map((f) => (
+              <button
+                key={f.key}
+                type="button"
+                className={'theme' + (font === f.key ? ' on' : '')}
+                style={{ fontSize: 14 * f.zoom }}
+                onClick={() => (saveFontSize(user, f.key), setFont(f.key), changed())}
+              >
+                {f.label}
+              </button>
+            ))}
+          </div>
+        </div>
+        <label className="check">
+          <input
+            type="checkbox"
+            checked={simple}
+            onChange={(e) => (saveSimpleMenu(user, e.target.checked), setSimple(e.target.checked), changed())}
+          />
+          القائمة المبسّطة: الرئيسية والمعاملات والعهد والموازنة فقط (الباقي من «عرض كل القوائم» أسفل القائمة)
+        </label>
+        <div>
+          <button
+            type="button"
+            className="secondary"
+            onClick={() => {
+              try {
+                Object.keys(localStorage)
+                  .filter((k) => k.startsWith(`moesas.tour.${user}.`))
+                  .forEach((k) => localStorage.removeItem(k));
+              } catch {}
+              w.go('dashboard');
+            }}
+          >
+            إعادة عرض الشرح في كل الشاشات
+          </button>
+        </div>
       </div>
     </Panel>
   );

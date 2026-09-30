@@ -92,7 +92,13 @@ export function Imprests() {
 
   return (
     <>
-      <div className="actions">{w.can('ACCOUNTANT') && <button onClick={() => w.open(openImprestDialog(w))}>＋ عهدة جديدة</button>}</div>
+      <div className="actions">
+        {w.can('ACCOUNTANT') && (
+          <button data-tour="new-imprest" onClick={() => w.open(openImprestDialog(w))}>
+            ＋ عهدة جديدة
+          </button>
+        )}
+      </div>
       {rows && !rows.length && <Empty text="لا توجد عهد لهذا العام — اضغط «عهدة جديدة» وحدد نوعها وقيمتها" />}
       {rows?.map((a) => (
         <Panel
@@ -134,7 +140,7 @@ export function Imprests() {
               <div className="actions">
                 {w.can('ACCOUNTANT') && (
                   <>
-                    <button onClick={() => w.open(settleDialog(a))}>
+                    <button data-tour="settle" onClick={() => w.open(settleDialog(a))}>
                       {a.type === 'PETTY' ? 'تسوية / استعاضة — إدخال الفواتير' : 'تسوية العهدة — إدخال الفواتير'}
                     </button>
                     {a.status.unsettledCount === 0 && (

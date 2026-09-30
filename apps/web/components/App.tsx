@@ -7,6 +7,8 @@ import { downloadFile, ERP_URL, ROLE_NAMES, showPrint } from '../lib/format';
 import { WorkspaceContext, type View, type Workspace } from './context';
 import { FormDialog, type Dialog } from './FormDialog';
 import { Welcome } from './Welcome';
+import { Tour, TOURS } from './Tour';
+import { applyFontSize, FONT_SIZES, loadFontSize, loadSimpleMenu, saveFontSize, saveSimpleMenu, type FontSize } from '../lib/prefs';
 import { Logo } from './ui';
 import { APP_NAME, APP_TITLE, COPYRIGHT } from '../lib/brand';
 import { AdminConsole } from '../views/AdminConsole';
@@ -46,6 +48,9 @@ const NAV: { view: View; icon: string; label: string; show?: (w: { can: Workspac
   { view: 'audit', icon: '↺', label: 'سجل التدقيق', show: ({ me }) => me.user.isTenantAdmin },
 ];
 
+/** The simple menu keeps the four daily screens (the administrator keeps his console too). */
+const SIMPLE_VIEWS: View[] = ['admin', 'dashboard', 'cases', 'imprests', 'budget'];
+
 const TITLES: Record<View, string> = {
   dashboard: 'الرئيسية',
   cases: 'المعاملات: تقرير العروض ← التكليف ← الشهادة والتغطية',
@@ -82,7 +87,10 @@ export default function App() {
     [busy, setBusy] = useState(false),
     [version, setVersion] = useState(0),
     [welcome, setWelcome] = useState<Row | null>(null),
-    [welcomeOpen, setWelcomeOpen] = useState(false);
+    [welcomeOpen, setWelcomeOpen] = useState(false),
+    [simpleMenu, setSimpleMenu] = useState(false),
+    [fontSize, setFontSize] = useState<FontSize>('normal'),
+    [tourReplay, setTourReplay] = useState(0);
   // A file chosen in the reminder of another school opens once that school has loaded.
   const pendingCase = React.useRef<{ school: string; id: string } | null>(null);
 
@@ -123,6 +131,20 @@ export default function App() {
       .catch(() => {})
       .finally(() => setLoading(false));
   }, []);
+
+  // Screen preferences of the signed-in user (text size, simple menu); the settings screen announces changes.
+  useEffect(() => {
+    if (!me) return applyFontSize('normal');
+    const load = () => {
+      setSimpleMenu(loadSimpleMenu(me.user.id, me.user.isTenantAdmin));
+      const f = loadFontSize(me.user.id);
+      setFontSize(f);
+      applyFontSize(f);
+    };
+    load();
+    window.addEventListener('moesas-prefs', load);
+    return () => window.removeEventListener('moesas-prefs', load);
+  }, [me?.user?.id]);
 
   // The reminder: loaded after every sign-in, shown by itself once per browser session.
   useEffect(() => {
@@ -216,6 +238,7 @@ export default function App() {
           if (!showPrint(html)) setError('اسمح بالنوافذ المنبثقة لفتح نسخة الطباعة');
         },
         go: (v, id, next) => {
+          setTourReplay(0);
           setError('');
           setNotice('');
           setCaseId(id ?? '');
@@ -246,8 +269,8 @@ export default function App() {
             </div>
             <Logo />
           </div>
-          <nav>
-            {NAV.filter((n) => !n.show || n.show({ can, me })).map((n) => (
+          <nav data-tour="nav">
+            {NAV.filter((n) => (!n.show || n.show({ can, me })) && (!simpleMenu || SIMPLE_VIEWS.includes(n.view))).map((n) => (
               <button
                 key={n.view}
                 className={view === n.view || (n.view === 'cases' && view === 'case') ? 'active' : ''}
@@ -258,6 +281,15 @@ export default function App() {
               </button>
             ))}
           </nav>
+          <button
+            className="menu-mode"
+            onClick={() => {
+              saveSimpleMenu(me.user.id, !simpleMenu);
+              setSimpleMenu(!simpleMenu);
+            }}
+          >
+            {simpleMenu ? 'عرض كل القوائم ▾' : 'القائمة المبسّطة ▴'}
+          </button>
           <a className="erp-nav" href={ERP_URL} target="_blank" rel="noopener noreferrer">
             <span>↗</span>
             نظام ERP الوزارة
@@ -269,7 +301,7 @@ export default function App() {
         </aside>
         <div className="workspace">
           <header className="topbar">
-            <div className="context">
+            <div className="context" data-tour="school">
               <label>
                 المدرسة
                 <Select
@@ -293,6 +325,7 @@ export default function App() {
             <div className="user">
               {welcome && (
                 <button
+                  data-tour="bell"
                   className={'bell' + (welcome.totals.pending + welcome.totals.replenish + welcome.totals.awaiting ? ' has' : '')}
                   title="التنبيهات والمعاملات المعلقة"
                   onClick={() =>
@@ -304,6 +337,22 @@ export default function App() {
                   🔔{welcome.totals.pending > 0 && <span>{welcome.totals.pending}</span>}
                 </button>
               )}
+              <button
+                data-tour="font"
+                className="font-btn"
+                title={'حجم الخط: ' + FONT_SIZES.find((f) => f.key === fontSize)?.label + ' — اضغط للتغيير'}
+                onClick={() => {
+                  const i = FONT_SIZES.findIndex((f) => f.key === fontSize);
+                  const next = FONT_SIZES[(i + 1) % FONT_SIZES.length].key;
+                  saveFontSize(me.user.id, next);
+                  setFontSize(next);
+                }}
+              >
+                {fontSize === 'normal' ? 'أ+' : fontSize === 'large' ? 'أ++' : 'أ'}
+              </button>
+              <button className="font-btn" title="الإعدادات" onClick={() => workspace.go('settings')}>
+                ⚙
+              </button>
               <span className="avatar">{me.user.name[0]}</span>
               <div>
                 {me.user.name}
@@ -331,6 +380,11 @@ export default function App() {
                 <p className="eyebrow">{setup.school?.name}</p>
                 <h1>{TITLES[view]}</h1>
               </div>
+              {TOURS[view] && (
+                <button className="secondary help-btn" onClick={() => setTourReplay((n) => n + 1)}>
+                  ؟ شرح الشاشة
+                </button>
+              )}
               {setup.demo && <span className="demo-flag">بيئة تجريبية</span>}
             </div>
             {error && (
@@ -387,6 +441,7 @@ export default function App() {
             <b className="copyright">{COPYRIGHT}</b>
           </footer>
         </div>
+        <Tour view={view} user={me.user.id} blocked={welcomeOpen || !!dialog} replay={tourReplay} onDone={() => setTourReplay(0)} />
         {welcomeOpen && welcome && (
           <Welcome
             data={welcome}

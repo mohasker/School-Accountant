@@ -12,6 +12,8 @@ const PASSWORD = process.env.DEMO_PASSWORD!;
 mkdirSync(OUT, { recursive: true });
 
 async function login(page: Page, username: string) {
+  // Screenshots without the first-visit explanation bubbles.
+  await page.addInitScript(() => localStorage.setItem('moesas.tour.off', '1'));
   await page.goto(BASE);
   await page.fill('input[name=username]', username);
   await page.fill('input[name=password]', PASSWORD);
@@ -60,6 +62,8 @@ async function printed(page: Page, html: string, name: string) {
 }
 
 async function nav(page: Page, label: string) {
+  // Accountants start with the simple menu: open the full one when the screen is not in it.
+  if (!(await page.locator(`aside nav button:has-text("${label}")`).count())) await page.click('aside .menu-mode');
   await page.click(`aside nav button:has-text("${label}")`);
   await page.waitForTimeout(700);
 }
