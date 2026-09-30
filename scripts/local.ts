@@ -8,8 +8,8 @@ import { createHash } from 'node:crypto';
 
 /**
  * Runs MOESAS on this computer with an embedded PostgreSQL (PGlite) kept in a data folder.
- *  - regular (Start-Madar.bat): real work, data in .data/moesas, no trial data; the first visit creates
- *    the system administrator; the data folder is copied once a day to .data/backups (last 14 kept).
+ *  - regular (Start-Madar.bat): real work, data in .data/moesas, no trial data; the fixed accounts are
+ *    created once (each chooses its own password at the first sign-in); the data folder is copied once a day to .data/backups (last 14 kept).
  *  - demo (npm run demo): synthetic trial data in .data/demo, for trying the system and screenshots.
  */
 export async function runLocal(demo: boolean) {
@@ -49,7 +49,7 @@ export async function runLocal(demo: boolean) {
   const count = await engine.query<{ n: number }>('SELECT count(*)::int as n FROM "Tenant"');
   const fresh = count.rows[0].n === 0;
   if (fresh && !demo) {
-    // A new installation: the tenant and the official budget catalog; the administrator is created on the first visit.
+    // A new installation: the tenant and the official budget catalog; the accounts follow in prepareRegular.
     const { BUDGET_CATALOG } = await import('./catalog');
     await engine.transaction(async (t) => {
       const tenant = await t.query<{ id: string }>(
@@ -127,6 +127,7 @@ export const LOCAL_ACCOUNTS = [
   { username: 'accountant', name: 'المحاسب', password: 'Accountant2026', isTenantAdmin: false },
   { username: 'guest', name: 'ضيف', password: 'Guest2026', isTenantAdmin: false },
 ];
+// The initial passwords are printed in the guide, so each account must choose its own at the first sign-in.
 
 /**
  * One-time steps of the regular installation, each recorded so it never repeats: the three accounts

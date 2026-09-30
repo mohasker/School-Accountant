@@ -124,7 +124,7 @@ export function Tour({
     setIndex(-1);
     onDone?.();
   };
-  if (index < 0 || !box) return null;
+  if (index < 0 || !box || !steps[index]) return null;
   const step = steps[index];
   const next = first(index + 1);
   const zoom = Number((document.documentElement.style as any).zoom || 1);

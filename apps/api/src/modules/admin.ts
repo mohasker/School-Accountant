@@ -196,7 +196,10 @@ export async function userReport(s: Identity, userId: string, query: Record<stri
     db.audit.groupBy({ by: ['action'], where: { actor: user.id, ...period('createdAt') }, _count: true }),
   ]);
   const imprestRows = await db.imprest.findMany({ where: { id: { in: expenses.map((e) => e.imprestId) } }, include: { year: true } });
-  const schoolName = async (schoolId: string) => (await db.school.findUnique({ where: { id: schoolId } }))?.name ?? '';
+  const names = new Map(
+    (await db.school.findMany({ where: { tenantId: s.user.tenantId }, select: { id: true, name: true } })).map((x) => [x.id, x.name]),
+  );
+  const schoolName = (schoolId: string) => names.get(schoolId) ?? '';
   const report = {
     user: {
       id: user.id,
@@ -254,7 +257,7 @@ export async function userReport(s: Identity, userId: string, query: Record<stri
         const im = imprestRows.find((x) => x.id === e.imprestId)!;
         return {
           name: im.name,
-          school: await schoolName(im.schoolId),
+          school: schoolName(im.schoolId),
           year: im.year.label,
           invoices: e._count,
           amount: num(e._sum.amount ?? 0),
@@ -264,7 +267,7 @@ export async function userReport(s: Identity, userId: string, query: Record<stri
     settlements: await Promise.all(
       settlements.map(async (x) => ({
         imprest: x.imprest.name,
-        school: await schoolName(x.imprest.schoolId),
+        school: schoolName(x.imprest.schoolId),
         number: x.number,
         type: x.type === 'REPLENISH' ? 'استعاضة' : 'تسوية وإغلاق',
         amount: num(x.amount),
@@ -400,7 +403,7 @@ export async function manageUser(s: Identity, t: Tx, userId: string | undefined,
     if (await t.user.findUnique({ where: { username: p.username } })) fail('اسم الدخول مستخدم');
     const { password, ...data } = p;
     return t.user.create({
-      data: { ...data, tenantId: s.user.tenantId, passwordHash: await passwordHash(password) },
+      data: { ...data, tenantId: s.user.tenantId, passwordHash: await passwordHash(password), mustChangePassword: true },
       select: { id: true, name: true, username: true },
     });
   }
@@ -409,7 +412,7 @@ export async function manageUser(s: Identity, t: Tx, userId: string | undefined,
   if (action === 'password') {
     const p = parse(z.object({ password: z.string().min(8).max(128) }).strict(), body);
     await t.session.deleteMany({ where: { userId: user.id } });
-    await t.user.update({ where: { id: user.id }, data: { passwordHash: await passwordHash(p.password) } });
+    await t.user.update({ where: { id: user.id }, data: { passwordHash: await passwordHash(p.password), mustChangePassword: true } });
     return { id: user.id, passwordReset: true };
   }
   if (action === 'status') {
@@ -454,7 +457,11 @@ export async function accountProfile(s: Identity, userId: string) {
   const [allSchools, logins, sessions, actions, recent, docs] = await Promise.all([
     db.school.findMany({ where: { tenantId }, orderBy: { name: 'asc' } }),
     db.loginLog.findMany({ where: { userId: user.id }, orderBy: { createdAt: 'desc' }, take: 500 }),
-    db.session.findMany({ where: { userId: user.id, expiresAt: { gt: new Date() } }, select: { lastSeen: true, createdAt: true } }),
+    // Open sessions: not expired and not idle beyond the 30-minute rule.
+    db.session.findMany({
+      where: { userId: user.id, expiresAt: { gt: new Date() }, lastSeen: { gt: new Date(Date.now() - 30 * 60000) } },
+      select: { lastSeen: true, createdAt: true },
+    }),
     db.audit.groupBy({ by: ['action'], where: { actor: user.id }, _count: true, _max: { createdAt: true } }),
     db.audit.findMany({ where: { actor: user.id, createdAt: { gte: since } }, select: { createdAt: true } }),
     Promise.all([

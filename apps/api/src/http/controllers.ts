@@ -61,7 +61,13 @@ export class AuthController {
     const s = await authenticate(req);
     return {
       csrf: s.csrf,
-      user: { id: s.user.id, name: s.user.name, isTenantAdmin: s.user.isTenantAdmin, email: s.user.email },
+      user: {
+        id: s.user.id,
+        name: s.user.name,
+        isTenantAdmin: s.user.isTenantAdmin,
+        email: s.user.email,
+        mustChangePassword: s.user.mustChangePassword,
+      },
       schools: s.user.memberships
         .filter((m) => m.school.active)
         .map((m) => ({ id: m.schoolId, name: m.school.name, roles: m.roles }))
@@ -83,7 +89,7 @@ export class AuthController {
       p = parse(z.object({ current: z.string().max(128), password: z.string().min(8).max(128) }).strict(), b);
     if (!(await argon2.verify(s.user.passwordHash, p.current))) throw new UnauthorizedException('كلمة المرور الحالية غير صحيحة');
     await db.$transaction([
-      db.user.update({ where: { id: s.user.id }, data: { passwordHash: await passwordHash(p.password) } }),
+      db.user.update({ where: { id: s.user.id }, data: { passwordHash: await passwordHash(p.password), mustChangePassword: false } }),
       db.session.deleteMany({ where: { userId: s.user.id } }),
     ]);
     clearSessionCookie(res);
@@ -189,7 +195,7 @@ export class WorkspaceController {
         `${req.method}:admin/${segments(path).join('/')}`,
         b ?? {},
         idempotencyKey(req),
-        (t) => writeTenant(s, t, resource, rid, action, req.method, prepared ?? b ?? {}),
+        (t) => writeTenant(s, t, resource, rid, action, req.method, b ?? {}, prepared),
       );
       if (resource === 'archive' && req.method === 'DELETE' && result?.storage === 'ONEDRIVE' && result.remoteId)
         await removeRemote(s, result.id, result.remoteId);

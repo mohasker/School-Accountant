@@ -61,7 +61,11 @@ export async function pendingBySchool(tenantId: string, schools: { id: string; n
       },
       orderBy: { createdAt: 'asc' },
     }),
-    db.case.groupBy({ by: ['schoolId'], where: { schoolId: { in: ids }, state: { in: ['CERTIFIED', 'COMPLETE'] } }, _count: true }),
+    db.case.groupBy({
+      by: ['schoolId'],
+      where: { schoolId: { in: ids }, state: { in: ['CERTIFIED', 'COMPLETE'] }, year: { closed: false } },
+      _count: true,
+    }),
     db.imprest.findMany({
       where: { schoolId: { in: ids }, closed: false },
       select: {
@@ -84,7 +88,7 @@ export async function pendingBySchool(tenantId: string, schools: { id: string; n
     const replenish = im
       .filter((a) => a.type === 'PETTY' && a.amount.gt(0))
       .map((a) => ({ name: a.name, unsettled: a.expenses.reduce((v, e) => v.plus(e.amount), new D(0)), amount: a.amount }))
-      .filter((a) => a.unsettled.div(a.amount).gte(policy.pettyReplenishPct))
+      .filter((a) => a.unsettled.gt(0) && a.unsettled.div(a.amount).gte(policy.pettyReplenishPct))
       .map((a) => ({ name: a.name, unsettled: num(a.unsettled) }));
     const awaiting = im.flatMap((a) => a.settlements.map((x) => ({ name: a.name, amount: num(x.amount) })));
     const items = own.map((c) => ({

@@ -190,6 +190,10 @@ export async function writeImprests(ctx: WriteCtx) {
         .strict(),
       body,
     );
+    if (p.date) {
+      inYear(y, p.date);
+      if (p.date > today()) fail('تاريخ الكشف في المستقبل');
+    }
     // Invoices are entered once, on the settlement screen, and recorded together with the statement.
     if (p.invoices.length) scope(s, school, ACCOUNT);
     for (const [i, row] of p.invoices.entries()) {

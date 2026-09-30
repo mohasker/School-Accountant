@@ -3323,3 +3323,13 @@ tr.diff-row td {
     grid-template-columns: 1fr;
   }
 }
+
+.dialog-fields {
+  border: 0;
+  padding: 0;
+  margin: 0;
+  min-width: 0;
+}
+.dialog-fields:disabled {
+  opacity: 0.75;
+}

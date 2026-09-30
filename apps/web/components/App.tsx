@@ -182,8 +182,11 @@ export default function App() {
   useEffect(() => {
     if (!me || !school) return;
     setCaseId('');
+    // A quick second switch must not let the first school's answer overwrite the second's.
+    let live = true;
     api(root('setup'))
       .then((s) => {
+        if (!live) return;
         setSetup(s);
         if (pendingCase.current?.school === school) {
           setCaseId(pendingCase.current.id);
@@ -192,15 +195,22 @@ export default function App() {
         }
         setYear((y) => (s.years.some((x: Row) => x.id === y) ? y : s.years.find((x: Row) => !x.closed)?.id || s.years[0]?.id || ''));
       })
-      .catch(fail);
+      .catch((e) => live && fail(e));
+    return () => {
+      live = false;
+    };
   }, [school, me?.user?.id]);
 
   useEffect(() => {
-    if (me && school && year)
-      api(root('setup?year=' + year))
-        .then(setSetup)
-        .catch(fail);
-  }, [year, version]);
+    if (!me || !school || !year) return;
+    let live = true;
+    api(root('setup?year=' + year))
+      .then((s) => live && setSetup(s))
+      .catch((e) => live && fail(e));
+    return () => {
+      live = false;
+    };
+  }, [school, year, version]);
 
   const workspace: Workspace | null = useMemo(
     () =>
@@ -281,6 +291,9 @@ export default function App() {
   if (!me || !workspace)
     return <Login onLogin={(m) => (setMe(m), setSchool(m.schools[0]?.id || ''), setView(m.user.isTenantAdmin ? 'admin' : 'dashboard'))} />;
 
+  // Changing the password signs every session out; the user then signs in again with the new one.
+  if (me.user.mustChangePassword) return <FirstPassword csrf={me.csrf} onDone={() => (setMe(null), setNotice(''))} />;
+
   const current = me.schools.find((s: Row) => s.id === school);
   return (
     <WorkspaceContext.Provider value={workspace}>
@@ -336,7 +349,7 @@ export default function App() {
                   className="wide"
                   value={school}
                   options={me.schools.map((s: Row) => ({ value: s.id, label: s.name }))}
-                  onChange={(v) => (setYear(''), setSchool(v), workspace.go('dashboard'))}
+                  onChange={(v) => workspace.pickSchool(v)}
                 />
               </label>
               <label>
@@ -353,7 +366,7 @@ export default function App() {
               {welcome && (
                 <button
                   data-tour="bell"
-                  className={'bell' + (welcome.totals.pending + welcome.totals.replenish + welcome.totals.awaiting ? ' has' : '')}
+                  className={'bell' + (welcome.schools.length ? ' has' : '')}
                   title="التنبيهات والمعاملات المعلقة"
                   onClick={() =>
                     request('welcome')
@@ -395,6 +408,11 @@ export default function App() {
                   await api('auth/logout', 'POST', {}).catch(() => {});
                   setMe(null);
                   setSetup({});
+                  setSchool('');
+                  setYear('');
+                  setCaseId('');
+                  setWelcome(null);
+                  setView('dashboard');
                 }}
               >
                 خروج
@@ -497,12 +515,8 @@ export default function App() {
               setWelcomeOpen(false);
               setError('');
               if (caseRef && id === school) return workspace.go('case', caseRef);
-              if (id !== school) {
-                if (caseRef) pendingCase.current = { school: id, id: caseRef };
-                setYear('');
-                setSchool(id);
-              }
-              if (!caseRef) setView(target ?? 'cases');
+              if (caseRef) pendingCase.current = { school: id, id: caseRef };
+              workspace.pickSchool(id, caseRef ? 'dashboard' : (target ?? 'cases'));
             }}
           />
         )}
@@ -572,6 +586,64 @@ function Login({ onLogin }: { onLogin: (me: Row) => void }) {
           <input type="password" autoComplete="current-password" name="password" required />
         </label>
         <button disabled={busy}>{busy ? 'جارٍ التحقق…' : 'الدخول إلى مساحة العمل'}</button>
+      </form>
+      <footer className="login-footer">{COPYRIGHT}</footer>
+    </div>
+  );
+}
+
+/** Accounts created with a known initial password choose their own before anything else. */
+function FirstPassword({ csrf, onDone }: { csrf: string; onDone: () => void }) {
+  const [busy, setBusy] = useState(false),
+    [error, setError] = useState('');
+  return (
+    <div className="login">
+      <section>
+        <div className="login-logos">
+          <Logo variant="system" />
+          <Logo />
+        </div>
+        <h2>{APP_TITLE}</h2>
+      </section>
+      <form
+        onSubmit={async (e) => {
+          e.preventDefault();
+          const fd = new FormData(e.currentTarget);
+          const password = String(fd.get('password') ?? '');
+          if (password !== String(fd.get('again') ?? '')) return setError('كلمتا المرور غير متطابقتين');
+          setBusy(true);
+          setError('');
+          try {
+            await request('auth/password', 'POST', { current: String(fd.get('current') ?? ''), password }, csrf);
+            onDone();
+          } catch (err: any) {
+            setError(err.message);
+          } finally {
+            setBusy(false);
+          }
+        }}
+      >
+        <span className="eyebrow">أول دخول</span>
+        <h2>اختر كلمة مرور خاصة بك</h2>
+        <p>كلمة المرور الحالية مؤقتة ومعروفة لمسؤول النظام؛ اختر كلمة مرور جديدة (8 أحرف على الأقل) قبل البدء.</p>
+        {error && (
+          <div className="error" role="alert">
+            {error}
+          </div>
+        )}
+        <label>
+          كلمة المرور الحالية (المؤقتة)
+          <input type="password" name="current" autoComplete="current-password" required />
+        </label>
+        <label>
+          كلمة المرور الجديدة
+          <input type="password" name="password" autoComplete="new-password" minLength={8} required />
+        </label>
+        <label>
+          أعد كتابتها
+          <input type="password" name="again" autoComplete="new-password" minLength={8} required />
+        </label>
+        <button disabled={busy}>{busy ? 'جارٍ الحفظ…' : 'حفظ ثم الدخول بكلمة المرور الجديدة'}</button>
       </form>
       <footer className="login-footer">{COPYRIGHT}</footer>
     </div>

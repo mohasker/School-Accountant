@@ -10,6 +10,9 @@ async function proxy(req: NextRequest, context: { params: Promise<{ path: string
   headers.delete('host');
   headers.delete('content-length');
   headers.delete('connection');
+  // The API sits behind this proxy on the same machine: pass the browser's address for the sign-in throttle and log.
+  const client = req.headers.get('x-forwarded-for')?.split(',')[0].trim() || req.headers.get('x-real-ip') || '';
+  headers.set('x-forwarded-for', client || '127.0.0.1');
   const upstream = await fetch(target, {
     method: req.method,
     headers,

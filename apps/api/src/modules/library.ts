@@ -127,7 +127,12 @@ export async function discardOrphan(tenantId: string, prepared: PreparedArchive)
   if (!kept) await remove(tenantId, prepared.remoteId);
 }
 
-export async function writeArchive(s: Identity, t: Tx, rid: string | undefined, method: string, body: any) {
+/**
+ * Archive writes: deletion (administrator) and creation from the object `prepareArchive` produced on
+ * the server. The prepared object is never accepted from the client: it carries trusted fields
+ * (storage, remoteId, hash) that would otherwise let a user point a row at any OneDrive item.
+ */
+export async function writeArchive(s: Identity, t: Tx, rid: string | undefined, method: string, prepared: PreparedArchive | undefined) {
   const tenantId = s.user.tenantId;
   if (rid && method === 'DELETE') {
     requireTenantAdmin(s);
@@ -143,7 +148,8 @@ export async function writeArchive(s: Identity, t: Tx, rid: string | undefined, 
     await t.archive.delete({ where: { id: doc.id } });
     return { id: doc.id, storage: doc.storage, remoteId: doc.remoteId };
   }
-  const { name, dataBase64, ...p } = parse(preparedSchema, body);
+  if (rid || method !== 'POST' || !prepared) throw new NotFoundException();
+  const { name, dataBase64, ...p } = parse(preparedSchema, prepared);
   if (p.storage === 'ONEDRIVE' ? !p.remoteId : !dataBase64) fail('بيانات الملف ناقصة');
   const doc = await t.archive.create({
     data: {
@@ -179,18 +185,28 @@ export async function migrateArchive(s: Identity) {
   requireTenantAdmin(s);
   const tenantId = s.user.tenantId;
   if (!(await isConnected(tenantId))) fail('اربط حساب OneDrive أولاً');
-  const docs = await db.archive.findMany({ where: { tenantId, storage: 'DATABASE', data: { not: null } }, orderBy: { createdAt: 'asc' } });
+  // Ids first; each document's bytes are loaded only while it is being moved (files are up to 6 MB each).
+  const docs = await db.archive.findMany({
+    where: { tenantId, storage: 'DATABASE', data: { not: null } },
+    orderBy: { createdAt: 'asc' },
+    select: { id: true },
+  });
   let moved = 0,
     error = '';
-  for (const d of docs) {
+  for (const { id: docId } of docs) {
+    const d = await db.archive.findUnique({ where: { id: docId } });
+    if (!d?.data) continue;
+    let stored: { id: string; url: string } | undefined;
     try {
-      const stored = await upload(tenantId, d.company, d.fileName, d.mime, Buffer.from(d.data!));
+      stored = await upload(tenantId, d.company, d.fileName, d.mime, Buffer.from(d.data));
       await db.archive.update({
         where: { id: d.id },
         data: { storage: 'ONEDRIVE', remoteId: stored.id, remoteUrl: stored.url, data: null },
       });
       moved++;
     } catch (e: any) {
+      // The row was not updated: the copy just uploaded would be an orphan, so it is removed.
+      if (stored) await remove(tenantId, stored.id);
       error = e?.message || String(e);
       break;
     }

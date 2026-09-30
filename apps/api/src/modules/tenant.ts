@@ -1,12 +1,12 @@
-import { NotFoundException } from '@nestjs/common';
+import { ForbiddenException, NotFoundException } from '@nestjs/common';
 import { z } from 'zod';
 import { db, type Tx } from '../common/db';
 import { isoDay, today } from '../common/dates';
 import { date, fail, id, optionalText, parse, text } from '../common/validation';
-import { passwordHash, requireTenantAdmin, ROLES, schoolIds, type Identity } from '../core/identity';
+import { passwordHash, requireTenantAdmin, ROLES, schoolIds, WORK, type Identity } from '../core/identity';
 import { loadPolicy, POLICY, policyKeys, type PolicyKey } from '../core/policy';
 import { accountantsReport, accountProfile, adminOverview, manageUser, userReport } from './admin';
-import { readArchive, readLogins, readNotes, writeArchive, writeNotes } from './library';
+import { readArchive, readLogins, readNotes, writeArchive, writeNotes, type PreparedArchive } from './library';
 import { connectUrl, disconnect, saveConfig, status as oneDriveStatus } from './onedrive';
 import { purge } from './purge';
 import { followUp } from './overview';
@@ -108,9 +108,16 @@ export async function writeTenant(
   action: string | undefined,
   method: string,
   body: any,
+  /** The archive file already validated and uploaded by the controller (creation only). */
+  prepared?: PreparedArchive,
 ) {
   const tenantId = s.user.tenantId;
   if (!['holidays', 'schools', 'archive', 'notes'].includes(resource)) requireTenantAdmin(s);
+  // Holidays and schools change fine calculations and documents: an account whose only role anywhere is the
+  // read-only auditor may not touch them. A new account with no school yet may add its first one.
+  const auditorOnly = s.user.memberships.length > 0 && !s.user.memberships.some((m) => m.roles.some((r) => WORK.includes(r)));
+  if (['holidays', 'schools'].includes(resource) && !s.user.isTenantAdmin && auditorOnly)
+    throw new ForbiddenException('هذه العملية للمحاسبين ومسؤول النظام');
   switch (resource) {
     case 'holidays': {
       if (method === 'DELETE') {
@@ -239,7 +246,7 @@ export async function writeTenant(
     case 'purge':
       return purge(s, t, body);
     case 'archive':
-      return writeArchive(s, t, rid, method, body);
+      return writeArchive(s, t, rid, method, prepared);
     case 'onedrive':
       if (rid === 'disconnect') return disconnect(s, t);
       if (rid === 'config') return saveConfig(s, t, body);
@@ -250,7 +257,20 @@ export async function writeTenant(
       if (rid === 'config') return saveEmailConfig(s, t, body);
       throw new NotFoundException();
     case 'help-videos': {
-      const p = parse(z.record(z.string().max(40), z.union([z.literal(''), z.string().trim().url('رابط غير صحيح').max(500)])), body);
+      const p = parse(
+        z.record(
+          z.string().max(40),
+          z.union([
+            z.literal(''),
+            z
+              .string()
+              .trim()
+              .max(500)
+              .regex(/^https:\/\/\S+$/i, 'الرابط يجب أن يبدأ بـ https://'),
+          ]),
+        ),
+        body,
+      );
       return t.tenant.update({ where: { id: tenantId }, data: { helpVideos: p }, select: { helpVideos: true } });
     }
     case 'users':
@@ -281,7 +301,7 @@ export async function writeTenant(
       if (!user) {
         if (!p.name || !p.password) fail('مستخدم جديد: الاسم وكلمة المرور (8 أحرف على الأقل) مطلوبان');
         user = await t.user.create({
-          data: { tenantId, username: p.username, name: p.name, passwordHash: await passwordHash(p.password) },
+          data: { tenantId, username: p.username, name: p.name, passwordHash: await passwordHash(p.password), mustChangePassword: true },
         });
       }
       return t.membership.upsert({

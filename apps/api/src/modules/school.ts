@@ -78,7 +78,13 @@ export async function writeUser({ s, school, t, body }: WriteCtx) {
     body,
   );
   const user = await t.user.create({
-    data: { tenantId: s.user.tenantId, username: p.username, name: p.name, passwordHash: await passwordHash(p.password) },
+    data: {
+      tenantId: s.user.tenantId,
+      username: p.username,
+      name: p.name,
+      passwordHash: await passwordHash(p.password),
+      mustChangePassword: true,
+    },
   });
   await t.membership.create({ data: { tenantId: s.user.tenantId, schoolId: school, userId: user.id, roles: p.roles } });
   return { id: user.id, name: user.name };

@@ -51,6 +51,8 @@ model User {
   lastLoginAt   DateTime?
   logins        LoginLog[]
   email         String       @default("")
+  /// Set for accounts created with a known initial password; cleared when the user chooses their own.
+  mustChangePassword Boolean  @default(false)
 
   @@unique([id, tenantId])
 }

@@ -20,6 +20,9 @@ class ErrorFilter implements ExceptionFilter {
     if (e.code === 'P2002') [status, message] = [409, 'بيانات مكررة أو تعارض؛ راجع الإدخال'];
     if (e.code === 'P2025') [status, message] = [404, 'السجل غير موجود أو تم تعديله'];
     if (e.code === 'P2003') [status, message] = [400, 'السجل مرتبط ببيانات أخرى'];
+    // body-parser: payload too large or malformed JSON carry an HTTP status of their own.
+    if (status === 500 && typeof e.status === 'number' && e.expose)
+      [status, message] = [e.status, e.type === 'entity.too.large' ? 'حجم الطلب كبير؛ الحد 6 ميجابايت للملف' : 'طلب غير صالح'];
     if (status === 500) console.error('request_failed', e.code ?? '', e.message);
     res.status(status).json(typeof message === 'string' ? { statusCode: status, message } : message);
   }
@@ -47,7 +50,7 @@ export async function start() {
   await app.listen(Number(process.env.PORT || 3001), process.env.HOST || '127.0.0.1');
   // Weekly e-mail reminder: checked every 10 minutes; sends once on the chosen day and hour.
   const { digestTick } = await import('./modules/email');
-  const timer = setInterval(() => digestTick().catch(() => {}), 10 * 60000);
+  const timer = setInterval(() => digestTick().catch((e) => console.error('digest_tick_failed', e?.message)), 10 * 60000);
   timer.unref();
   const close = app.close.bind(app);
   app.close = async () => (clearInterval(timer), close());

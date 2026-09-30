@@ -28,30 +28,36 @@ const NUMBER = /\(?-?\d{1,3}(?:,\d{3})+(?:\.\d+)?\)?|\(?-?\d+(?:\.\d+)?\)?/g;
 /** Text lines of the PDF (items on the same baseline joined left to right). */
 export async function pdfLines(data: Buffer) {
   const pdfjs = await esm('pdfjs-dist/legacy/build/pdf.mjs');
+  // The loading task owns the worker resources (pdfjs 6): it is what must be destroyed afterwards.
+  const task = pdfjs.getDocument({ data: new Uint8Array(data), isEvalSupported: false, useSystemFonts: true, verbosity: 0 });
   let doc: any;
   try {
-    doc = await pdfjs.getDocument({ data: new Uint8Array(data), isEvalSupported: false, useSystemFonts: true, verbosity: 0 }).promise;
+    doc = await task.promise;
   } catch {
+    await task.destroy().catch(() => {});
     fail('تعذر قراءة ملف PDF؛ تأكد أنه تقرير ERP الأصلي وليس صورة ممسوحة');
   }
   const lines: string[][] = [];
-  for (let p = 1; p <= Math.min(doc.numPages, 60); p++) {
-    const page = await doc.getPage(p);
-    const items = (await page.getTextContent()).items
-      .filter((i: any) => typeof i.str === 'string' && i.str.trim())
-      .map((i: any) => ({ s: DIGITS(i.str.trim()), x: i.transform[4], y: i.transform[5] }))
-      .sort((a: any, b: any) => b.y - a.y || a.x - b.x);
-    let row: typeof items = [];
-    for (const it of items) {
-      if (row.length && Math.abs(row[0].y - it.y) > 3) {
-        lines.push(row.sort((a: any, b: any) => a.x - b.x).map((r: any) => r.s));
-        row = [];
+  try {
+    for (let p = 1; p <= Math.min(doc.numPages, 60); p++) {
+      const page = await doc.getPage(p);
+      const items = (await page.getTextContent()).items
+        .filter((i: any) => typeof i.str === 'string' && i.str.trim())
+        .map((i: any) => ({ s: DIGITS(i.str.trim()), x: i.transform[4], y: i.transform[5] }))
+        .sort((a: any, b: any) => b.y - a.y || a.x - b.x);
+      let row: typeof items = [];
+      for (const it of items) {
+        if (row.length && Math.abs(row[0].y - it.y) > 3) {
+          lines.push(row.sort((a: any, b: any) => a.x - b.x).map((r: any) => r.s));
+          row = [];
+        }
+        row.push(it);
       }
-      row.push(it);
+      if (row.length) lines.push(row.sort((a: any, b: any) => a.x - b.x).map((r: any) => r.s));
     }
-    if (row.length) lines.push(row.sort((a: any, b: any) => a.x - b.x).map((r: any) => r.s));
+  } finally {
+    await task.destroy().catch(() => {});
   }
-  await doc.destroy();
   return lines;
 }
 
@@ -99,17 +105,18 @@ function periodDays(y: { startDate: Date; endDate: Date }, period: string, mode:
   const from = mode === 'ytd' ? isoDay(y.startDate) : `${period}-01`;
   const to = [last, isoDay(y.endDate)].sort()[0];
   if (to < isoDay(y.startDate) || from > isoDay(y.endDate)) fail('الشهر خارج العام المالي');
+  if (`${period}-01` > today()) fail('الشهر لم يبدأ بعد');
   return { from: [from, isoDay(y.startDate)].sort()[1], to };
 }
 
 /** Reads the uploaded PDF and proposes the figures; nothing is saved. */
 export async function parseErpReport(s: Identity, body: any) {
+  // Permission first, before any work on the file.
   scope(s, parse(id, body?.school), ACCOUNT);
   const p = parse(
     periodSchema.extend({ school: id, name: z.string().max(200).default('erp.pdf'), base64: z.string().min(10).max(14_000_000) }).strict(),
     body,
   );
-  scope(s, p.school, ACCOUNT);
   const y = await db.fiscalYear.findUnique({ where: { id: p.yearId, schoolId: p.school } });
   if (!y) throw new NotFoundException();
   const data = Buffer.from(p.base64, 'base64');
@@ -192,7 +199,8 @@ export async function writeErpRecon({ s, school, t, body }: WriteCtx) {
   const budgets = new Map((await t.budget.findMany({ where: { schoolId: school, yearId: p.yearId } })).map((b) => [b.id, b]));
   let settled = 0;
   const rows = [];
-  const settleDate = [to, today()].sort()[0];
+  // The adjustment is dated at the end of the compared period (never later than today, never before it starts).
+  const settleDate = [from, [to, today()].sort()[0]].sort()[1];
   for (const r of p.rows) {
     const b = budgets.get(r.budgetId);
     if (!b) fail('بند غير معروف');
@@ -227,7 +235,7 @@ export async function writeErpRecon({ s, school, t, body }: WriteCtx) {
     period: p.period,
     mode: p.mode,
     settled,
-    differences: rows.filter((r) => r.status !== 'MATCH').length,
+    differences: rows.filter((r) => !['MATCH', 'SETTLED'].includes(r.status)).length,
   });
   return { id: rec.id, settled, differences: rows.filter((r) => !['MATCH', 'SETTLED'].includes(r.status)).length };
 }

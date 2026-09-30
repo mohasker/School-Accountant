@@ -1,11 +1,11 @@
 'use client';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useWorkspace } from '../components/context';
 import { Select } from '../components/Select';
 import { DocButtons, Empty, Panel, Table } from '../components/ui';
 import { useLoad } from '../components/useLoad';
 import type { Row } from '../lib/api';
-import { currency, downloadFile, readBase64 } from '../lib/format';
+import { currency, dateNow, downloadFile, readBase64 } from '../lib/format';
 
 const MONTHS = ['يناير', 'فبراير', 'مارس', 'أبريل', 'مايو', 'يونيو', 'يوليو', 'أغسطس', 'سبتمبر', 'أكتوبر', 'نوفمبر', 'ديسمبر'];
 const STATUS: Row = {
@@ -33,8 +33,9 @@ export function ErpRecon() {
     }
     return out;
   }, [year?.id]);
-  const now = new Date().toISOString().slice(0, 7);
-  const [period, setPeriod] = useState(months.find((m) => m.value === now)?.value ?? months.at(-1)?.value ?? '');
+  const now = dateNow().slice(0, 7);
+  const [period, setPeriod] = useState('');
+
   const [mode, setMode] = useState('month');
   const [file, setFile] = useState<File | null>(null);
   const [data, setData] = useState<Row | null>(null);
@@ -42,6 +43,12 @@ export function ErpRecon() {
   const [agg, setAgg] = useState<'sum' | 'first'>('sum');
   const [edits, setEdits] = useState<Record<string, string>>({});
   const [saved, setSaved] = useState<Row | null>(null);
+  // The month list changes with the fiscal year; the current month (or the last of the year) is chosen again.
+  useEffect(() => {
+    setPeriod(months.find((m) => m.value === now)?.value ?? months.filter((m) => m.value <= now).at(-1)?.value ?? months[0]?.value ?? '');
+    setData(null);
+    setSaved(null);
+  }, [months]);
   const [history] = useLoad<Row[]>(() => w.api(w.root('erp-recon?year=' + w.year)));
 
   const read = () =>

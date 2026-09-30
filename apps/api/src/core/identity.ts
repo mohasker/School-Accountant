@@ -28,15 +28,31 @@ export const passwordHash = (p: string) => argon2.hash(p, { type: argon2.argon2i
  * 30 per network address — several accountants of one school usually share one address.
  */
 const buckets = new Map<string, { n: number; start: number }>();
-export function throttle(key: string, limit = 10) {
+const WINDOW = 600000;
+function bucket(key: string) {
   const now = Date.now();
   let b = buckets.get(key);
-  if (!b || now - b.start > 600000) {
+  if (!b || now - b.start > WINDOW) {
     b = { n: 0, start: now };
     buckets.set(key, b);
   }
-  if (++b.n > limit) throw new HttpException('محاولات كثيرة؛ حاول بعد عشر دقائق', 429);
-  if (buckets.size > 10000) for (const [k, v] of buckets) if (now - v.start > 600000) buckets.delete(k);
+  if (buckets.size > 10000) for (const [k, v] of buckets) if (now - v.start > WINDOW) buckets.delete(k);
+  return b;
+}
+/** Refuses while the key has reached its limit of failures in the window. */
+export function throttle(key: string, limit = 10) {
+  if (bucket(key).n >= limit) throw new HttpException('محاولات كثيرة؛ حاول بعد عشر دقائق', 429);
+}
+/** Only failed attempts count, so working accountants are never locked out by their own sign-ins. */
+export function recordFailure(key: string) {
+  bucket(key).n++;
+}
+/** The address the browser came from: through the Next proxy it is in X-Forwarded-For (set by Next on the same machine). */
+export function clientAddress(req: Request) {
+  const forwarded = String(req.headers['x-forwarded-for'] ?? '')
+    .split(',')[0]
+    .trim();
+  return (forwarded || req.ip || req.socket?.remoteAddress || 'unknown').slice(0, 64);
 }
 
 let dummy: Promise<string>;
@@ -47,21 +63,26 @@ export async function login(
   res: Response,
   location?: { lat: number; lng: number; accuracy?: number },
 ) {
-  throttle(req.ip || 'unknown', 30);
-  throttle('u:' + hash(username.toLowerCase()));
+  const address = clientAddress(req);
+  const keys = ['ip:' + address, 'u:' + hash(username.trim().toLowerCase())];
+  throttle(keys[0], 30);
+  throttle(keys[1]);
   // «Admin» and «admin» are the same account at sign-in.
   const user =
     (await db.user.findUnique({ where: { username } })) ??
     (await db.user.findFirst({ where: { username: { equals: username.trim(), mode: 'insensitive' } } }));
   dummy ??= passwordHash(randomBytes(30).toString('hex'));
   const valid = await argon2.verify(user?.passwordHash ?? (await dummy), password).catch(() => false);
-  if (!valid || !user?.active) throw new UnauthorizedException('بيانات الدخول غير صحيحة');
+  if (!valid || !user?.active) {
+    for (const k of keys) recordFailure(k);
+    throw new UnauthorizedException('بيانات الدخول غير صحيحة');
+  }
   await db.user.update({ where: { id: user.id }, data: { lastLoginAt: new Date() } });
   // Sign-in record for the administrator: address, browser and the device location when the user allowed it.
   await db.loginLog.create({
     data: {
       userId: user.id,
-      ip: String(req.ip || req.socket?.remoteAddress || 'unknown').slice(0, 64),
+      ip: address,
       userAgent: String(req.headers['user-agent'] ?? '').slice(0, 300),
       lat: location?.lat,
       lng: location?.lng,

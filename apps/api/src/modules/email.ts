@@ -122,19 +122,28 @@ async function sendDigest(tenantId: string, only?: string, always = false) {
   const users = await db.user.findMany({ where: { tenantId, active: true, email: { not: '' }, ...(only ? { id: only } : {}) } });
   let sent = 0;
   const messages: any[] = [];
+  const failed: string[] = [];
+  // One bad address must not stop the others: each recipient is tried on its own.
   for (const u of users) {
-    const d = await digestOf(u);
-    if (!d.pending && !always) continue;
-    const info = await mail.sendMail({
-      from: t.smtpFrom || t.smtpUser,
-      to: u.email,
-      subject: 'تذكير MOESAS: المعاملات المعلقة',
-      html: d.html,
-    });
-    messages.push((info as any).message ?? null);
-    sent++;
+    try {
+      const d = await digestOf(u);
+      if (!d.pending && !always) continue;
+      const info = await mail.sendMail({
+        from: t.smtpFrom || t.smtpUser,
+        to: u.email,
+        subject: 'تذكير MOESAS: المعاملات المعلقة',
+        html: d.html,
+      });
+      messages.push((info as any).message ?? null);
+      sent++;
+    } catch (e: any) {
+      failed.push(u.username);
+      console.error('digest_send_failed', u.username, e?.message);
+      // A test send reports the real problem to the administrator.
+      if (only) fail(`تعذر الإرسال: ${String(e?.message ?? e).slice(0, 200)}`);
+    }
   }
-  return { sent, recipients: users.length, messages: process.env.EMAIL_TRANSPORT === 'json' ? messages : undefined };
+  return { sent, recipients: users.length, failed, messages: process.env.EMAIL_TRANSPORT === 'json' ? messages : undefined };
 }
 
 /** «إرسال تجربة» to the administrator's own address, or «إرسال الآن» to every account. */
@@ -174,8 +183,13 @@ export async function digestTick() {
     const now = qatarNow();
     for (const t of await db.tenant.findMany({ where: { digestOn: true, smtpHost: { not: '' } } })) {
       if (t.lastDigest === now.week || now.day !== t.digestDay || now.hour < t.digestHour) continue;
-      await db.tenant.update({ where: { id: t.id }, data: { lastDigest: now.week } });
-      await sendDigest(t.id).catch((e) => console.error('digest_failed', e?.message));
+      try {
+        const r = await sendDigest(t.id);
+        // The week is marked done once the run completed; a run that reached nobody is retried on the next tick.
+        if (r.sent || !r.failed.length) await db.tenant.update({ where: { id: t.id }, data: { lastDigest: now.week } });
+      } catch (e: any) {
+        console.error('digest_failed', e?.message);
+      }
     }
   } finally {
     running = false;

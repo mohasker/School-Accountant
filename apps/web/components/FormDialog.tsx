@@ -83,48 +83,51 @@ export function FormDialog({ dialog, onClose, onSaved }: { dialog: Dialog; onClo
             {error}
           </div>
         )}
-        {!!dialog.fields?.length && (
-          <div className="form-grid">
-            {dialog.fields.map((f) => (
-              <label key={f.name} className={f.type === 'textarea' ? 'span2' : f.type === 'checkbox' ? 'check' : ''}>
-                {f.type === 'checkbox' && <input name={f.name} type="checkbox" defaultChecked={Boolean(f.value)} />}
-                {f.label}
-                {f.type === 'select' ? (
-                  <Select
-                    name={f.name}
-                    label={f.label}
-                    options={f.options ?? []}
-                    defaultValue={f.value as string}
-                    required={f.required !== false}
-                  />
-                ) : f.type === 'textarea' ? (
-                  <textarea name={f.name} defaultValue={f.value as string} required={f.required !== false} rows={3} />
-                ) : f.type === 'checkbox' ? null : f.type === 'date' ? (
-                  <DateInput
-                    name={f.name}
-                    defaultValue={f.value as string}
-                    required={f.required !== false}
-                    min={f.min}
-                    ariaLabel={f.label}
-                  />
-                ) : f.type === 'number' ? (
-                  <NumberInput name={f.name} defaultValue={f.value as string} required={f.required !== false} integer={f.step === '1'} />
-                ) : (
-                  <input
-                    name={f.name}
-                    type={f.type || 'text'}
-                    defaultValue={f.value as string}
-                    required={f.required !== false}
-                    list={f.list}
-                    autoComplete={f.list ? 'off' : undefined}
-                  />
-                )}
-                {f.help && <small>{f.help}</small>}
-              </label>
-            ))}
-          </div>
-        )}
-        {dialog.body}
+        {/* While the summary is shown the entries are locked, so what is confirmed is exactly what is issued. */}
+        <fieldset disabled={Boolean(pending)} className="dialog-fields">
+          {!!dialog.fields?.length && (
+            <div className="form-grid">
+              {dialog.fields.map((f) => (
+                <label key={f.name} className={f.type === 'textarea' ? 'span2' : f.type === 'checkbox' ? 'check' : ''}>
+                  {f.type === 'checkbox' && <input name={f.name} type="checkbox" defaultChecked={Boolean(f.value)} />}
+                  {f.label}
+                  {f.type === 'select' ? (
+                    <Select
+                      name={f.name}
+                      label={f.label}
+                      options={f.options ?? []}
+                      defaultValue={f.value as string}
+                      required={f.required !== false}
+                    />
+                  ) : f.type === 'textarea' ? (
+                    <textarea name={f.name} defaultValue={f.value as string} required={f.required !== false} rows={3} />
+                  ) : f.type === 'checkbox' ? null : f.type === 'date' ? (
+                    <DateInput
+                      name={f.name}
+                      defaultValue={f.value as string}
+                      required={f.required !== false}
+                      min={f.min}
+                      ariaLabel={f.label}
+                    />
+                  ) : f.type === 'number' ? (
+                    <NumberInput name={f.name} defaultValue={f.value as string} required={f.required !== false} integer={f.step === '1'} />
+                  ) : (
+                    <input
+                      name={f.name}
+                      type={f.type || 'text'}
+                      defaultValue={f.value as string}
+                      required={f.required !== false}
+                      list={f.list}
+                      autoComplete={f.list ? 'off' : undefined}
+                    />
+                  )}
+                  {f.help && <small>{f.help}</small>}
+                </label>
+              ))}
+            </div>
+          )}
+          {dialog.body}
+        </fieldset>
         {pending && (
           <div ref={confirmBox} className="confirm-box" role="alertdialog" aria-label="تأكيد قبل الإصدار">
             <b>راجع قبل الإصدار</b>

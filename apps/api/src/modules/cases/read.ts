@@ -98,7 +98,13 @@ export async function repeatPurchases(school: string, start: string, end: string
   const range = { gte: new Date(`${y}-01-01`), lte: new Date(`${y}-12-31T23:59:59Z`) };
   const [cases, direct, invoices] = await Promise.all([
     db.case.findMany({
-      where: { schoolId: school, supplierId: { not: null }, state: { notIn: ['DRAFT', 'CANCELLED'] } },
+      where: {
+        schoolId: school,
+        supplierId: { not: null },
+        state: { notIn: ['DRAFT', 'CANCELLED'] },
+        // Only files that can fall in the calendar year (by any of the three dates used below).
+        OR: [{ issueDate: range }, { reportDate: range }, { createdAt: { gte: range.gte, lte: range.lte } }],
+      },
       select: { total: true, issueDate: true, reportDate: true, createdAt: true, supplier: { select: { name: true } } },
     }),
     db.directExpense.findMany({ where: { schoolId: school, date: range, vendor: { not: '' } }, select: { vendor: true, amount: true } }),
@@ -154,7 +160,6 @@ export async function readDashboard({ s, school, query }: ReadCtx) {
         total: true,
         createdAt: true,
         reportDate: true,
-        evaluationHtml: true,
         issueDate: true,
         dueDate: true,
         orderNumber: true,
@@ -162,7 +167,7 @@ export async function readDashboard({ s, school, query }: ReadCtx) {
         method: true,
         origin: true,
         supplier: { select: { name: true } },
-        certificates: { select: { id: true, net: true, fine: true, gross: true, createdAt: true, details: true, coverHtml: true } },
+        certificates: { select: { id: true, net: true, fine: true, gross: true, createdAt: true, details: true } },
       },
       orderBy: { createdAt: 'desc' },
     }),
@@ -175,7 +180,14 @@ export async function readDashboard({ s, school, query }: ReadCtx) {
     db.directExpense.findMany({ where, select: { date: true, amount: true } }),
   ]);
   const certDate = (c: { createdAt: Date; details: any }) => String(c.details?.date ?? isoDay(c.createdAt));
-  const reports = cases.filter((c) => c.evaluationHtml && inPeriod(c.reportDate ?? c.createdAt, from, to));
+  // Which files have an issued quote report / cover letter: ids only, never the documents themselves.
+  const [withReport, withCover] = await Promise.all([
+    db.case.findMany({ where: { ...where, evaluationHtml: { not: null } }, select: { id: true } }).then((r) => new Set(r.map((x) => x.id))),
+    db.certificate
+      .findMany({ where: { case: where, coverHtml: { not: null } }, select: { id: true } })
+      .then((r) => new Set(r.map((x) => x.id))),
+  ]);
+  const reports = cases.filter((c) => withReport.has(c.id) && inPeriod(c.reportDate ?? c.createdAt, from, to));
   const orders = cases.filter((c) => inPeriod(c.issueDate, from, to));
   const certificates = cases.flatMap((c) => c.certificates.map((x) => ({ ...x, case: c }))).filter((x) => inPeriod(certDate(x), from, to));
   const expenses = imprests.flatMap((a) => a.expenses).filter((e) => inPeriod(e.date, from, to));
@@ -279,7 +291,7 @@ export async function readDashboard({ s, school, query }: ReadCtx) {
         count: certificates.length,
         value: num(certificates.reduce((v, x) => v.plus(x.net), new D(0))),
         fines: num(certificates.reduce((v, x) => v.plus(x.fine), new D(0))),
-        covers: certificates.filter((x) => x.coverHtml).length,
+        covers: certificates.filter((x) => withCover.has(x.id)).length,
       },
       direct: { count: direct.length, value: total(direct, 'amount') },
       imprests: {
@@ -293,11 +305,11 @@ export async function readDashboard({ s, school, query }: ReadCtx) {
     },
     monthly,
     stages,
-    cases: cases.slice(0, 10).map(({ evaluationHtml, certificates, ...c }) => c),
+    cases: cases.slice(0, 10).map(({ certificates, ...c }) => c),
     incomplete: {
       count: incomplete.length,
       value: num(incomplete.reduce((v, c) => v.plus(c.total), new D(0))),
-      rows: incomplete.slice(0, 15).map(({ evaluationHtml, certificates, ...c }) => c),
+      rows: incomplete.slice(0, 15).map(({ certificates, ...c }) => c),
     },
     total: cases.length,
     alerts: { replenish: alerts, lateOrders, repeatSuppliers },

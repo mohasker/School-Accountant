@@ -1537,3 +1537,53 @@ test('HELP: video links are set by the administrator and read by everyone', asyn
   assert.ok((await req(admin, 'admin/help-videos', 'POST', { case: 'https://example.com/case-video' })).status < 300);
   assert.equal((await req(acc, 'admin/help-videos')).body.case, 'https://example.com/case-video');
 });
+test('HARDENING: forged archive metadata, auditor edits, sign-in throttle, video links and the first-password rule', async () => {
+  // A row can never be created with client-chosen storage/remoteId (that would read any OneDrive item).
+  const forged = {
+    kind: 'OTHER',
+    company: 'x',
+    title: 'x',
+    note: '',
+    name: 'x.pdf',
+    mime: 'application/pdf',
+    size: 1,
+    hash: 'a'.repeat(64),
+    storage: 'ONEDRIVE',
+    remoteId: 'item-forged',
+    remoteUrl: '',
+  };
+  assert.equal((await req(acc, 'admin/archive', 'PATCH', forged)).status, 404);
+  assert.equal((await req(acc, 'admin/archive/anything', 'POST', forged)).status, 404);
+  assert.equal((await req(acc, 'admin/archive', 'POST', forged)).status, 400, 'creation goes through the validated upload only');
+  assert.equal(await db.archive.count({ where: { remoteId: 'item-forged' } }), 0);
+
+  // A read-only auditor may not change holidays (they feed the fine calculation) nor add schools.
+  const auditorName = 'auditor.only';
+  const created = await req(admin, 'admin/memberships', 'POST', {
+    username: auditorName,
+    name: 'مدقق',
+    password: 'Audit1234',
+    schoolId: school,
+    roles: ['AUDITOR'],
+  });
+  assert.ok(created.status < 300, JSON.stringify(created.body));
+  const a = await req(null, 'auth/login', 'POST', { username: auditorName, password: 'Audit1234' });
+  const auditor = { cookie: a.cookie, csrf: a.body.csrf };
+  assert.equal((await req(auditor, 'auth/me')).body.user.mustChangePassword, true, 'a known initial password must be changed');
+  assert.equal((await req(auditor, 'admin/holidays', 'POST', { from: '2026-11-01', to: '2026-11-30', name: 'x' })).status, 403);
+  assert.equal((await req(auditor, 'admin/schools', 'POST', { name: 'مدرسة المدقق', principal: 'x' })).status, 403);
+  assert.ok((await req(auditor, 'auth/password', 'POST', { current: 'Audit1234', password: 'Audit12345' })).status < 300);
+  const b = await req(null, 'auth/login', 'POST', { username: auditorName, password: 'Audit12345' });
+  assert.ok(b.status < 300);
+  assert.equal((await req({ cookie: b.cookie, csrf: b.body.csrf }, 'auth/me')).body.user.mustChangePassword, false);
+
+  // Only failed attempts count: many correct sign-ins never lock anyone out.
+  for (let i = 0; i < 12; i++) assert.ok((await req(null, 'auth/login', 'POST', { username: 'accountant', password })).status < 300);
+  for (let i = 0; i < 10; i++) await req(null, 'auth/login', 'POST', { username: 'nobody.here', password: 'wrong-wrong' });
+  assert.equal((await req(null, 'auth/login', 'POST', { username: 'nobody.here', password: 'wrong-wrong' })).status, 429);
+  assert.ok((await req(null, 'auth/login', 'POST', { username: 'accountant', password })).status < 300, 'other accounts stay usable');
+
+  // Help-video links: https only (never javascript:).
+  assert.equal((await req(admin, 'admin/help-videos', 'POST', { case: 'javascript:alert(1)' })).status, 400);
+  assert.equal((await req(admin, 'admin/help-videos', 'POST', { case: 'http://example.com/v' })).status, 400);
+});
