@@ -15,6 +15,7 @@ import { mutate, read } from '../modules/router';
 import { welcome } from '../modules/welcome';
 import { schoolsOverview } from '../modules/overview';
 import { parseErpReport } from '../modules/erp-recon';
+import { sendNow, setEmail } from '../modules/email';
 import { readTenant, writeTenant } from '../modules/tenant';
 
 const segments = (path: string | string[]) => (Array.isArray(path) ? path : path.split('/'));
@@ -60,7 +61,7 @@ export class AuthController {
     const s = await authenticate(req);
     return {
       csrf: s.csrf,
-      user: { id: s.user.id, name: s.user.name, isTenantAdmin: s.user.isTenantAdmin },
+      user: { id: s.user.id, name: s.user.name, isTenantAdmin: s.user.isTenantAdmin, email: s.user.email },
       schools: s.user.memberships
         .filter((m) => m.school.active)
         .map((m) => ({ id: m.schoolId, name: m.school.name, roles: m.roles }))
@@ -135,6 +136,16 @@ export class WorkspaceController {
       const m = e?.response?.message ?? e?.message ?? 'تعذر إكمال الربط';
       return back({ onedrive: 'error', message: String(Array.isArray(m) ? m.join('، ') : m).slice(0, 300) });
     }
+  }
+
+  /** The weekly reminder: a test to the administrator or sending now to everyone (outside any DB transaction). */
+  @Post('email/send') async emailSend(@Req() req: Request, @Body() b: any) {
+    return sendNow(await authenticate(req), b ?? {});
+  }
+  /** Each account sets its own e-mail address for the reminder. */
+  @Post('auth/email') async myEmail(@Req() req: Request, @Body() b: any) {
+    const s = await authenticate(req);
+    return db.$transaction((t) => setEmail(t, s.user.id, String(b?.email ?? '')));
   }
 
   /** Reads an uploaded ERP expense report (PDF) and proposes the comparison; nothing is saved. */

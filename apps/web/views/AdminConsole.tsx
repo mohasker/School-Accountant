@@ -92,6 +92,7 @@ export function AdminConsole() {
     title: 'بيانات الحساب: ' + a.username,
     fields: [
       { name: 'name', label: 'الاسم الظاهر في المستندات', value: a.name },
+      { name: 'email', label: 'البريد الإلكتروني (للتذكير الأسبوعي)', value: a.email, required: false },
       { name: 'isTenantAdmin', label: 'مسؤول نظام (صلاحيات كاملة)', type: 'checkbox', value: a.isTenantAdmin, required: false },
     ],
     save: (v) => w.api(`admin/users/${a.id}`, 'POST', v),

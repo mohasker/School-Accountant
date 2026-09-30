@@ -6,6 +6,7 @@ import { db, type Tx } from '../common/db';
 import { D, num } from '../common/money';
 import { date, fail, id, parse, text } from '../common/validation';
 import { deviceOf, nearestSchool } from '../core/geo';
+import { setEmail } from './email';
 import { passwordHash, requireTenantAdmin, type Identity } from '../core/identity';
 import { dateHtml, esc, money, num as numHtml, printDocument } from '../print/layout';
 
@@ -44,6 +45,7 @@ export async function adminOverview(s: Identity) {
         active: true,
         isTenantAdmin: true,
         lastLoginAt: true,
+        email: true,
         memberships: { select: { schoolId: true, roles: true } },
       },
       orderBy: { name: 'asc' },
@@ -426,9 +428,11 @@ export async function manageUser(s: Identity, t: Tx, userId: string | undefined,
     return { id: user.id, deleted: true };
   }
   if (!action) {
-    const p = parse(z.object({ name: text, isTenantAdmin: z.boolean() }).strict(), body);
+    const p = parse(z.object({ name: text, isTenantAdmin: z.boolean(), email: z.string().max(200).optional() }).strict(), body);
     if (user.id === s.user.id && !p.isTenantAdmin) fail('لا يمكنك إلغاء صلاحية مسؤول النظام عن حسابك');
-    return t.user.update({ where: { id: user.id }, data: p, select: { id: true, name: true, isTenantAdmin: true } });
+    const { email, ...data } = p;
+    if (email !== undefined) await setEmail(t, user.id, email);
+    return t.user.update({ where: { id: user.id }, data, select: { id: true, name: true, isTenantAdmin: true, email: true } });
   }
   throw new NotFoundException();
 }

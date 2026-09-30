@@ -1,5 +1,5 @@
 'use client';
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { DateInput } from './DateInput';
 import { NumberInput, toNumberText } from './NumberInput';
 import { Select } from './Select';
@@ -28,14 +28,33 @@ export type Dialog = {
   wide?: boolean;
   submit?: string;
   save: (values: Row, form: FormData) => Promise<unknown>;
+  /** A plain summary shown for a last check before an official document is issued; «رجوع» keeps the entries. */
+  confirm?: (values: Row, form: FormData) => React.ReactNode;
 };
 
 export function FormDialog({ dialog, onClose, onSaved }: { dialog: Dialog; onClose: () => void; onSaved: () => void }) {
   const [busy, setBusy] = useState(false),
-    [error, setError] = useState('');
+    [error, setError] = useState(''),
+    [pending, setPending] = useState<{ values: Row; fd: FormData; text: React.ReactNode } | null>(null);
+  const confirmBox = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (pending) confirmBox.current?.scrollIntoView({ block: 'center', behavior: 'smooth' });
+  }, [pending]);
+  async function run(values: Row, fd: FormData) {
+    setBusy(true);
+    setError('');
+    try {
+      await dialog.save(values, fd);
+      onSaved();
+    } catch (err: any) {
+      setError(err.message);
+      setPending(null);
+    } finally {
+      setBusy(false);
+    }
+  }
   async function submit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
-    setBusy(true);
     setError('');
     const fd = new FormData(e.currentTarget),
       values: Row = {};
@@ -46,14 +65,8 @@ export function FormDialog({ dialog, onClose, onSaved }: { dialog: Dialog; onClo
           : f.type === 'number'
             ? toNumberText(String(fd.get(f.name) ?? ''), f.step === '1')
             : String(fd.get(f.name) ?? '');
-    try {
-      await dialog.save(values, fd);
-      onSaved();
-    } catch (err: any) {
-      setError(err.message);
-    } finally {
-      setBusy(false);
-    }
+    if (dialog.confirm) return setPending({ values, fd, text: dialog.confirm(values, fd) });
+    await run(values, fd);
   }
   return (
     <div className="overlay" role="dialog" aria-modal="true" aria-label={dialog.title} onKeyDown={(e) => e.key === 'Escape' && onClose()}>
@@ -112,7 +125,21 @@ export function FormDialog({ dialog, onClose, onSaved }: { dialog: Dialog; onClo
           </div>
         )}
         {dialog.body}
-        <div className="modal-actions">
+        {pending && (
+          <div ref={confirmBox} className="confirm-box" role="alertdialog" aria-label="تأكيد قبل الإصدار">
+            <b>راجع قبل الإصدار</b>
+            <div>{pending.text}</div>
+            <div className="actions">
+              <button type="button" disabled={busy} onClick={() => run(pending.values, pending.fd)}>
+                {busy ? 'جارٍ الإصدار…' : 'تأكيد وإصدار ✓'}
+              </button>
+              <button type="button" className="secondary" disabled={busy} onClick={() => setPending(null)}>
+                رجوع للتعديل
+              </button>
+            </div>
+          </div>
+        )}
+        <div className="modal-actions" hidden={Boolean(pending)}>
           <button disabled={busy}>{busy ? 'جارٍ الحفظ…' : dialog.submit || 'حفظ ومتابعة'}</button>
           <button type="button" className="secondary" disabled={busy} onClick={onClose}>
             إلغاء

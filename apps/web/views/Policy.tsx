@@ -6,6 +6,7 @@ import type { Row } from '../lib/api';
 import type { Dialog } from '../components/FormDialog';
 import { BUDGET_GROUPS, dateNow, day } from '../lib/format';
 import { OneDrivePanel } from './OneDrive';
+import { EmailPanel } from './EmailPanel';
 
 const show = (v: unknown) => (Array.isArray(v) ? v.join('، ') : String(v));
 
@@ -83,6 +84,7 @@ export function Policy() {
       >
         <AiStatus />
       </Panel>
+      <EmailPanel />
       <OneDrivePanel />
       <Panel title="القيم السارية">
         <p>تُحفظ كل قيمة جديدة بتاريخ سريان، ولا تُعدّل القيم السابقة، فتبقى المعاملات القديمة على القاعدة التي طُبقت عليها.</p>

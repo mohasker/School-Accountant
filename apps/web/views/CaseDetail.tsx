@@ -1,4 +1,5 @@
 'use client';
+import { showDate } from '../components/DateInput';
 import { useEffect, useRef, useState } from 'react';
 import { useWorkspace, type Workspace } from '../components/context';
 import type { Dialog, Field } from '../components/FormDialog';
@@ -103,6 +104,12 @@ export function caseDialogs(w: Workspace, c: Row) {
       ...(!ministry ? [{ name: 'orderNumber', label: 'رقم أمر الشراء (فارغ = ترقيم تلقائي)', required: false } as Field] : []),
     ],
     submit: 'إصدار كتاب التكليف',
+    confirm: (v) => (
+      <p>
+        سيصدر <b>كتاب تكليف</b> لشركة <b>{c.supplier?.name ?? lowest?.supplier?.name ?? '—'}</b> بقيمة{' '}
+        <b>{currency(c.total || lowest?.total)} ر.ق</b> بتاريخ {showDate(String(v.trigger))} ومدة تنفيذ {v.days} يوم عمل.
+      </p>
+    ),
     save: (v) =>
       act('issue', {
         trigger: v.trigger,
@@ -213,6 +220,12 @@ export function caseDialogs(w: Workspace, c: Row) {
       </>
     ) : undefined,
     submit: 'إصدار التقرير ← إعداد التكليف',
+    confirm: (v) => (
+      <p>
+        سيصدر <b>تقرير دراسة عروض الأسعار</b> بتاريخ {showDate(String(v.date))} بترشيح <b>{lowest?.supplier?.name ?? '—'}</b> بقيمة{' '}
+        <b>{currency(lowest?.total)} ر.ق</b>، ثم تنتقل إلى كتاب التكليف.
+      </p>
+    ),
     save: async (v, fd) => {
       await act('evaluate', {
         date: v.date,
@@ -258,6 +271,13 @@ export function caseDialogs(w: Workspace, c: Row) {
       </>
     ),
     submit: 'إصدار الشهادة وكتاب التغطية',
+    confirm: (v) => (
+      <p>
+        ستصدر <b>شهادة الإنجاز وكتاب التغطية</b> لشركة <b>{c.supplier?.name ?? '—'}</b> — فاتورة رقم {String(v.invoice)} — تاريخ الإنجاز{' '}
+        {showDate(String(v.completionDate))}
+        {String(v.completionDate) > String(c.dueDate ?? '').slice(0, 10) ? ' (بعد آخر موعد؛ ستُحسب غرامة التأخير)' : ''}.
+      </p>
+    ),
     save: (v, fd) =>
       act('finish', {
         completionDate: v.completionDate,

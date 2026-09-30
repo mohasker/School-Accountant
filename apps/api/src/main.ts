@@ -45,6 +45,12 @@ export async function start() {
   app.useGlobalFilters(new ErrorFilter());
   if (process.env.TRUST_PROXY) (app.getHttpAdapter().getInstance() as express.Express).set('trust proxy', 1);
   await app.listen(Number(process.env.PORT || 3001), process.env.HOST || '127.0.0.1');
+  // Weekly e-mail reminder: checked every 10 minutes; sends once on the chosen day and hour.
+  const { digestTick } = await import('./modules/email');
+  const timer = setInterval(() => digestTick().catch(() => {}), 10 * 60000);
+  timer.unref();
+  const close = app.close.bind(app);
+  app.close = async () => (clearInterval(timer), close());
   return app;
 }
 

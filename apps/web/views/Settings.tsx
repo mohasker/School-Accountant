@@ -236,6 +236,27 @@ export function Settings() {
       <EasePanel />
       <ThemePicker />
 
+      <Panel title="بريدك الإلكتروني">
+        <p>
+          للتذكير الأسبوعي بالمعاملات المعلقة (إذا فعّله مسؤول النظام). الحالي: <b className="mono">{w.me.user.email || 'غير مسجل'}</b>
+        </p>
+        <button
+          className="secondary"
+          onClick={() =>
+            w.open({
+              title: 'بريدك الإلكتروني',
+              fields: [{ name: 'email', label: 'البريد الإلكتروني (فارغ = إيقاف الرسائل)', value: w.me.user.email, required: false }],
+              save: async (v) => {
+                await w.api('auth/email', 'POST', { email: v.email });
+                location.reload();
+              },
+            })
+          }
+        >
+          تعديل البريد
+        </button>
+      </Panel>
+
       <Panel title="أمان حسابك">
         <button
           className="secondary"

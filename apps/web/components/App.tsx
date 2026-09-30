@@ -141,6 +141,13 @@ export default function App() {
       .finally(() => setLoading(false));
   }, []);
 
+  // «افتح الشاشة مع الشرح» from the help center replays the explanation bubbles.
+  useEffect(() => {
+    const replay = () => setTourReplay((n) => n + 1);
+    window.addEventListener('moesas-tour', replay);
+    return () => window.removeEventListener('moesas-tour', replay);
+  }, []);
+
   // Screen preferences of the signed-in user (text size, simple menu); the settings screen announces changes.
   useEffect(() => {
     if (!me) return applyFontSize('normal');
@@ -400,6 +407,21 @@ export default function App() {
                 <p className="eyebrow">{setup.school?.name}</p>
                 <h1>{TITLES[view]}</h1>
               </div>
+              {view !== 'assistant' && (
+                <button
+                  className="secondary help-btn"
+                  title="يسأل المساعد الذكي عن هذه الشاشة"
+                  onClick={() =>
+                    workspace.go(
+                      'assistant',
+                      undefined,
+                      `أنا في شاشة «${TITLES[view]}». اشرح لي بخطوات بسيطة وقصيرة ماذا أفعل في هذه الشاشة، وما الخطوة التالية المناسبة لي الآن.`,
+                    )
+                  }
+                >
+                  ✦ ساعدني
+                </button>
+              )}
               {TOURS[view] && (
                 <button className="secondary help-btn" onClick={() => setTourReplay((n) => n + 1)}>
                   ؟ شرح الشاشة
@@ -447,7 +469,7 @@ export default function App() {
                 {view === 'imprests' && <Imprests />}
                 {view === 'reports' && <Reports />}
                 {view === 'erp-recon' && <ErpRecon />}
-                {view === 'assistant' && <Assistant />}
+                {view === 'assistant' && <Assistant ask={intent} />}
                 {view === 'registry' && <Registry type="certificate" />}
                 {view === 'quote-register' && <Registry type="report" />}
                 {view === 'order-register' && <Registry type="order" />}

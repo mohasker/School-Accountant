@@ -14,7 +14,7 @@ const SUGGESTIONS = [
 ];
 
 /** Chat with the assistant; the conversation lives in the browser only and the reply comes from the server. */
-export function Assistant() {
+export function Assistant({ ask }: { ask?: string }) {
   const w = useWorkspace();
   const [status] = useLoad<Row>(() => w.api('ai/status'));
   const [messages, setMessages] = useState<Msg[]>([]);
@@ -23,6 +23,14 @@ export function Assistant() {
   const [error, setError] = useState('');
   const end = useRef<HTMLDivElement>(null);
   useEffect(() => end.current?.scrollIntoView({ behavior: 'smooth' }), [messages, busy]);
+  // «ساعدني» from another screen arrives with its question; it is sent once the assistant is available.
+  const asked = useRef('');
+  useEffect(() => {
+    if (!ask || asked.current === ask || !status) return;
+    asked.current = ask;
+    if (status.configured) send(ask);
+    else setText(ask);
+  }, [ask, status]);
 
   const send = async (content: string) => {
     const q = content.trim();

@@ -25,6 +25,16 @@ model Tenant {
   odRefresh   String          @default("")
   odAccount   String          @default("")
   odFolder    String          @default("MOESAS-Archive")
+  smtpHost    String          @default("")
+  smtpPort    Int             @default(587)
+  smtpUser    String          @default("")
+  smtpPass    String          @default("")
+  smtpFrom    String          @default("")
+  digestOn    Boolean         @default(false)
+  digestDay   Int             @default(0)
+  digestHour  Int             @default(7)
+  lastDigest  String          @default("")
+  helpVideos  Json            @default("{}")
 }
 
 model User {
@@ -40,6 +50,7 @@ model User {
   isTenantAdmin Boolean      @default(false)
   lastLoginAt   DateTime?
   logins        LoginLog[]
+  email         String       @default("")
 
   @@unique([id, tenantId])
 }

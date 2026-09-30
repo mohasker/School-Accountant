@@ -1467,7 +1467,10 @@ test('ERP RECON: the monthly ERP report (PDF) is read by budget code, compared, 
   }
   const o = await req(null, 'auth/login', 'POST', { username: 'other', password: 'Brand-New-Password-1' });
   const otherNow = { cookie: o.cookie, csrf: o.body.csrf };
-  assert.equal((await req(otherNow, 'erp-recon/parse', 'POST', { school, yearId: year, period: '2026-09', base64: 'JVBERi0x' })).status, 403);
+  assert.equal(
+    (await req(otherNow, 'erp-recon/parse', 'POST', { school, yearId: year, period: '2026-09', base64: 'JVBERi0x' })).status,
+    403,
+  );
   assert.equal((await req(acc, route('erp-recon?year=' + year))).body.length >= 1, true);
 });
 test('OVERVIEW: all schools of an accountant with budget position and warnings; the administrator picks any accountant', async () => {
@@ -1486,4 +1489,51 @@ test('OVERVIEW: all schools of an accountant with budget position and warnings; 
   assert.equal((await req(acc, 'admin/followup')).status, 403);
   const one = (await req(admin, `admin/accountants-report?user=${accId}`)).body;
   assert.equal(one.rows.length, 1);
+});
+test("EMAIL: weekly reminder settings are the administrator's; each account keeps its own address; the test message lists pending files", async () => {
+  process.env.EMAIL_TRANSPORT = 'json';
+  try {
+    assert.equal((await req(acc, 'admin/email')).status, 403);
+    assert.equal((await req(acc, 'auth/email', 'POST', { email: 'not-an-email' })).status, 400);
+    assert.ok((await req(acc, 'auth/email', 'POST', { email: 'acc@school.test' })).status < 300);
+    assert.equal((await req(acc, 'auth/me')).body.user.email, 'acc@school.test');
+    const cfg = {
+      host: 'smtp.test',
+      port: 587,
+      user: 'mailer@test',
+      pass: 'secret-pass',
+      from: 'MOESAS <mailer@test>',
+      digestOn: true,
+      digestDay: 0,
+      digestHour: 7,
+    };
+    assert.equal((await req(acc, 'admin/email/config', 'POST', cfg)).status, 403);
+    assert.ok((await req(admin, 'admin/email/config', 'POST', cfg)).status < 300);
+    const st = (await req(admin, 'admin/email')).body;
+    assert.equal(st.hasPass, true);
+    assert.ok(!JSON.stringify(st).includes('secret-pass'));
+    assert.match((await db.tenant.findFirst({ where: { smtpHost: 'smtp.test' } })).smtpPass, /^enc:v1:/);
+    // Test message to the administrator needs his address first.
+    assert.equal((await req(admin, 'email/send', 'POST', { test: true })).status, 400);
+    const adminId = (await req(admin, 'auth/me')).body.user.id;
+    assert.ok(
+      (await req(admin, `admin/users/${adminId}`, 'POST', { name: 'مدير النظام', isTenantAdmin: true, email: 'admin@school.test' }))
+        .status < 300,
+    );
+    const t = (await req(admin, 'email/send', 'POST', { test: true })).body;
+    assert.equal(t.sent, 1);
+    const msg = JSON.parse(t.messages[0]);
+    assert.equal(msg.to[0].address, 'admin@school.test');
+    assert.match(msg.html, /المعاملات المعلقة|لا توجد معاملات معلقة/);
+    const all = (await req(admin, 'email/send', 'POST', { test: false })).body;
+    assert.ok(all.recipients >= 2);
+  } finally {
+    delete process.env.EMAIL_TRANSPORT;
+  }
+});
+test('HELP: video links are set by the administrator and read by everyone', async () => {
+  assert.equal((await req(acc, 'admin/help-videos', 'POST', { case: 'https://example.com/v' })).status, 403);
+  assert.equal((await req(admin, 'admin/help-videos', 'POST', { case: 'not a url' })).status, 400);
+  assert.ok((await req(admin, 'admin/help-videos', 'POST', { case: 'https://example.com/case-video' })).status < 300);
+  assert.equal((await req(acc, 'admin/help-videos')).body.case, 'https://example.com/case-video');
 });

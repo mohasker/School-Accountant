@@ -3259,3 +3259,67 @@ tr.diff-row td {
   padding: 10px;
   border-radius: 8px;
 }
+
+.confirm-box {
+  margin-top: 16px;
+  border: 2px solid var(--wine-line);
+  background: var(--wine-soft);
+  border-radius: 12px;
+  padding: 14px 16px;
+  display: grid;
+  gap: 8px;
+  font-size: 15px;
+}
+.confirm-box > b {
+  color: var(--wine);
+  font-size: 16px;
+}
+
+/* Help center */
+.guides {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(420px, 1fr));
+  gap: 16px;
+  margin-top: 16px;
+}
+.guide {
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 16px 20px;
+}
+.guide h3 {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  margin: 0 0 8px;
+}
+.guide h3 span {
+  background: var(--wine);
+  color: #fff;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  font-size: 14px;
+}
+.guide ol {
+  line-height: 1.9;
+  font-size: 15px;
+  padding-inline-start: 20px;
+}
+.button-link {
+  display: inline-flex;
+  align-items: center;
+  padding: 9px 16px;
+  border-radius: 10px;
+  border: 1px solid var(--line);
+  text-decoration: none;
+  color: var(--ink);
+}
+@media (max-width: 600px) {
+  .guides {
+    grid-template-columns: 1fr;
+  }
+}

@@ -10,6 +10,7 @@ import { readArchive, readLogins, readNotes, writeArchive, writeNotes } from './
 import { connectUrl, disconnect, saveConfig, status as oneDriveStatus } from './onedrive';
 import { purge } from './purge';
 import { followUp } from './overview';
+import { emailStatus, saveEmailConfig } from './email';
 import { addStandardSuppliers } from '../core/suppliers-list';
 
 /**
@@ -68,6 +69,10 @@ export async function readTenant(
       return adminOverview(s);
     case 'followup':
       return followUp(s);
+    case 'email':
+      return emailStatus(s);
+    case 'help-videos':
+      return (await db.tenant.findUniqueOrThrow({ where: { id: tenantId }, select: { helpVideos: true } })).helpVideos;
     case 'accountants-report':
       return accountantsReport(s, query);
     case 'school-names': {
@@ -241,6 +246,13 @@ export async function writeTenant(
       throw new NotFoundException();
     case 'notes':
       return writeNotes(s, t, rid, method, body);
+    case 'email':
+      if (rid === 'config') return saveEmailConfig(s, t, body);
+      throw new NotFoundException();
+    case 'help-videos': {
+      const p = parse(z.record(z.string().max(40), z.union([z.literal(''), z.string().trim().url('رابط غير صحيح').max(500)])), body);
+      return t.tenant.update({ where: { id: tenantId }, data: { helpVideos: p }, select: { helpVideos: true } });
+    }
     case 'users':
       return manageUser(s, t, rid, action, body);
     case 'memberships': {
