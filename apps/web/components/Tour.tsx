@@ -111,9 +111,13 @@ export function Tour({
     const el = document.querySelector(steps[index].target);
     el?.scrollIntoView({ block: 'center', behavior: 'instant' as ScrollBehavior });
     place();
+    // Esc closes the explanation from anywhere.
+    const esc = (e: KeyboardEvent) => e.key === 'Escape' && finish();
+    document.addEventListener('keydown', esc);
     window.addEventListener('resize', place);
     window.addEventListener('scroll', place, true);
     return () => {
+      document.removeEventListener('keydown', esc);
       window.removeEventListener('resize', place);
       window.removeEventListener('scroll', place, true);
     };
@@ -131,15 +135,33 @@ export function Tour({
   const r = { top: box.top / zoom, left: box.left / zoom, width: box.width / zoom, height: box.height / zoom };
   const vh = window.innerHeight / zoom,
     vw = window.innerWidth / zoom;
-  const below = r.top + r.height + 190 < vh;
+  // The bubble must always be on screen: under the element, else above it, else (an element taller than the
+  // window, e.g. the side menu) pinned to the bottom of the window beside it.
+  const TIP = 210;
   const left = Math.max(12, Math.min(r.left + r.width / 2 - 170, vw - 352));
+  const tipStyle: React.CSSProperties =
+    r.top + r.height + TIP < vh
+      ? { top: r.top + r.height + 14, left }
+      : r.top - 14 - TIP > 0
+        ? { top: r.top - 14, left, transform: 'translateY(-100%)' }
+        : {
+            top: vh - 12,
+            left: r.left > vw / 2 ? Math.max(12, r.left - 352) : Math.min(vw - 352, r.left + r.width + 12),
+            transform: 'translateY(-100%)',
+          };
   return (
-    <div className="tour" role="dialog" aria-label={step.title}>
+    <div
+      className="tour"
+      role="dialog"
+      aria-label={step.title}
+      onMouseDown={(e) => e.target === e.currentTarget && finish()}
+      onKeyDown={(e) => e.key === 'Escape' && finish()}
+    >
+      <button type="button" className="tour-close" onClick={finish}>
+        إنهاء الشرح ✕
+      </button>
       <div className="tour-hole" style={{ top: r.top - 6, left: r.left - 6, width: r.width + 12, height: r.height + 12 }} />
-      <div
-        className="tour-tip"
-        style={below ? { top: r.top + r.height + 14, left } : { top: Math.max(12, r.top - 14), left, transform: 'translateY(-100%)' }}
-      >
+      <div className="tour-tip" style={tipStyle}>
         <small>
           {steps.filter((s, i) => i <= index && document.querySelector(s.target)).length} /{' '}
           {steps.filter((s) => document.querySelector(s.target)).length}

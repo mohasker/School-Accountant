@@ -3333,3 +3333,15 @@ tr.diff-row td {
 .dialog-fields:disabled {
   opacity: 0.75;
 }
+
+.tour-close {
+  position: fixed;
+  top: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 151;
+  background: #fff !important;
+  color: var(--wine) !important;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3) !important;
+  font-weight: 700;
+}
