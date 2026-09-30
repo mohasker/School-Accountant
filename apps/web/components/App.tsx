@@ -6,6 +6,7 @@ import { request, type Row } from '../lib/api';
 import { downloadFile, ERP_URL, ROLE_NAMES, showPrint } from '../lib/format';
 import { WorkspaceContext, type View, type Workspace } from './context';
 import { FormDialog, type Dialog } from './FormDialog';
+import { Welcome } from './Welcome';
 import { Logo } from './ui';
 import { APP_NAME, APP_TITLE, COPYRIGHT } from '../lib/brand';
 import { AdminConsole } from '../views/AdminConsole';
@@ -79,7 +80,11 @@ export default function App() {
     [error, setError] = useState(''),
     [notice, setNotice] = useState(''),
     [busy, setBusy] = useState(false),
-    [version, setVersion] = useState(0);
+    [version, setVersion] = useState(0),
+    [welcome, setWelcome] = useState<Row | null>(null),
+    [welcomeOpen, setWelcomeOpen] = useState(false);
+  // A file chosen in the reminder of another school opens once that school has loaded.
+  const pendingCase = React.useRef<{ school: string; id: string } | null>(null);
 
   const api = useCallback(
     async (path: string, method = 'GET', body?: unknown) => {
@@ -119,12 +124,34 @@ export default function App() {
       .finally(() => setLoading(false));
   }, []);
 
+  // The reminder: loaded after every sign-in, shown by itself once per browser session.
+  useEffect(() => {
+    if (!me) return setWelcome(null);
+    const key = 'moesas.welcome';
+    request('welcome')
+      .then((d) => {
+        setWelcome(d);
+        let seen = '';
+        try {
+          seen = sessionStorage.getItem(key) ?? '';
+          sessionStorage.setItem(key, me.user.id);
+        } catch {}
+        if (seen !== me.user.id) setWelcomeOpen(true);
+      })
+      .catch(() => {});
+  }, [me?.user?.id, version]);
+
   useEffect(() => {
     if (!me || !school) return;
     setCaseId('');
     api(root('setup'))
       .then((s) => {
         setSetup(s);
+        if (pendingCase.current?.school === school) {
+          setCaseId(pendingCase.current.id);
+          setView('case');
+          pendingCase.current = null;
+        }
         setYear((y) => (s.years.some((x: Row) => x.id === y) ? y : s.years.find((x: Row) => !x.closed)?.id || s.years[0]?.id || ''));
       })
       .catch(fail);
@@ -264,6 +291,19 @@ export default function App() {
               </label>
             </div>
             <div className="user">
+              {welcome && (
+                <button
+                  className={'bell' + (welcome.totals.pending + welcome.totals.replenish + welcome.totals.awaiting ? ' has' : '')}
+                  title="التنبيهات والمعاملات المعلقة"
+                  onClick={() =>
+                    request('welcome')
+                      .then((d) => (setWelcome(d), setWelcomeOpen(true)))
+                      .catch(fail)
+                  }
+                >
+                  🔔{welcome.totals.pending > 0 && <span>{welcome.totals.pending}</span>}
+                </button>
+              )}
               <span className="avatar">{me.user.name[0]}</span>
               <div>
                 {me.user.name}
@@ -347,6 +387,23 @@ export default function App() {
             <b className="copyright">{COPYRIGHT}</b>
           </footer>
         </div>
+        {welcomeOpen && welcome && (
+          <Welcome
+            data={welcome}
+            onClose={() => setWelcomeOpen(false)}
+            onOpen={(id, caseRef, target) => {
+              setWelcomeOpen(false);
+              setError('');
+              if (caseRef && id === school) return workspace.go('case', caseRef);
+              if (id !== school) {
+                if (caseRef) pendingCase.current = { school: id, id: caseRef };
+                setYear('');
+                setSchool(id);
+              }
+              if (!caseRef) setView(target ?? 'cases');
+            }}
+          />
+        )}
         {dialog && (
           <FormDialog
             key={dialog.title}

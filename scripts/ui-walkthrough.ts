@@ -17,6 +17,13 @@ async function login(page: Page, username: string) {
   await page.fill('input[name=password]', PASSWORD);
   await page.click('form button');
   await page.waitForSelector('aside nav');
+  // The welcome reminder opens after signing in: kept as a screenshot once, then closed.
+  const welcome = await page.waitForSelector('.welcome-modal', { timeout: 8000 }).catch(() => null);
+  if (welcome) {
+    await page.waitForTimeout(700);
+    if (username === 'accountant') await page.screenshot({ path: `${OUT}/00-welcome.png` });
+    await page.click('.welcome-modal .modal-actions button');
+  }
 }
 
 /** API call from inside the page (same origin, session cookie + CSRF token). */

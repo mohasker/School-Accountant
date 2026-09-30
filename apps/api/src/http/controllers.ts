@@ -12,6 +12,7 @@ import { discardOrphan, migrateArchive, prepareArchive, removeRemote } from '../
 import { completeConnect } from '../modules/onedrive';
 import { caseRegister, certificateRegistry } from '../modules/reports';
 import { mutate, read } from '../modules/router';
+import { welcome } from '../modules/welcome';
 import { readTenant, writeTenant } from '../modules/tenant';
 
 const segments = (path: string | string[]) => (Array.isArray(path) ? path : path.split('/'));
@@ -132,6 +133,11 @@ export class WorkspaceController {
       const m = e?.response?.message ?? e?.message ?? 'تعذر إكمال الربط';
       return back({ onedrive: 'error', message: String(Array.isArray(m) ? m.join('، ') : m).slice(0, 300) });
     }
+  }
+
+  /** Reminder after sign-in: pending work in every school of the user. */
+  @Get('welcome') async welcomeSummary(@Req() req: Request) {
+    return welcome(await authenticate(req));
   }
 
   /** Assistant: availability, the administrator's key, and the chat itself (never inside a DB transaction). */

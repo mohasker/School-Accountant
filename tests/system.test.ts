@@ -1370,3 +1370,31 @@ test('LOGIN: user names are not case sensitive', async () => {
   const r = await req(null, 'auth/login', 'POST', { username: 'ACCOUNTANT', password });
   assert.ok(r.status < 300, JSON.stringify(r.body));
 });
+test('WELCOME: after signing in, pending work of every school with the next step', async () => {
+  assert.equal((await req(null, 'welcome')).status, 401);
+  const w = (await req(acc, 'welcome')).body;
+  assert.ok(w.name);
+  const mine = (await req(acc, 'auth/me')).body.schools.map((x: any) => x.id);
+  for (const s of w.schools) {
+    assert.ok(mine.includes(s.id), "only the user's schools");
+    assert.ok(s.attention > 0);
+    for (const c of s.items) assert.ok(c.next && typeof c.waiting === 'number');
+  }
+  assert.equal(
+    w.totals.pending,
+    w.schools.reduce((n: number, s: any) => n + s.pending, 0),
+  );
+  assert.equal(w.schools.length + w.clear, w.totals.schools);
+  const draft = await ok(acc, 'cases', {
+    yearId: year,
+    subject: 'مسودة للتذكير',
+    origin: 'SCHOOL',
+    items: [{ name: 'أقلام', unit: 'علبة', qty: '5', budgetId: budget }],
+  });
+  const again = (await req(acc, 'welcome')).body;
+  const row = again.schools.find((s: any) => s.id === school);
+  assert.equal(again.totals.pending, w.totals.pending + 1);
+  assert.ok(row.stages.report >= 1);
+  assert.ok(row.items.length <= 6);
+  assert.ok(draft.id);
+});
