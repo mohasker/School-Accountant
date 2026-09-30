@@ -609,45 +609,48 @@ export async function accountantsReport(s: Identity, query: Record<string, any>)
     db.expense.groupBy({ by: ['createdBy'], where: { ...inTenant, ...at('date', true) }, _count: true, _sum: { amount: true } }),
     db.settlement.groupBy({ by: ['actor'], where: { imprest: inTenant, ...at('createdAt') }, _count: true, _sum: { amount: true } }),
   ]);
-  const rows = users.map((u) => {
-    const own = cases.filter((c) => c.createdBy === u.id);
-    const n = (states?: string[]) => own.filter((c) => !states || states.includes(c.state)).reduce((a, c) => a + c._count, 0);
-    const o = orders.find((x) => x.createdBy === u.id),
-      c = certs.find((x) => x.issuedBy === u.id),
-      d = direct.find((x) => x.createdBy === u.id),
-      i = invoices.find((x) => x.createdBy === u.id),
-      st = statements.find((x) => x.actor === u.id);
-    return {
-      id: u.id,
-      name: u.name,
-      username: u.username,
-      active: u.active,
-      isTenantAdmin: u.isTenantAdmin,
-      schools: u.isTenantAdmin ? schools.length : u.memberships.length,
-      schoolsAdded: schools.filter((x) => x.createdBy === u.id).length,
-      cases: n(),
-      done: n(DONE),
-      open: n(OPEN),
-      cancelled: n(['CANCELLED']),
-      casesValue: num(
-        sumOf(
-          own.filter((x) => x.state !== 'CANCELLED'),
-          'total',
+  const only = query.user ? parse(id, query.user) : null;
+  const rows = users
+    .filter((u) => !only || u.id === only)
+    .map((u) => {
+      const own = cases.filter((c) => c.createdBy === u.id);
+      const n = (states?: string[]) => own.filter((c) => !states || states.includes(c.state)).reduce((a, c) => a + c._count, 0);
+      const o = orders.find((x) => x.createdBy === u.id),
+        c = certs.find((x) => x.issuedBy === u.id),
+        d = direct.find((x) => x.createdBy === u.id),
+        i = invoices.find((x) => x.createdBy === u.id),
+        st = statements.find((x) => x.actor === u.id);
+      return {
+        id: u.id,
+        name: u.name,
+        username: u.username,
+        active: u.active,
+        isTenantAdmin: u.isTenantAdmin,
+        schools: u.isTenantAdmin ? schools.length : u.memberships.length,
+        schoolsAdded: schools.filter((x) => x.createdBy === u.id).length,
+        cases: n(),
+        done: n(DONE),
+        open: n(OPEN),
+        cancelled: n(['CANCELLED']),
+        casesValue: num(
+          sumOf(
+            own.filter((x) => x.state !== 'CANCELLED'),
+            'total',
+          ),
         ),
-      ),
-      orders: o?._count ?? 0,
-      ordersValue: num(o?._sum.total ?? 0),
-      certificates: c?._count ?? 0,
-      certificatesNet: num(c?._sum.net ?? 0),
-      direct: d?._count ?? 0,
-      directValue: num(d?._sum.amount ?? 0),
-      invoices: i?._count ?? 0,
-      invoicesValue: num(i?._sum.amount ?? 0),
-      statements: st?._count ?? 0,
-      statementsValue: num(st?._sum.amount ?? 0),
-      lastLoginAt: u.lastLoginAt,
-    };
-  });
+        orders: o?._count ?? 0,
+        ordersValue: num(o?._sum.total ?? 0),
+        certificates: c?._count ?? 0,
+        certificatesNet: num(c?._sum.net ?? 0),
+        direct: d?._count ?? 0,
+        directValue: num(d?._sum.amount ?? 0),
+        invoices: i?._count ?? 0,
+        invoicesValue: num(i?._sum.amount ?? 0),
+        statements: st?._count ?? 0,
+        statementsValue: num(st?._sum.amount ?? 0),
+        lastLoginAt: u.lastLoginAt,
+      };
+    });
   const keys = [
     'schools',
     'schoolsAdded',
@@ -665,7 +668,7 @@ export async function accountantsReport(s: Identity, query: Record<string, any>)
   const totals: Record<string, any> = {};
   for (const k of keys) totals[k] = rows.reduce((a, r) => a + r[k], 0);
   for (const k of money) totals[k] = num(rows.reduce((a, r) => a.plus(r[k]), new D(0)));
-  totals.schools = schools.length;
+  if (!only) totals.schools = schools.length;
   const report = { period: { from: from ?? null, to: to ?? null }, rows, totals };
   if (query.format === 'print' || query.pdf === '1') return { html: accountantsDocument(report) };
   if (query.format === 'xlsx') return accountantsWorkbook(report);

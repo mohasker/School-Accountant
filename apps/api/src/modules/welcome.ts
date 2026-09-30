@@ -23,6 +23,25 @@ const days = (from: Date) => Math.max(0, Math.floor((Date.now() - from.getTime()
  */
 export async function welcome(s: Identity) {
   const schools = s.user.memberships.filter((m) => m.school.active).map((m) => m.school);
+  const rows = await pendingBySchool(s.user.tenantId, schools);
+  const busy = rows.filter((r) => r.attention > 0).sort((a, b) => b.late - a.late || b.attention - a.attention);
+  return {
+    name: s.user.name,
+    totals: {
+      schools: rows.length,
+      pending: rows.reduce((n, r) => n + r.pending, 0),
+      late: rows.reduce((n, r) => n + r.late, 0),
+      replenish: rows.reduce((n, r) => n + r.replenish.length, 0),
+      awaiting: rows.reduce((n, r) => n + r.awaiting.length, 0),
+      erp: rows.reduce((n, r) => n + r.erp, 0),
+    },
+    schools: busy,
+    clear: rows.length - busy.length,
+  };
+}
+
+/** Pending work of each given school (files not finished, late ones, imprests needing action, files not in ERP). */
+export async function pendingBySchool(tenantId: string, schools: { id: string; name: string }[]) {
   const ids = schools.map((x) => x.id);
   const now = today();
   const [cases, erp, imprests, policy] = await Promise.all([
@@ -55,7 +74,7 @@ export async function welcome(s: Identity) {
         settlements: { where: { type: 'REPLENISH', replenished: false }, select: { id: true, amount: true } },
       },
     }),
-    loadPolicy(db, s.user.tenantId),
+    loadPolicy(db, tenantId),
   ]);
   const rows = schools.map((sc) => {
     const own = cases.filter((c) => c.schoolId === sc.id);
@@ -94,22 +113,10 @@ export async function welcome(s: Identity) {
       awaiting,
       erp: erpCount,
       // Late ones first, then the longest waiting.
+      oldest: items.reduce((m, c) => Math.max(m, c.waiting), 0),
       items: items.sort((a, b) => Number(b.late) - Number(a.late) || b.waiting - a.waiting).slice(0, 6),
       attention: own.length + replenish.length + awaiting.length + erpCount,
     };
   });
-  const busy = rows.filter((r) => r.attention > 0).sort((a, b) => b.late - a.late || b.attention - a.attention);
-  return {
-    name: s.user.name,
-    totals: {
-      schools: rows.length,
-      pending: rows.reduce((n, r) => n + r.pending, 0),
-      late: rows.reduce((n, r) => n + r.late, 0),
-      replenish: rows.reduce((n, r) => n + r.replenish.length, 0),
-      awaiting: rows.reduce((n, r) => n + r.awaiting.length, 0),
-      erp: rows.reduce((n, r) => n + r.erp, 0),
-    },
-    schools: busy,
-    clear: rows.length - busy.length,
-  };
+  return rows;
 }

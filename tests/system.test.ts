@@ -1398,3 +1398,92 @@ test('WELCOME: after signing in, pending work of every school with the next step
   assert.ok(row.items.length <= 6);
   assert.ok(draft.id);
 });
+test('ERP RECON: the monthly ERP report (PDF) is read by budget code, compared, settled or exported', async () => {
+  const { htmlToPdf } = await import('../apps/api/src/core/pdf');
+  const setup = (await req(acc, route('setup?year=' + year))).body;
+  const line = setup.budgets.find((b: any) => b.code === '520801');
+  // What the system holds for September 2026 on that line.
+  const before = (await req(acc, 'erp-recon/parse', 'POST', { school, yearId: year, period: '2026-09', mode: 'month', base64: 'JVBERi0x' }))
+    .status;
+  assert.equal(before, 400, 'a broken file is refused clearly');
+  const sys = async () => {
+    const pdf = await htmlToPdf(
+      `<html dir="rtl"><body><h3>Actual Expenses Report — Sep-2026</h3><table>
+       <tr><td>الحساب</td><td>البيان</td><td>الموازنة</td><td>الفعلي</td></tr>
+       <tr><td>520801</td><td>الضيافة</td><td>30,000.00</td><td>1,234.50</td></tr>
+       <tr><td>999999</td><td>حساب آخر</td><td>1.00</td><td>2.00</td></tr>
+       </table></body></html>`,
+    );
+    return (
+      await req(acc, 'erp-recon/parse', 'POST', {
+        school,
+        yearId: year,
+        period: '2026-09',
+        mode: 'month',
+        name: 'erp-sep.pdf',
+        base64: pdf.base64,
+      })
+    ).body;
+  };
+  const r = await sys();
+  const row = r.rows.find((x: any) => x.code === '520801');
+  assert.ok(row, JSON.stringify(r).slice(0, 800));
+  assert.deepEqual(
+    [...row.lines[0]].sort((a: number, b: number) => a - b),
+    [1234.5, 30000],
+  );
+  const l = row.lines[0];
+  assert.equal(l[l.length - 1 - r.columns.col], 1234.5, 'the actual column is proposed (closest to the system)');
+  const erp = 1234.5;
+  const diff = Math.round((erp - Number(row.system)) * 100) / 100;
+  // Save without settling: the differences are kept for the accountant.
+  const saved = await ok(acc, 'erp-recon', {
+    yearId: year,
+    period: '2026-09',
+    mode: 'month',
+    fileName: 'erp-sep.pdf',
+    rows: [{ budgetId: line.id, erp }],
+  });
+  assert.equal(saved.settled, 0);
+  const xlsx = (await req(acc, route(`erp-recon/${saved.id}?format=xlsx`))).body;
+  assert.ok(xlsx.base64.length > 500);
+  assert.ok((await req(acc, route(`erp-recon/${saved.id}`))).body.html.includes('520801'));
+  // Settle: a direct expense for the difference brings the system to the ERP figure.
+  if (diff > 0) {
+    const spentBefore = Number((await req(acc, route('setup?year=' + year))).body.budgets.find((b: any) => b.id === line.id).spent);
+    const st = await ok(acc, 'erp-recon', {
+      yearId: year,
+      period: '2026-09',
+      mode: 'month',
+      fileName: 'erp-sep.pdf',
+      settle: true,
+      rows: [{ budgetId: line.id, erp }],
+    });
+    assert.equal(st.settled, 1);
+    const spentAfter = Number((await req(acc, route('setup?year=' + year))).body.budgets.find((b: any) => b.id === line.id).spent);
+    assert.equal((spentAfter - spentBefore).toFixed(2), diff.toFixed(2));
+    const again = await sys();
+    assert.equal(Number(again.rows.find((x: any) => x.code === '520801').system), erp, 'after settling the system matches ERP');
+  }
+  const o = await req(null, 'auth/login', 'POST', { username: 'other', password: 'Brand-New-Password-1' });
+  const otherNow = { cookie: o.cookie, csrf: o.body.csrf };
+  assert.equal((await req(otherNow, 'erp-recon/parse', 'POST', { school, yearId: year, period: '2026-09', base64: 'JVBERi0x' })).status, 403);
+  assert.equal((await req(acc, route('erp-recon?year=' + year))).body.length >= 1, true);
+});
+test('OVERVIEW: all schools of an accountant with budget position and warnings; the administrator picks any accountant', async () => {
+  const o = (await req(acc, 'overview/schools')).body;
+  const mine = (await req(acc, 'auth/me')).body.schools.length;
+  assert.equal(o.schools.length, mine);
+  const s1 = o.schools.find((x: any) => x.id === school);
+  assert.ok(Number(s1.approved) > 0 && s1.year);
+  for (const w of s1.warnings) assert.ok(['danger', 'warn', 'info'].includes(w.level) && w.text);
+  assert.equal((await req(acc, 'overview/schools?user=' + randomUUID())).status, 403);
+  const accId = (await req(admin, 'admin/overview')).body.accounts.find((a: any) => a.username === 'accountant').id;
+  const viaAdmin = (await req(admin, 'overview/schools?user=' + accId)).body;
+  assert.equal(viaAdmin.user.id, accId);
+  assert.ok(viaAdmin.schools.some((x: any) => x.id === school));
+  assert.ok(Array.isArray((await req(admin, 'admin/followup')).body));
+  assert.equal((await req(acc, 'admin/followup')).status, 403);
+  const one = (await req(admin, `admin/accountants-report?user=${accId}`)).body;
+  assert.equal(one.rows.length, 1);
+});

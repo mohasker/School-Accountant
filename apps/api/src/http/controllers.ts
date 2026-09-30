@@ -13,6 +13,8 @@ import { completeConnect } from '../modules/onedrive';
 import { caseRegister, certificateRegistry } from '../modules/reports';
 import { mutate, read } from '../modules/router';
 import { welcome } from '../modules/welcome';
+import { schoolsOverview } from '../modules/overview';
+import { parseErpReport } from '../modules/erp-recon';
 import { readTenant, writeTenant } from '../modules/tenant';
 
 const segments = (path: string | string[]) => (Array.isArray(path) ? path : path.split('/'));
@@ -133,6 +135,16 @@ export class WorkspaceController {
       const m = e?.response?.message ?? e?.message ?? 'تعذر إكمال الربط';
       return back({ onedrive: 'error', message: String(Array.isArray(m) ? m.join('، ') : m).slice(0, 300) });
     }
+  }
+
+  /** Reads an uploaded ERP expense report (PDF) and proposes the comparison; nothing is saved. */
+  @Post('erp-recon/parse') async erpParse(@Req() req: Request, @Body() b: any) {
+    return parseErpReport(await authenticate(req), b ?? {});
+  }
+
+  /** General position of the schools of an accountant (the administrator may pass ?user=). */
+  @Get('overview/schools') async overview(@Req() req: Request, @Query() q: any) {
+    return schoolsOverview(await authenticate(req), q ?? {});
   }
 
   /** Reminder after sign-in: pending work in every school of the user. */

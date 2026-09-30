@@ -5,6 +5,7 @@ import { DateInput } from '../components/DateInput';
 import type { Dialog } from '../components/FormDialog';
 import { Badge, DocButtons, Empty, Panel, Stat, Table } from '../components/ui';
 import { useLoad } from '../components/useLoad';
+import { SchoolsOverview } from './SchoolsOverview';
 import type { Row } from '../lib/api';
 import { currency, day, downloadFile, ROLE_CHOICES, ROLE_NAMES } from '../lib/format';
 
@@ -306,6 +307,7 @@ export function AdminConsole() {
           ))}
         </Table>
       </Panel>
+      <FollowUp onOpen={(a) => setProfile(a)} />
       <AccountantsTotals />
       <LoginLog />
       <Panel title="مسح البيانات">
@@ -603,6 +605,17 @@ function AccountProfile({ account, onBack, onReport }: { account: Row; onBack: (
           تقرير الأعمال التفصيلي
         </button>
       </div>
+      <Panel
+        title={`الموقف العام لمدارس ${p.user.name}`}
+        actions={
+          <>
+            <DocButtons path={`admin/accountants-report?format=print&user=${p.user.id}`} label="التقرير الإجمالي" />
+          </>
+        }
+      >
+        <p>اضغط أي مدرسة لفتح بياناتها (لمدير النظام صلاحية على كل المدارس).</p>
+        <SchoolsOverview userId={p.user.id} />
+      </Panel>
       <Panel title={`ملف المحاسب: ${p.user.name}`}>
         <p>
           <span className="mono">{p.user.username}</span> — {p.user.active ? 'فعال' : 'موقوف'}
@@ -732,5 +745,45 @@ function AccountProfile({ account, onBack, onReport }: { account: Row; onBack: (
         )}
       </Panel>
     </>
+  );
+}
+
+/** Accountants with files waiting more than two weeks or assignments past their date, to call them early. */
+function FollowUp({ onOpen }: { onOpen: (a: Row) => void }) {
+  const w = useWorkspace();
+  const [rows] = useLoad<Row[]>(() => w.api('admin/followup'));
+  if (!rows) return null;
+  return (
+    <Panel title="متابعة: معاملات متأخرة لدى المحاسبين">
+      {rows.length ? (
+        <Table heads={['المحاسب', 'تنتظر أكثر من 14 يوماً', 'تجاوزت موعد التنفيذ', 'أقدم معاملة', 'أمثلة', '']}>
+          {rows.map((a) => (
+            <tr key={a.id}>
+              <td>
+                <b>{a.name}</b>
+                <small className="mono">{a.username}</small>
+              </td>
+              <td>{a.stale}</td>
+              <td>{a.late ? <span className="badge s-CANCELLED">{a.late}</span> : 0}</td>
+              <td>{a.oldest} يوماً</td>
+              <td>
+                {a.items.slice(0, 3).map((c: Row) => (
+                  <small key={c.id}>
+                    {c.number} — {c.subject} ({c.school})
+                  </small>
+                ))}
+              </td>
+              <td>
+                <button className="link" onClick={() => onOpen(a)}>
+                  ملف المحاسب ←
+                </button>
+              </td>
+            </tr>
+          ))}
+        </Table>
+      ) : (
+        <p>✓ لا توجد معاملات متأخرة أكثر من 14 يوماً لدى أي محاسب.</p>
+      )}
+    </Panel>
   );
 }

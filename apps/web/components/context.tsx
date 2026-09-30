@@ -21,7 +21,10 @@ export type View =
   | 'archive'
   | 'notes'
   | 'assistant'
-  | 'admin';
+  | 'admin'
+  | 'schools'
+  | 'help'
+  | 'erp-recon';
 
 export type Workspace = {
   me: Row;
@@ -44,6 +47,8 @@ export type Workspace = {
   fail: (e: unknown) => void;
   /** Opens a screen; for a transaction, `intent` opens one of its dialogs (quotes, report, order, finish). */
   go: (view: View, caseId?: string, intent?: string) => void;
+  /** Switches to another school of the user and opens a screen there (default: its home screen). */
+  pickSchool: (schoolId: string, view?: View) => void;
   /** Increments after every successful change so views reload their data. */
   version: number;
   busy: boolean;

@@ -595,3 +595,19 @@ model LoginLog {
 
   @@index([userId, createdAt])
 }
+
+/// A comparison of the monthly ERP expense report (PDF) with the figures recorded in the system.
+model ErpRecon {
+  id        String   @id @default(uuid()) @db.Uuid
+  schoolId  String   @db.Uuid
+  yearId    String   @db.Uuid
+  period    String
+  mode      String
+  fileName  String
+  rows      Json
+  settled   Int      @default(0)
+  createdBy String   @db.Uuid
+  createdAt DateTime @default(now())
+
+  @@index([schoolId, yearId])
+}

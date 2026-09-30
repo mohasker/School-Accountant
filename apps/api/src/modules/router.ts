@@ -5,6 +5,7 @@ import { readBudgetEstimate, readLedger, writeBudget, writeBudgetPlan } from './
 import { readCases, readCertificate, readDashboard, readEvidence, writeCases } from './cases';
 import type { Reader, Writer } from './context';
 import { readDirectExpenses, writeDirectExpenses } from './direct';
+import { readErpRecon, writeErpRecon } from './erp-recon';
 import { readFinancialReport } from './finance';
 import { readImprests, writeImprests } from './imprests';
 import { readAudit, readReportRuns, readTransactionsReport } from './reports';
@@ -24,6 +25,7 @@ const READERS: Record<string, Reader> = {
   reports: readTransactionsReport,
   'financial-report': readFinancialReport,
   'direct-expenses': readDirectExpenses,
+  'erp-recon': readErpRecon,
   'report-runs': readReportRuns,
   audit: readAudit,
 };
@@ -41,6 +43,7 @@ const WRITERS: Record<string, Writer> = {
   cases: writeCases,
   imprests: writeImprests,
   'direct-expenses': writeDirectExpenses,
+  'erp-recon': writeErpRecon,
 };
 
 export function read(s: Identity, school: string, path: string[], query: Record<string, any>) {

@@ -3119,3 +3119,143 @@ tr.total-row td {
   gap: 8px;
   align-items: center;
 }
+
+/* Schools overview */
+.school-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(330px, 1fr));
+  gap: 16px;
+  margin: 18px 0;
+}
+.school-card {
+  all: unset;
+  box-sizing: border-box;
+  cursor: pointer;
+  display: grid;
+  gap: 10px;
+  background: #fff;
+  border: 1px solid var(--line);
+  border-top: 5px solid #1a7f4b;
+  border-radius: 14px;
+  padding: 16px 18px;
+  box-shadow: 0 6px 20px rgba(15, 36, 56, 0.06);
+  transition:
+    transform 0.15s,
+    box-shadow 0.15s;
+}
+.school-card:hover,
+.school-card:focus-visible {
+  transform: translateY(-2px);
+  box-shadow: 0 12px 28px rgba(15, 36, 56, 0.12);
+}
+.school-card.warn {
+  border-top-color: #d98a1c;
+}
+.school-card.danger {
+  border-top-color: #b42318;
+}
+.school-card header b {
+  display: block;
+  font-size: 16.5px;
+}
+.school-card header small {
+  color: var(--muted);
+}
+.school-budget {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 6px;
+}
+.school-budget span {
+  display: block;
+  font-size: 12px;
+  color: var(--muted);
+}
+.school-budget b {
+  font-size: 14px;
+}
+.school-card .track {
+  height: 8px;
+  background: #eef2f5;
+  border-radius: 6px;
+  overflow: hidden;
+}
+.school-card .track span {
+  display: block;
+  height: 100%;
+  background: var(--wine);
+}
+.school-card .track span.hot {
+  background: #b42318;
+}
+.school-card > small {
+  color: var(--muted);
+}
+.school-warnings {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 4px;
+  font-size: 13px;
+}
+.school-warnings li {
+  border-radius: 6px;
+  padding: 4px 8px;
+}
+.school-warnings .danger {
+  background: #fde8e8;
+  color: #9b1c1c;
+}
+.school-warnings .warn {
+  background: #fff4e0;
+  color: #8a5300;
+}
+.school-warnings .info {
+  background: #eef3f6;
+  color: var(--ink);
+}
+.school-card .open {
+  color: var(--wine);
+  font-weight: 700;
+  font-size: 14px;
+}
+tr.diff-row td {
+  background: #fffaf0;
+}
+.recon {
+  font-size: 12.5px;
+  border-radius: 6px;
+  padding: 3px 8px;
+  white-space: nowrap;
+}
+.recon.MATCH,
+.recon.SETTLED {
+  background: #e9f7ef;
+  color: #1a7f4b;
+}
+.recon.ERP_MORE {
+  background: #fde8e8;
+  color: #9b1c1c;
+}
+.recon.SYSTEM_MORE {
+  background: #fff4e0;
+  color: #8a5300;
+}
+.recon-summary {
+  margin: 12px 0;
+  line-height: 1.8;
+}
+.recon-summary .ok {
+  color: #1a7f4b;
+}
+.recon-debug pre {
+  max-height: 260px;
+  overflow: auto;
+  direction: ltr;
+  text-align: left;
+  font-size: 12px;
+  background: #f6f8fa;
+  padding: 10px;
+  border-radius: 8px;
+}

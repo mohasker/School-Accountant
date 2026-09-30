@@ -9,6 +9,7 @@ import { accountantsReport, accountProfile, adminOverview, manageUser, userRepor
 import { readArchive, readLogins, readNotes, writeArchive, writeNotes } from './library';
 import { connectUrl, disconnect, saveConfig, status as oneDriveStatus } from './onedrive';
 import { purge } from './purge';
+import { followUp } from './overview';
 import { addStandardSuppliers } from '../core/suppliers-list';
 
 /**
@@ -65,6 +66,8 @@ export async function readTenant(
       });
     case 'overview':
       return adminOverview(s);
+    case 'followup':
+      return followUp(s);
     case 'accountants-report':
       return accountantsReport(s, query);
     case 'school-names': {

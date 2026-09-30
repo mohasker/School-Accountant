@@ -12,6 +12,9 @@ import { applyFontSize, FONT_SIZES, loadFontSize, loadSimpleMenu, saveFontSize, 
 import { Logo } from './ui';
 import { APP_NAME, APP_TITLE, COPYRIGHT } from '../lib/brand';
 import { AdminConsole } from '../views/AdminConsole';
+import { SchoolsOverview } from '../views/SchoolsOverview';
+import { Help } from '../views/Help';
+import { ErpRecon } from '../views/ErpRecon';
 import { Archive } from '../views/Archive';
 import { Assistant } from '../views/Assistant';
 import { Notes } from '../views/Notes';
@@ -31,6 +34,7 @@ import { Suppliers } from '../views/Suppliers';
 const NAV: { view: View; icon: string; label: string; show?: (w: { can: Workspace['can']; me: Row }) => boolean }[] = [
   { view: 'admin', icon: '♛', label: 'لوحة مدير النظام', show: ({ me }) => me.user.isTenantAdmin },
   { view: 'dashboard', icon: '◫', label: 'الرئيسية' },
+  { view: 'schools', icon: '▦', label: 'مدارسي — الموقف العام' },
   { view: 'cases', icon: '▤', label: 'المعاملات' },
   { view: 'quote-register', icon: '☰', label: 'تقارير عروض الأسعار' },
   { view: 'order-register', icon: '✎', label: 'التكليفات' },
@@ -39,20 +43,25 @@ const NAV: { view: View; icon: string; label: string; show?: (w: { can: Workspac
   { view: 'budget', icon: '▥', label: 'الموازنة' },
   { view: 'suppliers', icon: '◈', label: 'الموردون' },
   { view: 'reports', icon: '▧', label: 'التقارير' },
+  { view: 'erp-recon', icon: '⇄', label: 'مطابقة تقرير ERP' },
   { view: 'archive', icon: '🗂', label: 'أرشيف المستندات' },
   { view: 'notes', icon: '✎', label: 'الملاحظات العامة' },
   { view: 'assistant', icon: '✦', label: 'المساعد الذكي' },
   { view: 'holidays', icon: '☾', label: 'الإجازات الرسمية' },
   { view: 'policy', icon: '§', label: 'السياسة المالية', show: ({ me }) => me.user.isTenantAdmin },
   { view: 'settings', icon: '⚙', label: 'الإعدادات' },
+  { view: 'help', icon: '؟', label: 'مركز المساعدة' },
   { view: 'audit', icon: '↺', label: 'سجل التدقيق', show: ({ me }) => me.user.isTenantAdmin },
 ];
 
 /** The simple menu keeps the four daily screens (the administrator keeps his console too). */
-const SIMPLE_VIEWS: View[] = ['admin', 'dashboard', 'cases', 'imprests', 'budget'];
+const SIMPLE_VIEWS: View[] = ['admin', 'dashboard', 'schools', 'cases', 'imprests', 'budget', 'help'];
 
 const TITLES: Record<View, string> = {
   dashboard: 'الرئيسية',
+  schools: 'مدارسي — الموقف العام للموازنة والتنبيهات',
+  help: 'مركز المساعدة',
+  'erp-recon': 'مطابقة تقرير ERP الشهري',
   cases: 'المعاملات: تقرير العروض ← التكليف ← الشهادة والتغطية',
   case: 'المعاملة',
   suppliers: 'دليل الموردين',
@@ -237,6 +246,17 @@ export default function App() {
         printHtml: (html) => {
           if (!showPrint(html)) setError('اسمح بالنوافذ المنبثقة لفتح نسخة الطباعة');
         },
+        pickSchool: (id, v = 'dashboard') => {
+          setTourReplay(0);
+          setError('');
+          if (id !== school) {
+            setYear('');
+            setSchool(id);
+          }
+          setCaseId('');
+          setView(v);
+          window.scrollTo?.(0, 0);
+        },
         go: (v, id, next) => {
           setTourReplay(0);
           setError('');
@@ -405,6 +425,10 @@ export default function App() {
             )}
             {view === 'admin' ? (
               <AdminConsole />
+            ) : view === 'schools' ? (
+              <SchoolsOverview />
+            ) : view === 'help' ? (
+              <Help />
             ) : view === 'archive' ? (
               <Archive />
             ) : view === 'notes' ? (
@@ -422,6 +446,7 @@ export default function App() {
                 {view === 'budget' && <Budget />}
                 {view === 'imprests' && <Imprests />}
                 {view === 'reports' && <Reports />}
+                {view === 'erp-recon' && <ErpRecon />}
                 {view === 'assistant' && <Assistant />}
                 {view === 'registry' && <Registry type="certificate" />}
                 {view === 'quote-register' && <Registry type="report" />}
