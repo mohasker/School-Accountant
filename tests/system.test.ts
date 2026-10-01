@@ -1766,6 +1766,20 @@ test('SUPPLIER BANK: one card per company with full contact data, shared by the 
     category: 'قرطاسية',
   });
   assert.ok(edited.status < 300, JSON.stringify(edited.body));
+  // Changing the IBAN drops the verified mark and is logged with before/after.
+  const iban2 = await req(acc, 'admin/supplier-bank/' + created.body.id, 'PATCH', {
+    name: 'شركة الاختبار للتجهيزات',
+    cr: 'CR-TEST-9001',
+    iban: 'QA56QNBA000000000000000012345',
+    ibanVerified: true,
+    email: 'new@example.test',
+    mobile: '55009999',
+    category: 'قرطاسية',
+  });
+  assert.ok(iban2.status < 300, JSON.stringify(iban2.body));
+  assert.equal(iban2.body.ibanVerified, false);
+  const change = await db.audit.findFirst({ where: { action: 'supplier-bank:bank-data-change', entity: created.body.id } });
+  assert.ok(change && change.detail.before.iban === 'QA58DOHB00001234567890ABCDEFG');
   const again = (await req(acc, route('setup'))).body.suppliers.find((s: any) => s.id === copy.id);
   assert.equal(again.email, 'new@example.test');
   assert.equal((await req(acc, 'admin/supplier-bank?q=55009999')).body.length, 1);

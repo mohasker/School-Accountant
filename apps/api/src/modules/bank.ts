@@ -113,6 +113,19 @@ export async function writeBank(s: Identity, t: Tx, rid: string | undefined, met
       where: { tenantId, name: { equals: p.name, mode: 'insensitive' }, NOT: { id: card.id } },
     });
     if (clash) fail('يوجد مورد آخر بهذا الاسم في البنك');
+    // A changed IBAN or registration loses its «verified» mark and is logged with before/after for review.
+    const ibanChanged = p.iban !== card.iban;
+    if (ibanChanged) p.ibanVerified = false;
+    if (ibanChanged || p.cr !== card.cr)
+      await t.audit.create({
+        data: {
+          tenantId,
+          actor: s.user.id,
+          action: 'supplier-bank:bank-data-change',
+          entity: card.id,
+          detail: { name: card.name, before: { iban: card.iban, cr: card.cr }, after: { iban: p.iban, cr: p.cr } },
+        },
+      });
     const updated = await t.supplierCard.update({ where: { id: card.id }, data: p });
     // The school copies follow the card for the fields that appear on documents.
     await t.supplier.updateMany({
