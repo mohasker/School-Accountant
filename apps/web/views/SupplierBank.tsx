@@ -12,15 +12,33 @@ export function cardFields(r?: Row) {
   return [
     { name: 'name', label: 'اسم المورد (كما يظهر في المستندات)', value: r?.name },
     { name: 'legalName', label: 'الاسم القانوني الكامل كما في السجل التجاري', value: r?.legalName, required: false },
+    { name: 'nameEn', label: 'الاسم بالإنجليزية', value: r?.nameEn, required: false },
     { name: 'cr', label: 'رقم السجل التجاري', value: r?.cr, required: false },
+    {
+      name: 'crExpiry',
+      label: 'تاريخ انتهاء السجل التجاري (تنبيه قبل 30 يوماً)',
+      type: 'date' as const,
+      value: r?.crExpiry ? String(r.crExpiry).slice(0, 10) : '',
+      required: false,
+    },
     { name: 'category', label: 'النشاط / التخصص (قرطاسية، صيانة، أثاث…)', value: r?.category, required: false },
     { name: 'contact', label: 'اسم مسؤول التواصل', value: r?.contact, required: false },
     { name: 'mobile', label: 'رقم الجوال', value: r?.mobile, required: false },
     { name: 'phone', label: 'هاتف المكتب', value: r?.phone, required: false },
     { name: 'email', label: 'البريد الإلكتروني', value: r?.email, required: false },
+    { name: 'accountsEmail', label: 'بريد قسم الحسابات (للمستحقات)', value: r?.accountsEmail, required: false },
+    { name: 'website', label: 'الموقع الإلكتروني', value: r?.website, required: false },
     { name: 'address', label: 'العنوان', value: r?.address, required: false },
     { name: 'bank', label: 'اسم البنك', value: r?.bank, required: false },
+    { name: 'beneficiary', label: 'اسم المستفيد في البنك', value: r?.beneficiary, required: false },
     { name: 'iban', label: 'IBAN', value: r?.iban, required: false },
+    {
+      name: 'ibanVerified',
+      label: 'تم التحقق من IBAN (خطاب بنكي أو تحويل ناجح)',
+      type: 'checkbox' as const,
+      value: r?.ibanVerified ?? false,
+      required: false,
+    },
     { name: 'note', label: 'ملاحظات (التزام، جودة، تنبيهات…)', value: r?.note, type: 'textarea' as const, required: false },
   ];
 }
@@ -40,6 +58,12 @@ export function cardPayload(v: Record<string, unknown>, active = true) {
     bank: s('bank'),
     iban: s('iban'),
     note: s('note'),
+    nameEn: s('nameEn'),
+    crExpiry: s('crExpiry'),
+    accountsEmail: s('accountsEmail'),
+    website: s('website'),
+    beneficiary: s('beneficiary'),
+    ibanVerified: Boolean(v.ibanVerified),
     active,
   };
 }
@@ -101,16 +125,25 @@ export function SupplierBank() {
       {!cards ? (
         <p>جارٍ التحميل…</p>
       ) : cards.length ? (
-        <Table heads={['المورد', 'السجل التجاري', 'التواصل', 'البنك / IBAN', 'الشهادات السابقة', 'المدارس', '']}>
+        <Table heads={['المورد', 'السجل التجاري', 'التواصل', 'البنك / IBAN', 'الشهادات السابقة', 'المدارس', 'المستندات', '']}>
           {cards.map((r) => (
             <tr key={r.id} className={r.active ? '' : 'muted'}>
               <td>
                 <b>{r.name}</b>
                 {r.legalName && r.legalName !== r.name && <small>{r.legalName}</small>}
+                {r.nameEn && <small>{r.nameEn}</small>}
                 {r.category && <small>{r.category}</small>}
                 {r.note && <small className="muted">{r.note}</small>}
               </td>
-              <td className="mono">{r.cr || '—'}</td>
+              <td>
+                <span className="mono">{r.cr || '—'}</span>
+                {r.crExpiry && (
+                  <small className={r.crStatus === 'expired' ? 'danger' : r.crStatus === 'soon' ? 'warn-text' : ''}>
+                    {r.crStatus === 'expired' ? '⚠ منتهٍ ' : r.crStatus === 'soon' ? '⚠ ينتهي قريباً ' : 'ساري حتى '}
+                    {day(r.crExpiry)}
+                  </small>
+                )}
+              </td>
               <td>
                 {r.contact && <div>{r.contact}</div>}
                 {r.mobile && <div className="mono">{r.mobile}</div>}
@@ -120,12 +153,26 @@ export function SupplierBank() {
                     <a href={'mailto:' + r.email}>{r.email}</a>
                   </div>
                 )}
+                {r.accountsEmail && (
+                  <small>
+                    الحسابات: <a href={'mailto:' + r.accountsEmail}>{r.accountsEmail}</a>
+                  </small>
+                )}
+                {r.website && (
+                  <small>
+                    <a href={r.website.startsWith('http') ? r.website : 'https://' + r.website} target="_blank" rel="noreferrer">
+                      {r.website}
+                    </a>
+                  </small>
+                )}
                 {r.address && <small>{r.address}</small>}
                 {!r.contact && !r.mobile && !r.phone && !r.email && '—'}
               </td>
               <td>
                 {r.bank && <div>{r.bank}</div>}
+                {r.beneficiary && <small>المستفيد: {r.beneficiary}</small>}
                 <span className="mono">{r.iban || '—'}</span>
+                {r.iban && <small>{r.ibanVerified ? '✓ تم التحقق' : 'لم يُتحقق منه'}</small>}
               </td>
               <td>
                 {r.history ? (
@@ -137,6 +184,15 @@ export function SupplierBank() {
                 )}
               </td>
               <td>{r.schools || 0}</td>
+              <td>
+                {r.documents ? (
+                  <button className="link" onClick={() => w.go('archive')} title="السجل التجاري والتعهدات والرخص في الأرشيف المشترك">
+                    {r.documents} مستند
+                  </button>
+                ) : (
+                  '—'
+                )}
+              </td>
               <td>
                 <div className="actions">
                   {editor && w.school && !mine.has(r.id) && r.active && (
@@ -179,7 +235,10 @@ export function SupplierBank() {
       ) : (
         <Empty text="لا يوجد موردون مطابقون" />
       )}
-      <small>«الشهادات السابقة» من سجل شهادات الإنجاز المرجعي (قبل النظام)؛ «المدارس» عدد المدارس التي تتعامل مع المورد في النظام.</small>
+      <small>
+        «الشهادات السابقة» من سجل شهادات الإنجاز المرجعي (قبل النظام)؛ «المدارس» عدد المدارس التي تتعامل مع المورد في النظام؛ «المستندات»
+        السجل التجاري والتعهدات والرخص المحفوظة باسم الشركة في الأرشيف المشترك.
+      </small>
     </Panel>
   );
 }

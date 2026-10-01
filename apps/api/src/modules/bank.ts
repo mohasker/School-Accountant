@@ -26,6 +26,12 @@ const cardSchema = z
     address: optionalText(300),
     category: optionalText(80),
     note: optionalText(500),
+    nameEn: optionalText(200),
+    crExpiry: z.union([z.literal(''), z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'تاريخ غير صحيح')]).default(''),
+    accountsEmail: z.union([z.literal(''), z.string().trim().email('بريد الحسابات غير صحيح').max(150)]).default(''),
+    website: optionalText(200),
+    beneficiary: optionalText(150),
+    ibanVerified: z.boolean().default(false),
     active: z.boolean().default(true),
   })
   .strict();
@@ -41,14 +47,14 @@ function requireWorker(s: Identity) {
 export async function readBank(s: Identity, query: Record<string, any>) {
   const tenantId = s.user.tenantId;
   const q = String(query.q ?? '').trim();
-  const [cards, usage, legacy] = await Promise.all([
+  const [cards, usage, legacy, documents] = await Promise.all([
     db.supplierCard.findMany({
       where: {
         tenantId,
         ...(query.all === '1' ? {} : { active: true }),
         ...(q
           ? {
-              OR: ['name', 'legalName', 'cr', 'phone', 'mobile', 'email', 'contact', 'category'].map((f) => ({
+              OR: ['name', 'legalName', 'nameEn', 'cr', 'phone', 'mobile', 'email', 'accountsEmail', 'contact', 'category'].map((f) => ({
                 [f]: { contains: q, mode: 'insensitive' as const },
               })),
             }
@@ -59,7 +65,10 @@ export async function readBank(s: Identity, query: Record<string, any>) {
     }),
     db.supplier.groupBy({ by: ['cardId'], where: { school: { tenantId }, cardId: { not: null } }, _count: true }),
     db.legacyCertificate.groupBy({ by: ['supplier'], where: { tenantId }, _count: true, _sum: { net: true }, _max: { date: true } }),
+    db.archive.groupBy({ by: ['company'], where: { tenantId }, _count: true }),
   ]);
+  const docsByKey = new Map(documents.map((d) => [key(d.company), d._count]));
+  const soon = new Date(Date.now() + 30 * 86400000);
   const legacyByKey = new Map(legacy.map((l) => [key(l.supplier), l]));
   return cards.map(({ _count, ...c }) => {
     const h = legacyByKey.get(key(c.name)) ?? legacyByKey.get(key(c.legalName));
@@ -67,6 +76,8 @@ export async function readBank(s: Identity, query: Record<string, any>) {
       ...c,
       schools: usage.find((u) => u.cardId === c.id)?._count ?? _count.suppliers,
       history: h ? { count: h._count, total: num(h._sum.net ?? 0), last: h._max.date } : null,
+      documents: docsByKey.get(key(c.name)) ?? docsByKey.get(key(c.legalName)) ?? 0,
+      crStatus: !c.crExpiry ? '' : c.crExpiry < new Date() ? 'expired' : c.crExpiry < soon ? 'soon' : 'valid',
     };
   });
 }
@@ -93,8 +104,8 @@ export async function writeBank(s: Identity, t: Tx, rid: string | undefined, met
     await t.supplierCard.delete({ where: { id: card.id } });
     return { id: card.id, deleted: true };
   }
-  const p = parse(cardSchema, body);
-  p.iban = normaliseIban(p.iban);
+  const parsed = parse(cardSchema, body);
+  const p = { ...parsed, iban: normaliseIban(parsed.iban), crExpiry: parsed.crExpiry ? new Date(parsed.crExpiry) : null };
   if (rid) {
     const card = await t.supplierCard.findFirst({ where: { id: parse(id, rid), tenantId } });
     if (!card) throw new NotFoundException();

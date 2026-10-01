@@ -85,13 +85,16 @@ export class AuthController {
     return { ok: true };
   }
 
-  /** Changing the password signs out every session of the user. */
+  /** Changing the password signs out every session of the user and unlinks the Telegram chat. */
   @Post('auth/password') async password(@Body() b: any, @Req() req: Request, @Res({ passthrough: true }) res: Response) {
     const s = await authenticate(req),
       p = parse(z.object({ current: z.string().max(128), password: z.string().min(8).max(128) }).strict(), b);
     if (!(await argon2.verify(s.user.passwordHash, p.current))) throw new UnauthorizedException('كلمة المرور الحالية غير صحيحة');
     await db.$transaction([
-      db.user.update({ where: { id: s.user.id }, data: { passwordHash: await passwordHash(p.password), mustChangePassword: false } }),
+      db.user.update({
+        where: { id: s.user.id },
+        data: { passwordHash: await passwordHash(p.password), mustChangePassword: false, tgChatId: '', tgCode: '', tgCodeExp: null },
+      }),
       db.session.deleteMany({ where: { userId: s.user.id } }),
     ]);
     clearSessionCookie(res);

@@ -39,6 +39,9 @@ model Tenant {
   addressees  Json            @default("[\"إدارة الشؤون المالية\", \"إدارة الخدمات العامة\", \"إدارة المشتريات والمناقصات\"]")
   tgToken     String          @default("")
   tgOn        Boolean         @default(false)
+  /// Issuing from the bot may be switched off, or limited to files up to this value (0 = no limit).
+  tgIssue     Boolean         @default(true)
+  tgLimit     Decimal         @default(0) @db.Decimal(18, 2)
   cards       SupplierCard[]
   legacy      LegacyCertificate[]
 }
@@ -174,6 +177,12 @@ model SupplierCard {
   address   String     @default("")
   category  String     @default("")
   note      String     @default("")
+  nameEn    String     @default("")
+  crExpiry  DateTime?  @db.Date
+  accountsEmail String @default("")
+  website   String     @default("")
+  beneficiary String   @default("")
+  ibanVerified Boolean @default(false)
   active    Boolean    @default(true)
   createdAt DateTime   @default(now())
   updatedAt DateTime   @default(now()) @updatedAt

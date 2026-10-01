@@ -29,8 +29,28 @@ export function TelegramAdminPanel() {
                   required: !st.hasToken,
                 },
                 { name: 'on', label: 'تشغيل البوت', type: 'checkbox', value: st.on },
+                {
+                  name: 'issue',
+                  label: 'السماح بإصدار كتب التكليف من الهاتف (وإلا يكتفي البوت بالعرض والإرسال)',
+                  type: 'checkbox',
+                  value: st.issue,
+                },
+                {
+                  name: 'limit',
+                  label: 'حد قيمة الملف للإصدار من الهاتف بالريال (0 = بلا حد؛ الأعلى منه يُصدر من الشاشة)',
+                  type: 'number',
+                  step: '1',
+                  value: st.limit ?? 0,
+                  required: false,
+                },
               ],
-              save: (v) => w.api('admin/telegram/config', 'POST', { token: v.token || '', on: Boolean(v.on) }),
+              save: (v) =>
+                w.api('admin/telegram/config', 'POST', {
+                  token: v.token || '',
+                  on: Boolean(v.on),
+                  issue: Boolean(v.issue),
+                  limit: Number(v.limit || 0),
+                }),
             })
           }
         >
@@ -44,6 +64,11 @@ export function TelegramAdminPanel() {
           {st.on ? (st.reachable ? `يعمل — @${st.bot}` : 'مفعّل لكن تعذر الوصول إلى تليجرام الآن') : st.hasToken ? 'متوقف' : 'غير مهيّأ'}
         </b>
         {' — '}حسابات مرتبطة: <b>{st.linked}</b>
+        {' — '}الإصدار من الهاتف:{' '}
+        <b>{st.issue ? (Number(st.limit) > 0 ? `مسموح حتى ${Number(st.limit).toLocaleString('en-US')} ر.ق` : 'مسموح بلا حد') : 'موقوف'}</b>
+      </p>
+      <p>
+        <small>تغيير كلمة المرور يفصل الهاتف تلقائياً؛ يعيد المستخدم الربط من الإعدادات.</small>
       </p>
       <p>
         <small>

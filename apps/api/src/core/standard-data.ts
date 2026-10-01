@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { db, type Tx } from '../common/db';
@@ -42,7 +43,9 @@ type LegacyRow = {
 /** The certificates of 2022–2026 from the approved workbook: reference only, never posted to any ledger. */
 export async function loadLegacyCertificates(t: Tx | typeof db, tenantId: string) {
   if (await t.legacyCertificate.count({ where: { tenantId } })) return 0;
-  const rows: LegacyRow[] = JSON.parse(readFileSync(resolve(process.cwd(), 'scripts/legacy-certificates.json'), 'utf8'));
+  const file = resolve(process.cwd(), 'scripts/legacy-certificates.json');
+  const raw = readFileSync(file, 'utf8');
+  const rows: LegacyRow[] = JSON.parse(raw);
   const day = (v: string) => (v ? new Date(v) : null);
   await t.legacyCertificate.createMany({
     data: rows.map((r) => ({
@@ -64,6 +67,22 @@ export async function loadLegacyCertificates(t: Tx | typeof db, tenantId: string
       note: r.note,
     })),
     skipDuplicates: true,
+  });
+  // The import is recorded in the audit log with the file's fingerprint, so the batch can always be traced.
+  const admin = await t.user.findFirst({ where: { tenantId, isTenantAdmin: true }, select: { id: true } });
+  await t.audit.create({
+    data: {
+      tenantId,
+      actor: admin?.id ?? tenantId,
+      action: 'import:legacy-certificates',
+      entity: tenantId,
+      detail: {
+        batch: 'legacy-v1',
+        file: 'scripts/legacy-certificates.json',
+        sha256: createHash('sha256').update(raw).digest('hex'),
+        rows: rows.length,
+      },
+    },
   });
   return rows.length;
 }

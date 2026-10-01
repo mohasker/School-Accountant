@@ -3345,3 +3345,8 @@ tr.diff-row td {
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3) !important;
   font-weight: 700;
 }
+
+.warn-text {
+  color: #a15c00;
+  font-weight: 600;
+}

@@ -1732,8 +1732,19 @@ test('SUPPLIER BANK: one card per company with full contact data, shared by the 
     address: 'الدوحة — المنطقة الصناعية',
     category: 'قرطاسية',
     note: 'توريد سريع',
+    nameEn: 'Test Supplies Co.',
+    crExpiry: '2026-01-15',
+    accountsEmail: 'accounts@example.test',
+    website: 'example.test',
+    beneficiary: 'Test Supplies Co. WLL',
+    ibanVerified: true,
   });
   assert.ok(created.status < 300, JSON.stringify(created.body));
+  const card = (await req(acc, 'admin/supplier-bank?q=Test+Supplies')).body.find((c: any) => c.id === created.body.id);
+  assert.equal(card.crStatus, 'expired', 'an expired commercial registration is flagged');
+  assert.equal(card.ibanVerified, true);
+  assert.equal(card.accountsEmail, 'accounts@example.test');
+  assert.equal((await req(acc, 'admin/supplier-bank', 'POST', { name: 'x2', crExpiry: '15/01/2026' })).status, 400);
   assert.equal((await req(acc, 'admin/supplier-bank', 'POST', { name: 'شركة الاختبار للتجهيزات' })).status, 400, 'no duplicate names');
   assert.equal((await req(acc, 'admin/supplier-bank', 'POST', { name: 'x', email: 'not-an-email' })).status, 400);
   // The school picks it from the bank: a copy with the document fields.
@@ -1786,6 +1797,9 @@ test('LEGACY CERTIFICATES: the certificates issued before the system are a searc
   assert.ok(year.rows.every((r: any) => String(r.date).startsWith('2025')));
   const xlsx = (await req(acc, 'admin/legacy-certificates?format=xlsx')).body;
   assert.ok(xlsx.base64.length > 1000 && xlsx.name.endsWith('.xlsx'));
+  // The import batch is traceable: file fingerprint and row count in the audit log.
+  const batch = await db.audit.findFirst({ where: { action: 'import:legacy-certificates' } });
+  assert.ok(batch && batch.detail.rows === 504 && /^[0-9a-f]{64}$/.test(batch.detail.sha256));
   // Reference only: no ledger posting came from the register.
   assert.equal(await db.ledger.count({ where: { eventKey: { startsWith: 'legacy' } } }), 0);
 });
@@ -1863,6 +1877,17 @@ test('TELEGRAM: the administrator sets the bot; an accountant links the phone wi
     assert.equal(docs.length, 2);
     await handleMessage(tenant.id, token, '555', 'تكليف ' + row.number);
     assert.ok(sent.at(-1).text.includes('لا تسمح'));
+    // The administrator's controls: a value limit, or no issuing from the phone at all.
+    const row2 = await makeCase('4500.00');
+    await req(admin, 'admin/telegram/config', 'POST', { token: '', on: true, issue: true, limit: 1000 });
+    await handleMessage(tenant.id, token, '555', 'تكليف ' + row2.number);
+    assert.ok(sent.at(-1).text.includes('أعلى من حد'), sent.at(-1).text);
+    await req(admin, 'admin/telegram/config', 'POST', { token: '', on: true, issue: false, limit: 0 });
+    await handleMessage(tenant.id, token, '555', 'تكليف ' + row2.number);
+    assert.ok(sent.at(-1).text.includes('موقوف'), sent.at(-1).text);
+    assert.equal((await load(row2.id)).state, 'APPROVED');
+    await req(admin, 'admin/telegram/config', 'POST', { token: '', on: true, issue: true, limit: 0 });
+    assert.equal((await req(admin, 'admin/telegram')).body.issue, true);
     // Another person's file is invisible; an unlinked chat gets the linking hint; the whole path works through polling.
     const foreign = await db.case.findFirst({ where: { schoolId: { not: school } } });
     if (foreign) {
@@ -1876,9 +1901,14 @@ test('TELEGRAM: the administrator sets the bot; an accountant links the phone wi
     await req(admin, 'admin/telegram/config', 'POST', { token: '', on: true }); // wakes the polling loop
     for (let i = 0; i < 100 && sent.length === before; i++) await new Promise((r) => setTimeout(r, 100));
     assert.ok(sent.length > before && sent.at(-1).text.includes('الأوامر المتاحة'), 'polling delivered the message');
-    // Unlink and switch off.
+    // Unlink and switch off; a password change also unlinks the phone.
     await req(acc, 'auth/telegram-unlink', 'POST', {});
     assert.equal((await req(acc, 'auth/me')).body.user.tgLinked, false);
+    await db.user.update({ where: { username: 'accountant' }, data: { tgChatId: '555' } });
+    const pw = await req(acc, 'auth/password', 'POST', { current: password, password: password });
+    assert.ok(pw.status < 300, JSON.stringify(pw.body));
+    assert.equal((await db.user.findFirst({ where: { username: 'accountant' } })).tgChatId, '');
+    acc = await log('accountant');
     await req(admin, 'admin/telegram/config', 'POST', { token: '', on: false });
   } finally {
     delete process.env.TG_API_BASE;

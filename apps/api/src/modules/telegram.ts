@@ -40,19 +40,33 @@ const send = (token: string, chat: string, text: string) =>
 
 export async function telegramStatus(s: Identity) {
   requireTenantAdmin(s);
-  const t = await db.tenant.findUniqueOrThrow({ where: { id: s.user.tenantId }, select: { tgToken: true, tgOn: true, name: true } });
+  const t = await db.tenant.findUniqueOrThrow({
+    where: { id: s.user.tenantId },
+    select: { tgToken: true, tgOn: true, tgIssue: true, tgLimit: true, name: true },
+  });
   const linked = await db.user.count({ where: { tenantId: s.user.tenantId, NOT: { tgChatId: '' } } });
   let bot = '';
   if (t.tgToken)
     bot = await call(unseal(t.tgToken), 'getMe', {}, 6000)
       .then((r) => String(r.username ?? ''))
       .catch(() => '');
-  return { on: t.tgOn, hasToken: Boolean(t.tgToken), bot, linked, reachable: Boolean(bot) };
+  return { on: t.tgOn, hasToken: Boolean(t.tgToken), bot, linked, reachable: Boolean(bot), issue: t.tgIssue, limit: num(t.tgLimit) };
 }
 
 export async function saveTelegramConfig(s: Identity, t: Tx, body: any) {
   requireTenantAdmin(s);
-  const p = parse(z.object({ token: z.string().trim().max(200).default(''), on: z.boolean() }).strict(), body);
+  const p = parse(
+    z
+      .object({
+        token: z.string().trim().max(200).default(''),
+        on: z.boolean(),
+        /** Issuing from the bot (off: the bot only lists and sends documents); limit per file, 0 = none. */
+        issue: z.boolean().default(true),
+        limit: z.number().min(0).max(100000000).default(0),
+      })
+      .strict(),
+    body,
+  );
   const current = await t.tenant.findUniqueOrThrow({ where: { id: s.user.tenantId }, select: { tgToken: true } });
   const token = p.token || unseal(current.tgToken);
   if (p.on && !token) fail('أدخل رمز البوت (token) من BotFather أولاً');
@@ -63,9 +77,12 @@ export async function saveTelegramConfig(s: Identity, t: Tx, body: any) {
       .then((r) => String(r.username ?? ''))
       .catch((e) => fail('تعذر الاتصال بتليجرام بهذا الرمز: ' + String(e?.message ?? e).slice(0, 120)));
   }
-  await t.tenant.update({ where: { id: s.user.tenantId }, data: { ...(p.token ? { tgToken: seal(p.token) } : {}), tgOn: p.on } });
+  await t.tenant.update({
+    where: { id: s.user.tenantId },
+    data: { ...(p.token ? { tgToken: seal(p.token) } : {}), tgOn: p.on, tgIssue: p.issue, tgLimit: p.limit },
+  });
   bump();
-  return { on: p.on, hasToken: Boolean(token), bot };
+  return { on: p.on, hasToken: Boolean(token), bot, issue: p.issue, limit: p.limit };
 }
 
 /* ---------- user: linking the phone ---------- */
@@ -179,6 +196,15 @@ export async function handleMessage(tenantId: string, token: string, chat: strin
     if (!c) return send(token, chat, 'لم أجد ملفاً بهذا الرقم في مدارسك. أرسل «المعلقة» لعرض الملفات.');
     if (c.state !== 'APPROVED')
       return send(token, chat, `الملف ${c.number} في حالة لا تسمح بإصدار التكليف (يلزم اعتماد تقرير العروض أولاً).`);
+    // The administrator's controls: issuing from the phone may be off, or allowed only up to a value per file.
+    const ctl = await db.tenant.findUniqueOrThrow({ where: { id: tenantId }, select: { tgIssue: true, tgLimit: true } });
+    if (!ctl.tgIssue) return send(token, chat, 'إصدار كتب التكليف من الهاتف موقوف من مسؤول النظام؛ أصدره من شاشة النظام.');
+    if (Number(ctl.tgLimit) > 0 && Number(c.total) > Number(ctl.tgLimit))
+      return send(
+        token,
+        chat,
+        `قيمة الملف ${num(c.total)} ر.ق أعلى من حد الإصدار من الهاتف (${num(ctl.tgLimit)} ر.ق)؛ أصدره من شاشة النظام.`,
+      );
     conversations.set(key, {
       caseId: c.id,
       school: c.schoolId,

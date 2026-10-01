@@ -1,4 +1,4 @@
-npm test — 2026-10-01 — 62 passed, 0 failed
+npm test — 2026-10-01 (2026-10-01.6) — 62 passed, 0 failed
 
 ok 1 - PEN: exact partial delivery and single cumulative cap
 ok 2 - AUTH: school isolation on list, search, dashboard and mutation
