@@ -1,8 +1,4 @@
 import { NotFoundException } from '@nestjs/common';
-import { spawnSync } from 'node:child_process';
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
 import { z } from 'zod';
 import { hash } from '../../common/crypto';
 import { isoDay, today } from '../../common/dates';
@@ -11,6 +7,7 @@ import { date, fail, id, parse, plain, quantity, text } from '../../common/valid
 import { COVER_ATTACHMENTS, DEFAULT_COVER, EVIDENCE, SIGNED, waivable } from '../../core/documents';
 import { ACCOUNT, APPROVE, ERP, REVIEW, scope } from '../../core/identity';
 import { posting } from '../../core/ledger';
+import { checkUpload } from '../../core/uploads';
 import { fine } from '../../core/penalty';
 import { loadCalendar } from '../../core/policy';
 import { formatNumber, nextNumber } from '../../core/transaction';
@@ -74,29 +71,6 @@ export async function deliver({ s, school, t, body, c }: Ctx) {
   return d;
 }
 
-const MIME_SIGNATURE: Record<string, (b: Buffer) => boolean> = {
-  'application/pdf': (b) => b.subarray(0, 5).toString() === '%PDF-',
-  'image/png': (b) => b.subarray(0, 8).equals(Buffer.from([137, 80, 78, 71, 13, 10, 26, 10])),
-  'image/jpeg': (b) => b[0] === 255 && b[1] === 216 && b[2] === 255,
-};
-
-/** Outside demo mode every upload must pass the configured virus scanner (ClamAV by default). */
-function scan(data: Buffer) {
-  if (process.env.DEMO_MODE === 'true') return 'DEMO_UNSCANNED';
-  // A personal installation on a Windows PC has no ClamAV; the file type is still checked and the PC's own antivirus scans the disk.
-  if (process.env.UPLOAD_SCANNER === 'none') return 'NOT_SCANNED';
-  const dir = mkdtempSync(join(tmpdir(), 'sa-scan-'));
-  try {
-    const path = join(dir, 'upload');
-    writeFileSync(path, data, { mode: 0o600 });
-    const result = spawnSync(process.env.UPLOAD_SCANNER || 'clamscan', ['--no-summary', path], { timeout: 30000 });
-    if (result.status !== 0) fail('تعذر فحص الملف أو اكتشاف ملف غير آمن');
-    return 'CLEAN';
-  } finally {
-    rmSync(dir, { recursive: true, force: true });
-  }
-}
-
 export async function uploadEvidence({ s, school, t, body, c }: Ctx) {
   scope(s, school, ACCOUNT);
   requireState(c, ['DRAFT', 'EVALUATED', 'APPROVED', 'ORDERED', 'PARTIAL', 'DELIVERED', 'CERTIFIED']);
@@ -120,7 +94,7 @@ export async function uploadEvidence({ s, school, t, body, c }: Ctx) {
   if (!signed && p.certificateId) fail('ربط الشهادة مخصص للنسخ الموقعة');
   const data = Buffer.from(p.base64, 'base64');
   if (data.length === 0 || data.length > 5 * 1024 * 1024) fail('الملف فارغ أو يتجاوز 5 MB');
-  if (!MIME_SIGNATURE[p.mime](data)) fail('محتوى الملف لا يطابق نوعه');
+  const scanStatus = checkUpload(p.mime, data);
   return t.evidence.create({
     data: {
       caseId: c.id,
@@ -131,7 +105,7 @@ export async function uploadEvidence({ s, school, t, body, c }: Ctx) {
       data,
       hash: hash(data),
       uploadedBy: s.user.id,
-      scanStatus: scan(data),
+      scanStatus,
     },
     select: { id: true, name: true, status: true, code: true },
   });

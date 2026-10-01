@@ -49,11 +49,17 @@ export function recordFailure(key: string) {
 }
 /** The address the browser came from: through the Next proxy it is in X-Forwarded-For (set by Next on the same machine). */
 export function clientAddress(req: Request) {
-  const forwarded = String(req.headers['x-forwarded-for'] ?? '')
-    .split(',')[0]
-    .trim();
+  // The forwarded address is believed only behind the trusted proxy chain (TRUST_PROXY); otherwise the socket address.
+  const forwarded = process.env.TRUST_PROXY
+    ? String(req.headers['x-forwarded-for'] ?? '')
+        .split(',')[0]
+        .trim()
+    : '';
   return (forwarded || req.ip || req.socket?.remoteAddress || 'unknown').slice(0, 64);
 }
+
+/** With a temporary password only these may be called; everything else waits for the user's own password. */
+const BEFORE_PASSWORD = new Set(['/api/auth/me', '/api/auth/password', '/api/auth/logout']);
 
 let dummy: Promise<string>;
 export async function login(
@@ -127,6 +133,8 @@ export async function authenticate(req: Request) {
   }
   if (now - session.lastSeen.getTime() > 60000)
     await db.session.update({ where: { tokenHash: session.tokenHash }, data: { lastSeen: new Date() } });
+  if (session.user.mustChangePassword && !BEFORE_PASSWORD.has(req.path))
+    throw new ForbiddenException('اختر كلمة مرور خاصة بك أولاً من شاشة الدخول');
   if (session.user.isTenantAdmin) await withAllSchools(session);
   return session;
 }

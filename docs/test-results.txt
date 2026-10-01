@@ -1,4 +1,4 @@
-npm test — 2026-09-30 — 57 passed, 0 failed
+npm test — 2026-10-01 — 58 passed, 0 failed
 
 ok 1 - PEN: exact partial delivery and single cumulative cap
 ok 2 - AUTH: school isolation on list, search, dashboard and mutation
@@ -57,6 +57,4 @@ ok 54 - OVERVIEW: all schools of an accountant with budget position and warnings
 ok 55 - EMAIL: weekly reminder settings are the administrator's; each account keeps its own address; the test message lists pending files
 ok 56 - HELP: video links are set by the administrator and read by everyone
 ok 57 - HARDENING: forged archive metadata, auditor edits, sign-in throttle, video links and the first-password rule
-# tests 57
-# pass 57
-# fail 0
+ok 58 - SERVER GATES: temporary password blocks the API, uploads must match their type, forwarded addresses are not trusted, maintenance jobs

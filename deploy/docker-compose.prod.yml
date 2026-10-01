@@ -20,6 +20,7 @@ services:
   web:
     environment:
       NODE_ENV: production
+      TRUST_PROXY: '1'
     ports: !reset []
     restart: unless-stopped
   db:

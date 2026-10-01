@@ -10,9 +10,14 @@ async function proxy(req: NextRequest, context: { params: Promise<{ path: string
   headers.delete('host');
   headers.delete('content-length');
   headers.delete('connection');
-  // The API sits behind this proxy on the same machine: pass the browser's address for the sign-in throttle and log.
-  const client = req.headers.get('x-forwarded-for')?.split(',')[0].trim() || req.headers.get('x-real-ip') || '';
-  headers.set('x-forwarded-for', client || '127.0.0.1');
+  // The browser's address reaches the API only behind the trusted HTTPS proxy (Caddy sets X-Forwarded-For itself and
+  // discards the client's); on a local installation the header is dropped so nobody can forge an address.
+  headers.delete('x-forwarded-for');
+  headers.delete('x-real-ip');
+  if (process.env.TRUST_PROXY) {
+    const client = req.headers.get('x-forwarded-for')?.split(',')[0].trim();
+    if (client) headers.set('x-forwarded-for', client);
+  }
   const upstream = await fetch(target, {
     method: req.method,
     headers,

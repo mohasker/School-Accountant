@@ -50,7 +50,14 @@ export async function start() {
   await app.listen(Number(process.env.PORT || 3001), process.env.HOST || '127.0.0.1');
   // Weekly e-mail reminder: checked every 10 minutes; sends once on the chosen day and hour.
   const { digestTick } = await import('./modules/email');
-  const timer = setInterval(() => digestTick().catch((e) => console.error('digest_tick_failed', e?.message)), 10 * 60000);
+  const { cleanupExpired, resealLegacySecrets } = await import('./core/maintenance');
+  await resealLegacySecrets().catch((e) => console.error('reseal_failed', e?.message));
+  const tick = () =>
+    Promise.all([
+      digestTick().catch((e) => console.error('digest_tick_failed', e?.message)),
+      cleanupExpired().catch((e) => console.error('cleanup_failed', e?.message)),
+    ]);
+  const timer = setInterval(tick, 10 * 60000);
   timer.unref();
   const close = app.close.bind(app);
   app.close = async () => (clearInterval(timer), close());

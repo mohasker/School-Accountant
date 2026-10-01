@@ -5,6 +5,7 @@ import { hash } from '../common/crypto';
 import { fail, id, optionalText, parse, text } from '../common/validation';
 import { nearestSchool } from '../core/geo';
 import { requireTenantAdmin, type Identity } from '../core/identity';
+import { checkUpload, UPLOAD_MIMES } from '../core/uploads';
 import { audit } from '../core/transaction';
 import { download, isConnected, remove, upload } from './onedrive';
 
@@ -23,7 +24,7 @@ export const ARCHIVE_KINDS: Record<string, string> = {
   LICENSE: 'رخصة / تصريح',
   OTHER: 'مستند آخر',
 };
-const MIMES = ['application/pdf', 'image/png', 'image/jpeg'];
+const MIMES = [...UPLOAD_MIMES];
 const MAX_BYTES = 6 * 1024 * 1024;
 
 export async function readArchive(s: Identity, rid: string | undefined, query: Record<string, any>) {
@@ -111,6 +112,8 @@ export async function prepareArchive(s: Identity, body: any): Promise<PreparedAr
   );
   const data = Buffer.from(p.base64, 'base64');
   if (!data.length || data.length > MAX_BYTES) fail('حجم الملف حتى 6 ميجابايت');
+  // Same gate as transaction attachments: bytes must match the declared type and pass the scanner.
+  checkUpload(p.mime, data);
   const { base64, ...fields } = p;
   const common = { ...fields, size: data.length, hash: hash(data) };
   if (await isConnected(s.user.tenantId)) {

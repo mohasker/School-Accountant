@@ -718,8 +718,18 @@ test('ADMIN: password reset, deactivation, role removal', async () => {
   assert.equal((await req(session, 'auth/me')).status, 401, 'reset signs out existing sessions');
   const r = await req(null, 'auth/login', 'POST', { username: 'other', password: 'Brand-New-Password-1' });
   assert.equal(r.status, 201);
+  // A reset password is temporary: the user chooses their own before anything else.
+  assert.equal((await req({ cookie: r.cookie, csrf: r.body.csrf }, 'auth/me')).body.user.mustChangePassword, true);
+  assert.ok(
+    (
+      await req({ cookie: r.cookie, csrf: r.body.csrf }, 'auth/password', 'POST', {
+        current: 'Brand-New-Password-1',
+        password: 'Brand-New-Password-2',
+      })
+    ).status < 300,
+  );
   assert.ok((await req(admin, `admin/users/${target.id}/status`, 'POST', { active: false })).status < 300);
-  assert.equal((await req(null, 'auth/login', 'POST', { username: 'other', password: 'Brand-New-Password-1' })).status, 401);
+  assert.equal((await req(null, 'auth/login', 'POST', { username: 'other', password: 'Brand-New-Password-2' })).status, 401);
   await req(admin, `admin/users/${target.id}/status`, 'POST', { active: true });
   const self = o.accounts.find((a: any) => a.username === 'admin');
   assert.equal((await req(admin, `admin/users/${self.id}/status`, 'POST', { active: false })).status, 400);
@@ -900,7 +910,7 @@ test('REGISTERS: quote reports and assignment letters by school, accountant, com
   assert.ok(printed.includes('سجل تقارير دراسة عروض الأسعار') && printed.includes('المدرسة:'));
   assert.ok((await req(acc, 'registry/cases?type=order&format=xlsx')).body.base64.length > 100);
   // The password of 'other' was reset by the administrator test; sign in again.
-  const r = await req(null, 'auth/login', 'POST', { username: 'other', password: 'Brand-New-Password-1' });
+  const r = await req(null, 'auth/login', 'POST', { username: 'other', password: 'Brand-New-Password-2' });
   const o = { cookie: r.cookie, csrf: r.body.csrf };
   assert.equal((await req(o, 'registry/cases?type=order')).body.rows.length, 0, 'another school sees nothing');
   assert.equal((await req(o, `registry/cases?type=order&school=${school}`)).status, 400);
@@ -972,7 +982,7 @@ test('ARCHIVE: every accountant adds and downloads shared documents; only the ad
   assert.ok(doc.status < 300, JSON.stringify(doc.body));
   // 'other' was signed out by the administrator's password reset above; sign in again with the new password.
   const o = await (async () => {
-    const r = await req(null, 'auth/login', 'POST', { username: 'other', password: 'Brand-New-Password-1' });
+    const r = await req(null, 'auth/login', 'POST', { username: 'other', password: 'Brand-New-Password-2' });
     return { cookie: r.cookie, csrf: r.body.csrf };
   })();
   const list = (await req(o, 'admin/archive?q=' + encodeURIComponent('الاختبار'))).body;
@@ -1284,9 +1294,17 @@ test('ACCOUNTS: a new accountant starts with no schools, adds their own, and the
   assert.equal((await req(admin, 'admin/users', 'POST', { name: 'محاسب جديد', username, password: 'short' })).status, 400);
   const u = await req(admin, 'admin/users', 'POST', { name: 'محاسب جديد', username, password: 'Abcd1234' });
   assert.ok(u.status < 300, JSON.stringify(u.body));
-  const r = await req(null, 'auth/login', 'POST', {
+  const r0 = await req(null, 'auth/login', 'POST', {
     username,
     password: 'Abcd1234',
+    location: { lat: 25.2855, lng: 51.531, accuracy: 20 },
+  });
+  const temp = { cookie: r0.cookie, csrf: r0.body.csrf };
+  assert.equal((await req(temp, 'admin/schools')).status, 403, 'nothing but the password change until the user chooses a password');
+  assert.ok((await req(temp, 'auth/password', 'POST', { current: 'Abcd1234', password: 'Abcd12345' })).status < 300);
+  const r = await req(null, 'auth/login', 'POST', {
+    username,
+    password: 'Abcd12345',
     location: { lat: 25.2855, lng: 51.531, accuracy: 20 },
   });
   const fresh = { cookie: r.cookie, csrf: r.body.csrf };
@@ -1320,8 +1338,8 @@ test('ACCOUNTS: a new accountant starts with no schools, adds their own, and the
   assert.equal(p.schools.length, 1);
   assert.equal(p.schools[0].erpCode, 'ERP-900');
   assert.equal(p.schools[0].addedByAccount, true);
-  assert.equal(p.technical.logins, 1);
-  assert.equal(p.locations.length, 1);
+  assert.equal(p.technical.logins, 2);
+  assert.equal(p.locations.length, 2);
   assert.equal(p.locations[0].nearest.name, names[0]);
   assert.equal(p.locations[0].nearest.near, true);
   assert.ok(p.locations[0].nearest.metres < 100);
@@ -1465,7 +1483,7 @@ test('ERP RECON: the monthly ERP report (PDF) is read by budget code, compared, 
     const again = await sys();
     assert.equal(Number(again.rows.find((x: any) => x.code === '520801').system), erp, 'after settling the system matches ERP');
   }
-  const o = await req(null, 'auth/login', 'POST', { username: 'other', password: 'Brand-New-Password-1' });
+  const o = await req(null, 'auth/login', 'POST', { username: 'other', password: 'Brand-New-Password-2' });
   const otherNow = { cookie: o.cookie, csrf: o.body.csrf };
   assert.equal(
     (await req(otherNow, 'erp-recon/parse', 'POST', { school, yearId: year, period: '2026-09', base64: 'JVBERi0x' })).status,
@@ -1570,12 +1588,13 @@ test('HARDENING: forged archive metadata, auditor edits, sign-in throttle, video
   const a = await req(null, 'auth/login', 'POST', { username: auditorName, password: 'Audit1234' });
   const auditor = { cookie: a.cookie, csrf: a.body.csrf };
   assert.equal((await req(auditor, 'auth/me')).body.user.mustChangePassword, true, 'a known initial password must be changed');
-  assert.equal((await req(auditor, 'admin/holidays', 'POST', { from: '2026-11-01', to: '2026-11-30', name: 'x' })).status, 403);
-  assert.equal((await req(auditor, 'admin/schools', 'POST', { name: 'مدرسة المدقق', principal: 'x' })).status, 403);
   assert.ok((await req(auditor, 'auth/password', 'POST', { current: 'Audit1234', password: 'Audit12345' })).status < 300);
   const b = await req(null, 'auth/login', 'POST', { username: auditorName, password: 'Audit12345' });
   assert.ok(b.status < 300);
-  assert.equal((await req({ cookie: b.cookie, csrf: b.body.csrf }, 'auth/me')).body.user.mustChangePassword, false);
+  const auditorNow = { cookie: b.cookie, csrf: b.body.csrf };
+  assert.equal((await req(auditorNow, 'auth/me')).body.user.mustChangePassword, false);
+  assert.equal((await req(auditorNow, 'admin/holidays', 'POST', { from: '2026-11-01', to: '2026-11-30', name: 'x' })).status, 403);
+  assert.equal((await req(auditorNow, 'admin/schools', 'POST', { name: 'مدرسة المدقق', principal: 'x' })).status, 403);
 
   // Only failed attempts count: many correct sign-ins never lock anyone out.
   for (let i = 0; i < 12; i++) assert.ok((await req(null, 'auth/login', 'POST', { username: 'accountant', password })).status < 300);
@@ -1586,4 +1605,73 @@ test('HARDENING: forged archive metadata, auditor edits, sign-in throttle, video
   // Help-video links: https only (never javascript:).
   assert.equal((await req(admin, 'admin/help-videos', 'POST', { case: 'javascript:alert(1)' })).status, 400);
   assert.equal((await req(admin, 'admin/help-videos', 'POST', { case: 'http://example.com/v' })).status, 400);
+});
+
+test('SERVER GATES: temporary password blocks the API, uploads must match their type, forwarded addresses are not trusted, maintenance jobs', async () => {
+  const u = await req(admin, 'admin/users', 'POST', { name: 'حساب مؤقت', username: 'gate.user', password: 'Gate12345' });
+  assert.ok(u.status < 300, JSON.stringify(u.body));
+  const g = await req(null, 'auth/login', 'POST', { username: 'gate.user', password: 'Gate12345' });
+  const gate = { cookie: g.cookie, csrf: g.body.csrf };
+  assert.equal((await req(gate, 'auth/me')).status, 200);
+  assert.equal((await req(gate, 'welcome')).status, 403, 'enforced by the server, not only the screen');
+  assert.equal((await req(gate, 'overview/schools')).status, 403);
+  assert.equal((await req(gate, 'admin/schools', 'POST', { name: 'x', principal: 'y' })).status, 403);
+  assert.ok((await req(gate, 'auth/password', 'POST', { current: 'Gate12345', password: 'Gate123456' })).status < 300);
+  const g2 = await req(null, 'auth/login', 'POST', { username: 'gate.user', password: 'Gate123456' });
+  assert.equal((await req({ cookie: g2.cookie, csrf: g2.body.csrf }, 'welcome')).status, 200);
+
+  // Archive files get the same type check as attachments: PNG bytes labelled as PDF are refused.
+  const png = Buffer.from([137, 80, 78, 71, 13, 10, 26, 10, 0, 0, 0, 13]).toString('base64');
+  const forged = await req(acc, 'admin/archive', 'POST', {
+    kind: 'OTHER',
+    company: 'x',
+    title: 'x',
+    note: '',
+    name: 'x.pdf',
+    mime: 'application/pdf',
+    base64: png,
+  });
+  assert.equal(forged.status, 400);
+  assert.match(forged.body.message, /لا يطابق نوعه/);
+  assert.ok(
+    (
+      await req(acc, 'admin/archive', 'POST', {
+        kind: 'OTHER',
+        company: 'x',
+        title: 'png ok',
+        note: '',
+        name: 'x.png',
+        mime: 'image/png',
+        base64: png,
+      })
+    ).status < 300,
+  );
+
+  // Without a trusted proxy a forged X-Forwarded-For never reaches the sign-in log.
+  const spoof = await fetch(base + '/auth/login', {
+    method: 'POST',
+    headers: { Origin: origin, 'Content-Type': 'application/json', 'X-Forwarded-For': '9.9.9.9' },
+    body: JSON.stringify({ username: 'gate.user', password: 'Gate123456' }),
+  });
+  assert.ok(spoof.status < 300);
+  const last = await db.loginLog.findFirst({ where: { user: { username: 'gate.user' } }, orderBy: { createdAt: 'desc' } });
+  assert.notEqual(last.ip, '9.9.9.9');
+
+  // Maintenance: legacy plain-text secrets are sealed; expired sessions and old idempotency keys go away.
+  const { cleanupExpired, resealLegacySecrets } = await import('../apps/api/src/core/maintenance');
+  const tenant = await db.tenant.findFirst();
+  await db.tenant.update({ where: { id: tenant.id }, data: { aiKey: 'sk-ant-plain-legacy' } });
+  await resealLegacySecrets();
+  assert.match((await db.tenant.findUnique({ where: { id: tenant.id } })).aiKey, /^enc:v1:/);
+  await db.tenant.update({ where: { id: tenant.id }, data: { aiKey: '' } });
+  const user = await db.user.findFirst({ where: { username: 'gate.user' } });
+  await db.session.create({
+    data: { tokenHash: 'expired-' + randomUUID(), userId: user.id, csrf: 'x', expiresAt: new Date(Date.now() - 3 * 86400000) },
+  });
+  await db.idempotency.create({
+    data: { key: 'old-' + randomUUID(), hash: 'h', result: {}, createdAt: new Date(Date.now() - 30 * 86400000) },
+  });
+  await cleanupExpired();
+  assert.equal(await db.session.count({ where: { tokenHash: { startsWith: 'expired-' } } }), 0);
+  assert.equal(await db.idempotency.count({ where: { key: { startsWith: 'old-' } } }), 0);
 });
