@@ -9,6 +9,7 @@ import { OneDrivePanel } from './OneDrive';
 import { EmailPanel } from './EmailPanel';
 import { AddresseesPanel } from './AddresseesPanel';
 import { TelegramAdminPanel } from './TelegramPanel';
+import { FileCheckSettingsPanel } from './FileCheck';
 
 const show = (v: unknown) => (Array.isArray(v) ? v.join('، ') : String(v));
 
@@ -88,6 +89,7 @@ export function Policy() {
       </Panel>
       <AddresseesPanel />
       <TelegramAdminPanel />
+      <FileCheckSettingsPanel />
       <EmailPanel />
       <OneDrivePanel />
       <Panel title="القيم السارية">

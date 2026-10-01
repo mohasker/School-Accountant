@@ -43,6 +43,8 @@ export async function start() {
   const app = await NestFactory.create(AppModule, { bodyParser: false, logger: ['error', 'warn'] });
   app.use(helmet());
   app.use(cookieParser());
+  // The paper-file check carries a scanned file set (up to 25 MB, base64 in JSON); everything else stays small.
+  app.use('/api/file-check', express.json({ limit: '36mb' }));
   app.use(express.json({ limit: '8mb' }));
   app.use(originGuard);
   app.useGlobalFilters(new ErrorFilter());

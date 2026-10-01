@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useWorkspace, type Workspace } from '../components/context';
 import type { Dialog, Field } from '../components/FormDialog';
 import { Badge, DocButtons, Empty, Panel, Table } from '../components/ui';
+import { FileCheckPanel } from './FileCheck';
 import { NumberInput, toNumberText } from '../components/NumberInput';
 import { useLoad } from '../components/useLoad';
 import type { Row } from '../lib/api';
@@ -611,6 +612,8 @@ export function CaseDetail({ id, intent }: { id: string; intent?: string }) {
               <p>يمكن إرفاق عروض الأسعار والفاتورة وسندات الاستلام ونسخ المستندات الموقعة للرجوع إليها.</p>
             )}
           </Panel>
+
+          <FileCheckPanel c={c} work={work} />
         </div>
 
         <div className="case-side">

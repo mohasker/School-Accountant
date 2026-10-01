@@ -1,4 +1,4 @@
-npm test — 2026-10-01 (2026-10-01.6) — 62 passed, 0 failed
+npm test — 2026-10-01 (2026-10-01.7) — 65 passed, 0 failed
 
 ok 1 - PEN: exact partial delivery and single cumulative cap
 ok 2 - AUTH: school isolation on list, search, dashboard and mutation
@@ -62,3 +62,6 @@ ok 59 - ADDRESSEES: the administrator keeps the list; a certificate and its cove
 ok 60 - SUPPLIER BANK: one card per company with full contact data, shared by the schools, with the history of earlier certificates
 ok 61 - LEGACY CERTIFICATES: the certificates issued before the system are a searchable reference register with totals and Excel
 ok 62 - TELEGRAM: the administrator sets the bot; an accountant links the phone with a code and issues an assignment letter from the chat
+ok 63 - FILE CHECK (text): the printed file is compared with the case; a wrong reference is an error; one-page report; school isolation
+ok 64 - FILE CHECK (AI): pages read blind by the service, then fixed rules: school name, sequence of dates, references, amounts, signatures, requirements
+ok 65 - FILE CHECK (Telegram): «فحص» then files then «تم» runs the same check and sends the report

@@ -3350,3 +3350,15 @@ tr.diff-row td {
   color: #a15c00;
   font-weight: 600;
 }
+
+.check-list {
+  margin: 8px 0;
+  padding-inline-start: 18px;
+  line-height: 1.7;
+}
+.check-list .lvl-ERROR {
+  color: #8a1c1c;
+}
+.check-list .lvl-WARN {
+  color: #7a4b00;
+}

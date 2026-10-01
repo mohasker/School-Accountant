@@ -17,6 +17,7 @@ import { ensureSupplierCards } from '../core/standard-data';
 import { readBank, readLegacy, writeBank } from './bank';
 import { tenantAddressees } from './cases/fulfilment';
 import { saveTelegramConfig, telegramStatus } from './telegram';
+import { checkSettings, saveCheckSettings } from './file-check';
 
 /**
  * Tenant-wide settings under /api/admin/…. Every user may maintain the official holidays and add
@@ -93,6 +94,8 @@ export async function readTenant(
       return readLegacy(s, query);
     case 'telegram':
       return telegramStatus(s);
+    case 'file-check':
+      return checkSettings(s);
     case 'users':
       if (rid && action === 'report') return userReport(s, rid, query);
       if (rid && action === 'profile') return accountProfile(s, rid);
@@ -271,6 +274,8 @@ export async function writeTenant(
     case 'telegram':
       if (rid === 'config') return saveTelegramConfig(s, t, body);
       throw new NotFoundException();
+    case 'file-check':
+      return saveCheckSettings(s, t, body);
     case 'purge':
       return purge(s, t, body);
     case 'archive':

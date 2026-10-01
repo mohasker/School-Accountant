@@ -18,6 +18,7 @@ import { parseErpReport } from '../modules/erp-recon';
 import { sendNow, setEmail } from '../modules/email';
 import { readTenant, writeTenant } from '../modules/tenant';
 import { linkCode, unlinkTelegram } from '../modules/telegram';
+import { filesFromBody, runFileCheck } from '../modules/file-check';
 
 const segments = (path: string | string[]) => (Array.isArray(path) ? path : path.split('/'));
 const idempotencyKey = (req: Request) => String(req.headers['idempotency-key'] ?? '');
@@ -165,6 +166,16 @@ export class WorkspaceController {
   }
   @Post('auth/telegram-unlink') async telegramUnlink(@Req() req: Request) {
     return unlinkTelegram(await authenticate(req));
+  }
+
+  /** Checks the signed paper file of a case (PDF or photos) against the system before it is sent; outside any DB transaction. */
+  @Post('file-check/:school/:case') async fileCheck(
+    @Param('school') school: string,
+    @Param('case') caseId: string,
+    @Req() req: Request,
+    @Body() b: any,
+  ) {
+    return runFileCheck(await authenticate(req), school, caseId, filesFromBody(b ?? {}), 'WEB');
   }
 
   /** Reads an uploaded ERP expense report (PDF) and proposes the comparison; nothing is saved. */

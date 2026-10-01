@@ -73,6 +73,7 @@ async function makeCase(amount = '10000.00') {
   await ok(acc, `cases/${row.id}/evaluate`, {
     quoteId: full.quotes.sort((a: any, b: any) => Number(a.total) - Number(b.total))[0].id,
     reason: 'الأقل المطابق',
+    date: '2026-08-30',
   });
   return load(row.id);
 }
@@ -1925,6 +1926,311 @@ test('TELEGRAM: the administrator sets the bot; an accountant links the phone wi
     acc = await log('accountant');
     await req(admin, 'admin/telegram/config', 'POST', { token: '', on: false });
   } finally {
+    delete process.env.TG_API_BASE;
+    ms.close();
+  }
+});
+
+/** A finished file (report, assignment, delivery with invoice, certificate and covering letter) and its printed PDFs. */
+async function finishedCase(invoice: string) {
+  const row = await issue(await makeCase('3000.00'));
+  await ok(acc, `cases/${row.id}/finish`, { completionDate: '2026-09-10', invoice, date: '2026-09-10' });
+  const full = await load(row.id);
+  const cert = full.certificates[0];
+  const pdf = async (path: string) => {
+    const r = await req(acc, route(path + (path.includes('?') ? '&' : '?') + 'pdf=1'));
+    assert.equal(r.status, 200, JSON.stringify(r.body).slice(0, 200));
+    return r.body.base64 as string;
+  };
+  const files = [
+    { name: 'report.pdf', mime: 'application/pdf', base64: await pdf(`cases/${row.id}/report-print`) },
+    { name: 'order.pdf', mime: 'application/pdf', base64: await pdf(`cases/${row.id}/order-print`) },
+    { name: 'certificate.pdf', mime: 'application/pdf', base64: await pdf(`certificates/${cert.id}`) },
+    { name: 'cover.pdf', mime: 'application/pdf', base64: await pdf(`certificates/${cert.id}/cover`) },
+  ];
+  return { full, cert, files };
+}
+
+test('FILE CHECK (text): the printed file is compared with the case; a wrong reference is an error; one-page report; school isolation', async () => {
+  const { full, files } = await finishedCase('INV-FC1');
+  // An accountant of another school only.
+  const { passwordHash } = await import('../apps/api/src/core/identity');
+  const tenant = await db.tenant.findFirst();
+  const elsewhere = await db.school.findFirst({ where: { id: { not: school } } });
+  const user = await db.user.create({
+    data: { tenantId: tenant.id, username: 'fc.outsider', name: 'محاسب آخر', passwordHash: await passwordHash(password) },
+  });
+  await db.membership.create({ data: { tenantId: tenant.id, userId: user.id, schoolId: elsewhere.id, roles: ['ACCOUNTANT'] } });
+  const outsider = await log('fc.outsider');
+  assert.equal(
+    (
+      await req(acc, 'file-check/' + school + '/' + full.id, 'POST', {
+        files: [{ name: 'x.pdf', mime: 'application/pdf', base64: Buffer.from('not a pdf').toString('base64') }],
+      })
+    ).status,
+    400,
+  );
+  assert.equal(
+    (await req(outsider, 'file-check/' + school + '/' + full.id, 'POST', { files })).status,
+    403,
+    'another school cannot check this file',
+  );
+
+  const clean = await req(acc, 'file-check/' + school + '/' + full.id, 'POST', { files });
+  assert.ok(clean.status < 300, JSON.stringify(clean.body));
+  assert.equal(clean.body.mode, 'TEXT');
+  assert.equal(clean.body.errors, 0, JSON.stringify(clean.body.findings));
+  assert.ok(
+    clean.body.checklist.some((c: string) => c.includes(full.school.name)),
+    'names and signatures go to the manual checklist',
+  );
+  assert.ok(clean.body.pages >= 4);
+
+  // The same letter printed with another assignment number.
+  const { htmlToPdf } = await import('../apps/api/src/core/pdf');
+  const wrong = full.orderHtml.split(full.orderNumber).join(full.orderNumber.replace(/\d+$/, '999'));
+  const tampered = [
+    ...files.filter((f) => f.name !== 'order.pdf'),
+    { name: 'order.pdf', mime: 'application/pdf', base64: (await htmlToPdf(wrong)).base64 },
+  ];
+  const bad = await req(acc, 'file-check/' + school + '/' + full.id, 'POST', { files: tampered });
+  assert.ok(bad.status < 300, JSON.stringify(bad.body));
+  assert.equal(bad.body.result, 'FIX');
+  assert.ok(
+    bad.body.findings.some((f: any) => f.level === 'ERROR' && f.area === 'REF' && f.text.includes('999')),
+    JSON.stringify(bad.body.findings),
+  );
+
+  // Kept with the case: list, report, PDF of exactly one page, audit.
+  const list = (await req(acc, route('file-checks?case=' + full.id))).body;
+  assert.equal(list.length, 2);
+  assert.equal(list[0].result, 'FIX');
+  const report = (await req(acc, route('file-checks/' + bad.body.id))).body.html;
+  assert.ok(report.includes('تقرير فحص المعاملة قبل الإرسال') && report.includes('يحتاج تصحيحاً'));
+  const pdf = (await req(acc, route('file-checks/' + bad.body.id + '?pdf=1'))).body;
+  const { readTextLayer } = await import('../apps/api/src/core/file-check/extract');
+  assert.equal(
+    (await readTextLayer([{ name: 'r.pdf', mime: 'application/pdf', data: Buffer.from(pdf.base64, 'base64') }])).pages.length,
+    1,
+    'the report fits one A4 page',
+  );
+  assert.equal((await req(outsider, route('file-checks?case=' + full.id))).status, 403);
+  assert.equal(await db.audit.count({ where: { action: 'file-check', entity: full.id } }), 2);
+  assert.equal((await load(full.id)).state, full.state, 'checking never changes the case');
+});
+
+test('FILE CHECK (AI): pages read blind by the service, then fixed rules: school name, sequence of dates, references, amounts, signatures, requirements', async () => {
+  const { createServer } = await import('node:http');
+  const { full, cert, files } = await finishedCase('INV-FC2');
+  const d = cert.details;
+  const other = (await db.school.findFirst({ where: { id: { not: school } } })).name;
+  const page = (n: number, docType: string, extra: any = {}) => ({
+    page: n,
+    docType,
+    schoolName: full.school.name,
+    supplierName: full.supplier.name,
+    documentDate: null,
+    otherDates: [],
+    orderNumber: null,
+    invoiceNumber: null,
+    quoteReference: null,
+    amounts: { total: null, gross: null, fine: null, net: null },
+    signatures: [{ role: 'مدير المدرسة', signed: true }],
+    stamp: true,
+    legible: 'high',
+    remarks: null,
+    ...extra,
+  });
+  const quotes = full.quotes.map((q: any, i: number) =>
+    page(i + 1, 'QUOTE', {
+      supplierName: q.supplier.name,
+      quoteReference: q.reference,
+      amounts: { total: Number(q.total), gross: null, fine: null, net: null },
+      signatures: [],
+    }),
+  );
+  const good = [
+    ...quotes,
+    page(4, 'QUOTE_REPORT', { documentDate: full.reportDate.slice(0, 10) }),
+    page(5, 'ORDER', {
+      documentDate: full.issueDate.slice(0, 10),
+      orderNumber: full.orderNumber,
+      amounts: { total: Number(full.total), gross: null, fine: null, net: null },
+    }),
+    page(6, 'INVOICE', {
+      documentDate: '2026-09-09',
+      invoiceNumber: 'INV-FC2',
+      orderNumber: full.orderNumber,
+      amounts: { total: Number(full.total), gross: null, fine: null, net: null },
+      signatures: [],
+    }),
+    page(7, 'RECEIPT', { documentDate: '2026-09-10', signatures: [{ role: 'المستلم', signed: true }] }),
+    page(8, 'CERTIFICATE', {
+      documentDate: d.date,
+      orderNumber: full.orderNumber,
+      invoiceNumber: 'INV-FC2',
+      amounts: { total: null, gross: Number(cert.gross), fine: Number(cert.fine), net: Number(cert.net) },
+    }),
+    page(9, 'COVER', { documentDate: d.cover.date, amounts: { total: Number(cert.net), gross: null, fine: null, net: Number(cert.net) } }),
+  ];
+  let answer: any = { pages: good, rules: [] };
+  const seen: any[] = [];
+  const ms = createServer(async (q, r) => {
+    const chunks: Buffer[] = [];
+    for await (const ch of q) chunks.push(ch as Buffer);
+    seen.push(JSON.parse(Buffer.concat(chunks).toString()));
+    r.setHeader('content-type', 'application/json');
+    r.end(
+      JSON.stringify({
+        id: 'msg_test',
+        type: 'message',
+        role: 'assistant',
+        model: 'claude-opus-5-5',
+        content: [{ type: 'text', text: JSON.stringify(answer) }],
+        stop_reason: 'end_turn',
+        stop_sequence: null,
+        usage: { input_tokens: 10, output_tokens: 10 },
+      }),
+    );
+  });
+  await new Promise<void>((res) => ms.listen(0, '127.0.0.1', res));
+  process.env.AI_API_BASE = `http://127.0.0.1:${(ms.address() as any).port}`;
+  process.env.ANTHROPIC_API_KEY = 'sk-ant-test-key-for-the-mock-server-only';
+  try {
+    assert.equal((await req(acc, 'admin/file-check', 'POST', { ai: true, rules: [] })).status, 403);
+    const set = await req(admin, 'admin/file-check', 'POST', {
+      ai: true,
+      rules: [{ text: 'الفاتورة إلكترونية وعليها رمز QR', level: 'ERROR' }],
+    });
+    assert.ok(set.status < 300, JSON.stringify(set.body));
+    const ruleId = set.body.rules[0].id;
+    answer.rules = [{ id: ruleId, met: 'yes', page: 6, evidence: 'QR' }];
+
+    const ok1 = await req(acc, 'file-check/' + school + '/' + full.id, 'POST', { files });
+    assert.ok(ok1.status < 300, JSON.stringify(ok1.body));
+    assert.equal(ok1.body.mode, 'AI');
+    assert.equal(ok1.body.result, 'READY', JSON.stringify(ok1.body.findings));
+    // Blind reading: the request carries the file and the requirement, never the recorded values.
+    const sent = JSON.stringify(seen.at(-1));
+    assert.ok(sent.includes('"type":"document"') && sent.includes('رمز QR'));
+    assert.ok(!sent.includes(full.orderNumber) && !sent.includes('INV-FC2') && !sent.includes(full.school.name));
+
+    // Every kind of defect on the paper.
+    answer = {
+      pages: [
+        ...quotes,
+        page(4, 'QUOTE_REPORT', { documentDate: full.reportDate.slice(0, 10) }),
+        page(5, 'ORDER', {
+          schoolName: other,
+          documentDate: full.issueDate.slice(0, 10),
+          orderNumber: full.orderNumber,
+          amounts: { total: Number(full.total) + 100, gross: null, fine: null, net: null },
+        }),
+        page(6, 'INVOICE', {
+          documentDate: '2026-08-20',
+          invoiceNumber: 'INV-OTHER',
+          amounts: { total: Number(full.total), gross: null, fine: null, net: null },
+          signatures: [],
+          stamp: false,
+        }),
+        page(7, 'RECEIPT', { documentDate: '2026-09-10', signatures: [{ role: 'المستلم', signed: false }] }),
+        page(8, 'CERTIFICATE', {
+          schoolName: full.school.name.slice(0, 6) + 'ب' + full.school.name.slice(6),
+          documentDate: '2026-09-11',
+          orderNumber: full.orderNumber,
+          amounts: { total: null, gross: Number(cert.gross), fine: 0, net: Number(cert.net) - 50 },
+        }),
+        page(9, 'COVER', { documentDate: '2026-09-09', amounts: { total: null, gross: null, fine: null, net: Number(cert.net) } }),
+        page(10, 'OTHER', { remarks: 'صفحة إضافية', legible: 'low' }),
+      ],
+      rules: [{ id: ruleId, met: 'no', page: 6, evidence: 'لا يوجد رمز QR' }],
+    };
+    const bad = await req(acc, 'file-check/' + school + '/' + full.id, 'POST', { files });
+    assert.ok(bad.status < 300, JSON.stringify(bad.body));
+    const f = bad.body.findings as any[];
+    const has = (level: string, area: string, part: string) => f.some((x) => x.level === level && x.area === area && x.text.includes(part));
+    assert.equal(bad.body.result, 'FIX');
+    assert.ok(has('ERROR', 'SCHOOL', other), 'another school on the order');
+    assert.ok(
+      f.some((x) => x.area === 'SCHOOL' && x.page === 8),
+      'school spelt differently on the certificate',
+    );
+    assert.ok(has('ERROR', 'AMOUNT', 'كتاب التكليف'), 'order value differs');
+    assert.ok(has('ERROR', 'REF', 'INV-OTHER'), 'invoice not recorded');
+    assert.ok(has('ERROR', 'DATE', 'الفاتورة قبل كتاب التكليف'), 'invoice before the order');
+    assert.ok(has('ERROR', 'DATE', 'شهادة الإنجاز بعد كتاب التغطية'), 'cover before certificate');
+    assert.ok(has('ERROR', 'DATE', 'شهادة الإنجاز'), 'certificate date differs from the record');
+    assert.ok(has('ERROR', 'SIGN', 'المستلم'), 'receipt not signed');
+    assert.ok(has('ERROR', 'SIGN', 'ختم أو توقيع المورد'), 'invoice without supplier stamp');
+    assert.ok(has('ERROR', 'AMOUNT', 'الصافي'), 'net differs');
+    assert.ok(has('ERROR', 'RULE', 'رمز QR'), 'administration requirement');
+    assert.ok(has('WARN', 'READ', 'غير واضحة'), 'unreadable page');
+    // Missing documents.
+    answer = {
+      pages: good.filter((p) => !['RECEIPT', 'COVER'].includes(p.docType)),
+      rules: [{ id: ruleId, met: 'unknown', page: null, evidence: null }],
+    };
+    const missing = (await req(acc, 'file-check/' + school + '/' + full.id, 'POST', { files })).body.findings as any[];
+    assert.ok(missing.some((x) => x.area === 'COMPLETE' && x.text.includes('سند استلام')));
+    assert.ok(missing.some((x) => x.area === 'COMPLETE' && x.text.includes('كتاب التغطية')));
+    assert.ok(missing.some((x) => x.level === 'WARN' && x.area === 'RULE'));
+    await req(admin, 'admin/file-check', 'POST', { ai: false, rules: [] });
+  } finally {
+    delete process.env.AI_API_BASE;
+    delete process.env.ANTHROPIC_API_KEY;
+    ms.close();
+  }
+});
+
+test('FILE CHECK (Telegram): «فحص» then files then «تم» runs the same check and sends the report', async () => {
+  const { createServer } = await import('node:http');
+  const { full, files } = await finishedCase('INV-FC3');
+  const token = '123456789:AAFakeTokenForTestsOnly_0123456789abc';
+  const sent: any[] = [];
+  const docs: any[] = [];
+  const store = new Map(files.map((f, i) => ['f' + i, Buffer.from(f.base64, 'base64')]));
+  const ms = createServer(async (q, r) => {
+    const chunks: Buffer[] = [];
+    for await (const ch of q) chunks.push(ch as Buffer);
+    const raw = Buffer.concat(chunks);
+    const url = q.url!;
+    if (url.startsWith('/file/bot' + token + '/')) return r.end(store.get(url.split('/').pop()!));
+    const method = url.split('/').pop()!;
+    const json = (v: any) => (r.setHeader('content-type', 'application/json'), r.end(JSON.stringify(v)));
+    if (method === 'getMe') return json({ ok: true, result: { username: 'moesas_test_bot' } });
+    if (method === 'getFile') return json({ ok: true, result: { file_path: JSON.parse(raw.toString()).file_id } });
+    if (method === 'sendMessage') return (sent.push(JSON.parse(raw.toString())), json({ ok: true, result: {} }));
+    if (method === 'sendDocument') return (docs.push(raw.includes('%PDF')), json({ ok: true, result: {} }));
+    if (method === 'getUpdates') return json({ ok: true, result: [] });
+    json({ ok: false, description: 'unknown' });
+  });
+  await new Promise<void>((res) => ms.listen(0, '127.0.0.1', res));
+  process.env.TG_API_BASE = `http://127.0.0.1:${(ms.address() as any).port}`;
+  try {
+    await req(admin, 'admin/telegram/config', 'POST', { token, on: true });
+    const tenant = await db.tenant.findFirst();
+    await db.user.update({ where: { username: 'accountant' }, data: { tgChatId: '901' } });
+    const { handleMessage } = await import('../apps/api/src/modules/telegram');
+    await handleMessage(tenant.id, token, '901', '', { fileId: 'f0', name: 'a.pdf', mime: 'application/pdf', size: 10 });
+    assert.ok(sent.at(-1).text.includes('فحص'), 'a file without «فحص» first gets the instructions');
+    await handleMessage(tenant.id, token, '901', 'فحص ' + full.number);
+    assert.ok(sent.at(-1).text.includes('تم'));
+    await handleMessage(tenant.id, token, '901', '', { fileId: 'f0', name: 'x.zip', mime: 'application/zip', size: 10 });
+    assert.ok(sent.at(-1).text.includes('غير مدعوم'));
+    for (let i = 0; i < files.length; i++)
+      await handleMessage(tenant.id, token, '901', '', { fileId: 'f' + i, name: files[i].name, mime: 'application/pdf', size: 10 });
+    await handleMessage(tenant.id, token, '901', 'تم');
+    const summary = sent.at(-1).text;
+    assert.ok(/جاهز|يحتاج/.test(summary) && summary.includes('أخطاء'), summary);
+    assert.equal(docs.length, 1);
+    assert.ok(docs[0], 'the report arrives as PDF');
+    const list = (await req(acc, route('file-checks?case=' + full.id))).body;
+    assert.equal(list[0].source, 'TELEGRAM');
+    await handleMessage(tenant.id, token, '901', 'تم');
+    assert.ok(sent.at(-1).text.includes('لا يوجد فحص جارٍ'));
+  } finally {
+    await db.user.update({ where: { username: 'accountant' }, data: { tgChatId: '' } });
+    await req(admin, 'admin/telegram/config', 'POST', { token: '', on: false });
     delete process.env.TG_API_BASE;
     ms.close();
   }

@@ -24,7 +24,7 @@ export async function aiStatus(s: Identity) {
   return { configured: Boolean(key), model: MODEL, source: process.env.ANTHROPIC_API_KEY ? 'env' : key ? 'admin' : 'none' };
 }
 
-async function apiKey(tenantId: string) {
+export async function apiKey(tenantId: string) {
   if (process.env.ANTHROPIC_API_KEY) return process.env.ANTHROPIC_API_KEY;
   const t = await db.tenant.findUnique({ where: { id: tenantId }, select: { aiKey: true } });
   return unseal(t?.aiKey || '');

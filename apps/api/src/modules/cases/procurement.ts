@@ -370,6 +370,8 @@ export async function issue({ s, school, t, body, c }: WriteCtx & { c: FullCase 
   );
   inYear(c.year, p.trigger);
   if (p.trigger > today()) fail('تاريخ بدء مستقبلي غير مسموح');
+  // The papers must follow each other: an assignment is never dated before its quote report.
+  if (c.reportDate && p.trigger < isoDay(c.reportDate)) fail('تاريخ كتاب التكليف قبل تاريخ تقرير عروض الأسعار؛ صحّح أحد التاريخين');
   const policy = await loadPolicy(t, s.user.tenantId, p.trigger);
   const calendar = await loadCalendar(t, s.user.tenantId, policy.weekend);
   for (const item of [...c.items].sort((a, b) => a.budgetId.localeCompare(b.budgetId)))

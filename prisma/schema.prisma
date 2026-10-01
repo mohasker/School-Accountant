@@ -42,6 +42,9 @@ model Tenant {
   /// Issuing from the bot may be switched off, or limited to files up to this value (0 = no limit).
   tgIssue     Boolean         @default(true)
   tgLimit     Decimal         @default(0) @db.Decimal(18, 2)
+  /// Paper-file check: whether pages may be read by the AI service, and the administration's requirements.
+  checkAi     Boolean         @default(false)
+  checkRules  Json            @default("[]")
   cards       SupplierCard[]
   legacy      LegacyCertificate[]
 }
@@ -695,4 +698,28 @@ model ErpRecon {
   createdAt DateTime @default(now())
 
   @@index([schoolId, yearId])
+}
+
+/// One check of the signed paper file of a case (uploaded on the screen or sent to the Telegram bot).
+model FileCheck {
+  id        String   @id @default(uuid()) @db.Uuid
+  schoolId  String   @db.Uuid
+  caseId    String   @db.Uuid
+  source    String
+  mode      String
+  files     Json
+  pages     Int
+  facts     Json
+  findings  Json
+  result    String
+  errors    Int
+  warnings  Int
+  notes     Int
+  html      String
+  createdBy String   @db.Uuid
+  byName    String
+  createdAt DateTime @default(now())
+
+  @@index([caseId, createdAt])
+  @@index([schoolId, createdAt])
 }
