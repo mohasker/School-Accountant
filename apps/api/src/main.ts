@@ -59,8 +59,11 @@ export async function start() {
     ]);
   const timer = setInterval(tick, 10 * 60000);
   timer.unref();
+  // Telegram bot: long-polling for every tenant that enabled it.
+  const { startTelegram } = await import('./modules/telegram');
+  const stopTelegram = startTelegram();
   const close = app.close.bind(app);
-  app.close = async () => (clearInterval(timer), close());
+  app.close = async () => (clearInterval(timer), stopTelegram(), close());
   return app;
 }
 

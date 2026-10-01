@@ -11,6 +11,7 @@ import { readImprests, writeImprests } from './imprests';
 import { readAudit, readReportRuns, readTransactionsReport } from './reports';
 import { readSetup, writeSchool, writeUser, writeYear } from './school';
 import { addStandard, importSuppliers, writeSupplier } from './suppliers';
+import { supplierFromBank } from './bank';
 
 /** GET schools/:school/:resource[/:id[/:action]] */
 const READERS: Record<string, Reader> = {
@@ -35,6 +36,7 @@ const WRITERS: Record<string, Writer> = {
   suppliers: writeSupplier,
   'supplier-import': importSuppliers,
   'supplier-standard': addStandard,
+  'supplier-from-bank': supplierFromBank,
   school: writeSchool,
   users: writeUser,
   years: writeYear,

@@ -1,0 +1,69 @@
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
+import { db, type Tx } from '../common/db';
+import { STANDARD_SUPPLIERS } from './suppliers-list';
+
+const key = (v: string) => v.replace(/\s+/g, ' ').trim().toLowerCase();
+
+/** One card in the supplier bank for every supplier of the approved workbooks that has none yet. */
+export async function ensureSupplierCards(t: Tx | typeof db, tenantId: string) {
+  const have = new Set((await t.supplierCard.findMany({ where: { tenantId }, select: { name: true } })).map((c) => key(c.name)));
+  const missing = STANDARD_SUPPLIERS.filter((n) => !have.has(key(n)));
+  if (missing.length) await t.supplierCard.createMany({ data: missing.map((name) => ({ tenantId, name })) });
+  // School suppliers that still point at no card are linked by name.
+  const cards = await t.supplierCard.findMany({ where: { tenantId }, select: { id: true, name: true } });
+  const byName = new Map(cards.map((c) => [key(c.name), c.id]));
+  const loose = await t.supplier.findMany({ where: { cardId: null, school: { tenantId } }, select: { id: true, name: true } });
+  for (const s of loose) {
+    const id = byName.get(key(s.name));
+    if (id) await t.supplier.update({ where: { id: s.id }, data: { cardId: id } });
+  }
+  return missing.length;
+}
+
+type LegacyRow = {
+  seq: number;
+  date: string;
+  supplier: string;
+  orderNo: string;
+  invoice: string;
+  orderValue: number;
+  orderDate: string;
+  deliveryDate: string;
+  delivered: number;
+  lateDays: number;
+  finePct: number;
+  fine: number;
+  net: number;
+  note: string;
+  school: string;
+};
+
+/** The certificates of 2022–2026 from the approved workbook: reference only, never posted to any ledger. */
+export async function loadLegacyCertificates(t: Tx | typeof db, tenantId: string) {
+  if (await t.legacyCertificate.count({ where: { tenantId } })) return 0;
+  const rows: LegacyRow[] = JSON.parse(readFileSync(resolve(process.cwd(), 'scripts/legacy-certificates.json'), 'utf8'));
+  const day = (v: string) => (v ? new Date(v) : null);
+  await t.legacyCertificate.createMany({
+    data: rows.map((r) => ({
+      tenantId,
+      seq: r.seq,
+      date: new Date(r.date),
+      schoolName: r.school,
+      supplier: r.supplier,
+      orderNo: r.orderNo,
+      invoice: r.invoice,
+      orderValue: r.orderValue,
+      orderDate: day(r.orderDate),
+      deliveryDate: day(r.deliveryDate),
+      delivered: r.delivered,
+      lateDays: r.lateDays,
+      finePct: r.finePct,
+      fine: r.fine,
+      net: r.net,
+      note: r.note,
+    })),
+    skipDuplicates: true,
+  });
+  return rows.length;
+}

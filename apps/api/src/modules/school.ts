@@ -3,6 +3,7 @@ import { db } from '../common/db';
 import { date, fail, id, parse, text } from '../common/validation';
 import { passwordHash, ROLES, scope, WORK } from '../core/identity';
 import { loadPolicy } from '../core/policy';
+import { tenantAddressees } from './cases/fulfilment';
 import { openYear } from '../core/transaction';
 import type { ReadCtx, WriteCtx } from './context';
 
@@ -12,7 +13,7 @@ export async function readSetup({ s, school, query }: ReadCtx) {
   const [schoolRow, years, suppliers, budgets, users, plan] = await Promise.all([
     db.school.findUniqueOrThrow({ where: { id: school } }),
     db.fiscalYear.findMany({ where: { schoolId: school }, orderBy: { startDate: 'desc' } }),
-    db.supplier.findMany({ where: { schoolId: school }, orderBy: { name: 'asc' } }),
+    db.supplier.findMany({ where: { schoolId: school }, include: { card: true }, orderBy: { name: 'asc' } }),
     db.budget.findMany({
       where: { schoolId: school, ...(yearId ? { yearId } : {}) },
       orderBy: [{ sort: 'asc' }, { code: 'asc' }],
@@ -33,6 +34,7 @@ export async function readSetup({ s, school, query }: ReadCtx) {
     plan,
     roles: scope(s, school).roles,
     policy: await loadPolicy(db, s.user.tenantId),
+    addressees: await tenantAddressees(db, s.user.tenantId),
     demo: process.env.DEMO_MODE === 'true',
   };
 }

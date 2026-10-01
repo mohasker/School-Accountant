@@ -1,4 +1,5 @@
 import { STANDARD_SUPPLIERS } from '../apps/api/src/core/suppliers-list';
+import { ensureSupplierCards, loadLegacyCertificates } from '../apps/api/src/core/standard-data';
 import * as argon2 from 'argon2';
 import { db } from '../apps/api/src/common/db';
 import { BUDGET_CATALOG } from './catalog';
@@ -76,6 +77,9 @@ async function main() {
   for (const [from, to, name] of DEMO_HOLIDAYS)
     for (let d = new Date(from); d <= new Date(to); d = new Date(d.getTime() + 86400000))
       await db.holiday.create({ data: { tenantId: t.id, date: d, name, createdBy: t.id } });
+  // The supplier bank (one card per company) and the reference register of earlier certificates.
+  await ensureSupplierCards(db, t.id);
+  console.log('Legacy certificates for reference: ' + (await loadLegacyCertificates(db, t.id)));
   const adminUser = await db.user.findUniqueOrThrow({ where: { username: 'admin' } });
   await db.note.createMany({ data: DEMO_NOTES.map((n) => ({ ...n, tenantId: t.id, updatedBy: adminUser.id })) });
   console.log('Trial accounts: admin (system administrator), accountant, other. Password is the supplied DEMO_PASSWORD.');

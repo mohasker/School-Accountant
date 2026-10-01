@@ -1675,3 +1675,213 @@ test('SERVER GATES: temporary password blocks the API, uploads must match their 
   assert.equal(await db.session.count({ where: { tokenHash: { startsWith: 'expired-' } } }), 0);
   assert.equal(await db.idempotency.count({ where: { key: { startsWith: 'old-' } } }), 0);
 });
+
+test('ADDRESSEES: the administrator keeps the list; a certificate and its covering letter go to the chosen department', async () => {
+  const defaults = (await req(acc, 'admin/addressees')).body;
+  assert.deepEqual(defaults, ['إدارة الشؤون المالية', 'إدارة الخدمات العامة', 'إدارة المشتريات والمناقصات']);
+  assert.equal((await req(acc, 'admin/addressees', 'POST', { list: [...defaults, 'إدارة الشؤون الإدارية'] })).status, 403);
+  const saved = await req(admin, 'admin/addressees', 'POST', { list: [...defaults, 'إدارة الشؤون الإدارية'] });
+  assert.ok(saved.status < 300, JSON.stringify(saved.body));
+  assert.equal((await req(acc, route('setup'))).body.addressees.length, 4);
+
+  const row = await issue(await makeCase('3000.00'));
+  const bad = await req(acc, route(`cases/${row.id}/finish`), 'POST', {
+    completionDate: '2026-09-10',
+    invoice: 'INV-A1',
+    date: '2026-09-10',
+    addressee: 'جهة غير موجودة',
+  });
+  assert.equal(bad.status, 400);
+  const cert = await ok(acc, `cases/${row.id}/finish`, {
+    completionDate: '2026-09-10',
+    invoice: 'INV-A1',
+    date: '2026-09-10',
+    addressee: 'إدارة الشؤون الإدارية',
+  });
+  const html = (await req(acc, route(`certificates/${cert.id}`))).body.html;
+  const cover = (await req(acc, route(`certificates/${cert.id}/cover`))).body.html;
+  assert.ok(html.includes('السادة / إدارة الشؤون الإدارية') && cover.includes('السادة / إدارة الشؤون الإدارية'));
+  // Older clients still send the position in the list.
+  const row2 = await issue(await makeCase('3000.00'));
+  const cert2 = await ok(acc, `cases/${row2.id}/finish`, {
+    completionDate: '2026-09-10',
+    invoice: 'INV-A2',
+    date: '2026-09-10',
+    addressee: 2,
+  });
+  assert.ok((await req(acc, route(`certificates/${cert2.id}`))).body.html.includes('السادة / إدارة الخدمات العامة'));
+});
+
+test('SUPPLIER BANK: one card per company with full contact data, shared by the schools, with the history of earlier certificates', async () => {
+  const bank = (await req(acc, 'admin/supplier-bank')).body;
+  assert.ok(bank.length >= 10, 'the suppliers of the approved sheets have cards');
+  const known = bank.find((c: any) => c.history && c.history.count > 0);
+  assert.ok(known, 'a supplier of the sheets has earlier certificates');
+  assert.ok(Number(known.history.total) > 0);
+  // A new card with every contact channel; the auditor-only account may not write.
+  const created = await req(acc, 'admin/supplier-bank', 'POST', {
+    name: 'شركة الاختبار للتجهيزات',
+    legalName: 'شركة الاختبار للتجهيزات المدرسية ذ.م.م',
+    cr: 'CR-TEST-9001',
+    iban: 'QA58DOHB00001234567890ABCDEFG',
+    bank: 'بنك الدوحة',
+    phone: '44001122',
+    mobile: '55001122',
+    email: 'sales@example.test',
+    contact: 'مسؤول المبيعات',
+    address: 'الدوحة — المنطقة الصناعية',
+    category: 'قرطاسية',
+    note: 'توريد سريع',
+  });
+  assert.ok(created.status < 300, JSON.stringify(created.body));
+  assert.equal((await req(acc, 'admin/supplier-bank', 'POST', { name: 'شركة الاختبار للتجهيزات' })).status, 400, 'no duplicate names');
+  assert.equal((await req(acc, 'admin/supplier-bank', 'POST', { name: 'x', email: 'not-an-email' })).status, 400);
+  // The school picks it from the bank: a copy with the document fields.
+  const copy = await ok(acc, 'supplier-from-bank', { cardId: created.body.id });
+  assert.equal(copy.cardId, created.body.id);
+  assert.equal(copy.iban, 'QA58DOHB00001234567890ABCDEFG');
+  assert.equal(copy.phone, '44001122');
+  const setup = (await req(acc, route('setup'))).body;
+  const inSchool = setup.suppliers.find((s: any) => s.id === copy.id);
+  assert.equal(inSchool.card.mobile, '55001122');
+  assert.equal(inSchool.card.contact, 'مسؤول المبيعات');
+  // Editing the card follows into the school copy; the search finds it by any field.
+  const edited = await req(acc, 'admin/supplier-bank/' + created.body.id, 'PATCH', {
+    name: 'شركة الاختبار للتجهيزات',
+    cr: 'CR-TEST-9001',
+    iban: 'QA58DOHB00001234567890ABCDEFG',
+    email: 'new@example.test',
+    mobile: '55009999',
+    category: 'قرطاسية',
+  });
+  assert.ok(edited.status < 300, JSON.stringify(edited.body));
+  const again = (await req(acc, route('setup'))).body.suppliers.find((s: any) => s.id === copy.id);
+  assert.equal(again.email, 'new@example.test');
+  assert.equal((await req(acc, 'admin/supplier-bank?q=55009999')).body.length, 1);
+  const found = (await req(acc, 'admin/supplier-bank?q=' + encodeURIComponent('قرطاسية'))).body.find((c: any) => c.id === created.body.id);
+  assert.equal(found.schools, 1, 'used by one school');
+  // A supplier added in a school gets (or joins) its card in the bank.
+  const direct = await ok(acc, 'suppliers', { name: 'مورد مضاف من المدرسة', cr: 'CR-TEST-9002', phone: '', email: '', iban: '' });
+  assert.ok(direct.cardId);
+  assert.ok((await req(acc, 'admin/supplier-bank?q=' + encodeURIComponent('مورد مضاف من المدرسة'))).body.length === 1);
+  // A used card is deactivated, not removed; an unused one is removed.
+  const del = await req(acc, 'admin/supplier-bank/' + created.body.id, 'DELETE');
+  assert.equal(del.body.active, false);
+  const spare = await req(acc, 'admin/supplier-bank', 'POST', { name: 'بطاقة بلا استخدام' });
+  assert.equal((await req(acc, 'admin/supplier-bank/' + spare.body.id, 'DELETE')).body.deleted, true);
+  assert.equal((await req(admin, 'admin/supplier-bank/standard', 'POST', {})).status, 200, 'missing standard cards are added on request');
+});
+
+test('LEGACY CERTIFICATES: the certificates issued before the system are a searchable reference register with totals and Excel', async () => {
+  const all = (await req(acc, 'admin/legacy-certificates')).body;
+  assert.equal(all.totals.count, 504);
+  assert.ok(all.schools.length >= 5 && all.rows.length > 100);
+  assert.ok(Number(all.totals.net) > 0 && Number(all.totals.orderValue) >= Number(all.totals.net));
+  const one = (await req(acc, 'admin/legacy-certificates?school=' + encodeURIComponent(all.schools[0]))).body;
+  assert.ok(one.totals.count > 0 && one.totals.count < 504);
+  assert.ok(one.rows.every((r: any) => r.schoolName === all.schools[0]));
+  const q = (await req(acc, 'admin/legacy-certificates?q=' + encodeURIComponent(all.rows[0].orderNo))).body;
+  assert.ok(q.rows.some((r: any) => r.orderNo === all.rows[0].orderNo));
+  const year = (await req(acc, 'admin/legacy-certificates?from=2025-01-01&to=2025-12-31')).body;
+  assert.ok(year.rows.every((r: any) => String(r.date).startsWith('2025')));
+  const xlsx = (await req(acc, 'admin/legacy-certificates?format=xlsx')).body;
+  assert.ok(xlsx.base64.length > 1000 && xlsx.name.endsWith('.xlsx'));
+  // Reference only: no ledger posting came from the register.
+  assert.equal(await db.ledger.count({ where: { eventKey: { startsWith: 'legacy' } } }), 0);
+});
+
+test('TELEGRAM: the administrator sets the bot; an accountant links the phone with a code and issues an assignment letter from the chat', async () => {
+  const { createServer } = await import('node:http');
+  const sent: any[] = [];
+  const docs: any[] = [];
+  let queue: any[] = [];
+  const token = '123456789:AAFakeTokenForTestsOnly_0123456789abc';
+  const ms = createServer(async (q, r) => {
+    const chunks: Buffer[] = [];
+    for await (const ch of q) chunks.push(ch as Buffer);
+    const raw = Buffer.concat(chunks);
+    const method = q.url!.split('/').pop()!;
+    const json = (v: any) => (r.setHeader('content-type', 'application/json'), r.end(JSON.stringify(v)));
+    if (!q.url!.includes('/bot' + token + '/')) return json({ ok: false, description: 'Unauthorized' });
+    if (method === 'getMe') return json({ ok: true, result: { username: 'moesas_test_bot' } });
+    if (method === 'sendMessage') return (sent.push(JSON.parse(raw.toString())), json({ ok: true, result: {} }));
+    if (method === 'sendDocument') return (docs.push({ size: raw.length, pdf: raw.includes('%PDF') }), json({ ok: true, result: {} }));
+    if (method === 'getUpdates') {
+      const out = queue;
+      queue = [];
+      return json({ ok: true, result: out });
+    }
+    json({ ok: false, description: 'unknown ' + method });
+  });
+  await new Promise<void>((res) => ms.listen(0, '127.0.0.1', res));
+  process.env.TG_API_BASE = `http://127.0.0.1:${(ms.address() as any).port}`;
+  try {
+    assert.equal((await req(acc, 'auth/telegram-code', 'POST', {})).status, 400, 'nothing works before the administrator enables the bot');
+    assert.equal((await req(acc, 'admin/telegram/config', 'POST', { token, on: true })).status, 403);
+    assert.equal((await req(admin, 'admin/telegram/config', 'POST', { token: 'bad', on: true })).status, 400);
+    const cfg = await req(admin, 'admin/telegram/config', 'POST', { token, on: true });
+    assert.ok(cfg.status < 300, JSON.stringify(cfg.body));
+    assert.equal(cfg.body.bot, 'moesas_test_bot');
+    const tenant = await db.tenant.findFirst();
+    assert.match(tenant.tgToken, /^enc:v1:/, 'the token is stored encrypted');
+    const st = (await req(admin, 'admin/telegram')).body;
+    assert.ok(st.on && st.hasToken && st.reachable && st.bot === 'moesas_test_bot');
+
+    // The code links the chat; a wrong code does not.
+    const { handleMessage } = await import('../apps/api/src/modules/telegram');
+    const code = (await req(acc, 'auth/telegram-code', 'POST', {})).body;
+    assert.match(code.code, /^\d{6}$/);
+    assert.ok(code.link.includes('moesas_test_bot'));
+    await handleMessage(tenant.id, token, '555', '/start 000000');
+    assert.ok(sent.at(-1).text.includes('غير صحيح'));
+    await handleMessage(tenant.id, token, '555', '/start ' + code.code);
+    assert.ok(sent.at(-1).text.includes('تم ربط'));
+    assert.equal((await req(acc, 'auth/me')).body.user.tgLinked, true);
+
+    // The pending list names the files awaiting the letter; the conversation issues one.
+    const row = await makeCase('4500.00');
+    await handleMessage(tenant.id, token, '555', 'المعلقة');
+    assert.ok(sent.at(-1).text.includes(row.number), sent.at(-1).text);
+    await handleMessage(tenant.id, token, '555', 'تكليف ' + row.number);
+    assert.ok(sent.at(-1).text.includes('مدة التوريد'));
+    await handleMessage(tenant.id, token, '555', 'كثير');
+    assert.ok(sent.at(-1).text.includes('1 إلى 365'));
+    await handleMessage(tenant.id, token, '555', '١٠');
+    assert.ok(sent.at(-1).text.includes('نعم'));
+    await handleMessage(tenant.id, token, '555', 'نعم');
+    assert.ok(sent.at(-1).text.includes('صدر كتاب التكليف'), sent.at(-1).text);
+    const after = await load(row.id);
+    assert.equal(after.state, 'ORDERED');
+    assert.equal(after.deliveryDays, 10);
+    assert.equal(
+      after.issuedBy,
+      (await db.user.findFirst({ where: { username: 'accountant' } })).id,
+      'recorded in the name of the linked account',
+    );
+    assert.ok(docs.length === 1 && docs[0].pdf, 'the letter arrives as a PDF');
+    await handleMessage(tenant.id, token, '555', 'طباعة ' + row.number);
+    assert.equal(docs.length, 2);
+    await handleMessage(tenant.id, token, '555', 'تكليف ' + row.number);
+    assert.ok(sent.at(-1).text.includes('لا تسمح'));
+    // Another person's file is invisible; an unlinked chat gets the linking hint; the whole path works through polling.
+    const foreign = await db.case.findFirst({ where: { schoolId: { not: school } } });
+    if (foreign) {
+      await handleMessage(tenant.id, token, '555', 'تكليف ' + foreign.number);
+      assert.ok(sent.at(-1).text.includes('لم أجد'));
+    }
+    await handleMessage(tenant.id, token, '777', 'المعلقة');
+    assert.ok(sent.at(-1).text.includes('ربط تليجرام'));
+    const before = sent.length;
+    queue.push({ update_id: 1, message: { chat: { id: 555, type: 'private' }, text: 'مساعدة' } });
+    await req(admin, 'admin/telegram/config', 'POST', { token: '', on: true }); // wakes the polling loop
+    for (let i = 0; i < 100 && sent.length === before; i++) await new Promise((r) => setTimeout(r, 100));
+    assert.ok(sent.length > before && sent.at(-1).text.includes('الأوامر المتاحة'), 'polling delivered the message');
+    // Unlink and switch off.
+    await req(acc, 'auth/telegram-unlink', 'POST', {});
+    assert.equal((await req(acc, 'auth/me')).body.user.tgLinked, false);
+    await req(admin, 'admin/telegram/config', 'POST', { token: '', on: false });
+  } finally {
+    delete process.env.TG_API_BASE;
+    ms.close();
+  }
+});

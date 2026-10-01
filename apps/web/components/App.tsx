@@ -30,6 +30,7 @@ import { Registry } from '../views/Registry';
 import { Reports } from '../views/Reports';
 import { FirstSchool, Settings } from '../views/Settings';
 import { Suppliers } from '../views/Suppliers';
+import { SupplierBank } from '../views/SupplierBank';
 
 const NAV: { view: View; icon: string; label: string; show?: (w: { can: Workspace['can']; me: Row }) => boolean }[] = [
   { view: 'admin', icon: '♛', label: 'لوحة مدير النظام', show: ({ me }) => me.user.isTenantAdmin },
@@ -42,6 +43,7 @@ const NAV: { view: View; icon: string; label: string; show?: (w: { can: Workspac
   { view: 'imprests', icon: '▣', label: 'العهد والتسويات' },
   { view: 'budget', icon: '▥', label: 'الموازنة' },
   { view: 'suppliers', icon: '◈', label: 'الموردون' },
+  { view: 'supplier-bank', icon: '☷', label: 'بنك الموردين' },
   { view: 'reports', icon: '▧', label: 'التقارير' },
   { view: 'erp-recon', icon: '⇄', label: 'مطابقة تقرير ERP' },
   { view: 'archive', icon: '🗂', label: 'أرشيف المستندات' },
@@ -64,7 +66,8 @@ const TITLES: Record<View, string> = {
   'erp-recon': 'مطابقة تقرير ERP الشهري',
   cases: 'المعاملات: تقرير العروض ← التكليف ← الشهادة والتغطية',
   case: 'المعاملة',
-  suppliers: 'دليل الموردين',
+  suppliers: 'موردو المدرسة',
+  'supplier-bank': 'بنك الموردين — كل الموردين وبيانات التواصل',
   budget: 'الموازنة التشغيلية',
   imprests: 'العهد والتسويات',
   reports: 'التقارير',
@@ -483,6 +486,7 @@ export default function App() {
                 {view === 'cases' && <Cases />}
                 {view === 'case' && caseId && <CaseDetail key={caseId + intent} id={caseId} intent={intent} />}
                 {view === 'suppliers' && <Suppliers />}
+                {view === 'supplier-bank' && <SupplierBank />}
                 {view === 'budget' && <Budget />}
                 {view === 'imprests' && <Imprests />}
                 {view === 'reports' && <Reports />}

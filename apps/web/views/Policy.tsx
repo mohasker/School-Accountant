@@ -7,6 +7,8 @@ import type { Dialog } from '../components/FormDialog';
 import { BUDGET_GROUPS, dateNow, day } from '../lib/format';
 import { OneDrivePanel } from './OneDrive';
 import { EmailPanel } from './EmailPanel';
+import { AddresseesPanel } from './AddresseesPanel';
+import { TelegramAdminPanel } from './TelegramPanel';
 
 const show = (v: unknown) => (Array.isArray(v) ? v.join('، ') : String(v));
 
@@ -84,6 +86,8 @@ export function Policy() {
       >
         <AiStatus />
       </Panel>
+      <AddresseesPanel />
+      <TelegramAdminPanel />
       <EmailPanel />
       <OneDrivePanel />
       <Panel title="القيم السارية">

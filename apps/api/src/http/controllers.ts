@@ -17,6 +17,7 @@ import { schoolsOverview } from '../modules/overview';
 import { parseErpReport } from '../modules/erp-recon';
 import { sendNow, setEmail } from '../modules/email';
 import { readTenant, writeTenant } from '../modules/tenant';
+import { linkCode, unlinkTelegram } from '../modules/telegram';
 
 const segments = (path: string | string[]) => (Array.isArray(path) ? path : path.split('/'));
 const idempotencyKey = (req: Request) => String(req.headers['idempotency-key'] ?? '');
@@ -67,6 +68,7 @@ export class AuthController {
         isTenantAdmin: s.user.isTenantAdmin,
         email: s.user.email,
         mustChangePassword: s.user.mustChangePassword,
+        tgLinked: !!s.user.tgChatId,
       },
       schools: s.user.memberships
         .filter((m) => m.school.active)
@@ -152,6 +154,14 @@ export class WorkspaceController {
   @Post('auth/email') async myEmail(@Req() req: Request, @Body() b: any) {
     const s = await authenticate(req);
     return db.$transaction((t) => setEmail(t, s.user.id, String(b?.email ?? '')));
+  }
+
+  /** Telegram: a short code the user sends to the bot to link their account; and unlinking. */
+  @Post('auth/telegram-code') async telegramCode(@Req() req: Request) {
+    return linkCode(await authenticate(req));
+  }
+  @Post('auth/telegram-unlink') async telegramUnlink(@Req() req: Request) {
+    return unlinkTelegram(await authenticate(req));
   }
 
   /** Reads an uploaded ERP expense report (PDF) and proposes the comparison; nothing is saved. */

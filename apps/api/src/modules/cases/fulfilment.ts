@@ -12,6 +12,8 @@ import { fine } from '../../core/penalty';
 import { loadCalendar } from '../../core/policy';
 import { formatNumber, nextNumber } from '../../core/transaction';
 import { certificateCover, certificateDocument, RATINGS, type CertificateData } from '../../print/certificate';
+import { ADDRESSEES } from '../../print/layout';
+import type { Tx } from '../../common/db';
 import type { WriteCtx } from '../context';
 import { getCase, requireState, verifiedCodes, type FullCase } from './common';
 import { orderPolicy } from './procurement';
@@ -142,6 +144,20 @@ export async function notApplicable({ s, school, t, body, c }: Ctx) {
   });
 }
 
+/** The addressed department: its name from the tenant's list, or (older clients) its position in it. */
+const addresseeInput = z.union([z.number().int().min(1).max(50), z.string().trim().min(1).max(120)]).default(1);
+export async function tenantAddressees(t: { tenant: { findUniqueOrThrow: any } }, tenantId: string): Promise<string[]> {
+  const row = await t.tenant.findUniqueOrThrow({ where: { id: tenantId }, select: { addressees: true } });
+  const list = Array.isArray(row.addressees) ? (row.addressees as unknown[]).map(String).filter(Boolean) : [];
+  return list.length ? list : [...ADDRESSEES];
+}
+async function resolveAddressee(t: Tx, tenantId: string, a: number | string) {
+  const list = await tenantAddressees(t, tenantId);
+  if (typeof a === 'number') return list[a - 1] ?? fail('الجهة المرسل إليها غير موجودة في القائمة');
+  if (!list.includes(a)) fail('الجهة المرسل إليها غير موجودة في القائمة؛ يضيفها مسؤول النظام من الإعدادات');
+  return a;
+}
+
 const rating = z.enum(Object.keys(RATINGS) as [keyof typeof RATINGS, ...(keyof typeof RATINGS)[]]);
 
 /** Completion certificate for all accepted, not yet certified quantities (partial or final). */
@@ -153,7 +169,7 @@ export async function issueCertificate({ s, school, t, body, c }: Ctx) {
       .object({
         kind: z.enum(['PARTIAL', 'FINAL']),
         date: date.optional(),
-        addressee: z.number().int().min(1).max(3).default(1),
+        addressee: addresseeInput,
         invoice: z.string().trim().max(200).optional(),
         notes: z.string().trim().max(1000).default(''),
         ratings: z
@@ -193,7 +209,7 @@ export async function issueCertificate({ s, school, t, body, c }: Ctx) {
     number,
     kind: p.kind,
     date: on,
-    addressee: p.addressee,
+    addressee: await resolveAddressee(t, s.user.tenantId, p.addressee),
     school: c.school.name,
     principal: c.principalName,
     accountant: c.accountantName,
@@ -299,7 +315,7 @@ export async function finish(ctx: Ctx) {
         invoice: z.string().trim().min(1).max(200),
         note: z.string().trim().max(200).optional(),
         date: date.optional(),
-        addressee: z.number().int().min(1).max(3).default(1),
+        addressee: addresseeInput,
         notes: z.string().trim().max(1000).default(''),
         ratings: z
           .object({ scope: rating, time: rating, supervision: rating })

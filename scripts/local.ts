@@ -138,6 +138,7 @@ async function prepareRegular(engine: PGlite) {
   const { db } = await import('../apps/api/src/common/db');
   const { passwordHash } = await import('../apps/api/src/core/identity');
   const { addStandardSuppliers } = await import('../apps/api/src/core/suppliers-list');
+  const { ensureSupplierCards, loadLegacyCertificates } = await import('../apps/api/src/core/standard-data');
   const once = async (name: string, step: () => Promise<void>) => {
     if ((await engine.query('SELECT 1 FROM local_migrations WHERE name=$1', [name])).rows.length) return;
     await step();
@@ -161,6 +162,13 @@ async function prepareRegular(engine: PGlite) {
   });
   await once('step:suppliers-v1', async () => {
     for (const s of await db.school.findMany({ select: { id: true } })) await db.$transaction((t) => addStandardSuppliers(t, s.id));
+  });
+  // The supplier bank and the reference register of the certificates issued before the system (once each).
+  await once('step:cards-v1', async () => {
+    for (const t of await db.tenant.findMany({ select: { id: true } })) await ensureSupplierCards(db, t.id);
+  });
+  await once('step:legacy-v1', async () => {
+    for (const t of await db.tenant.findMany({ select: { id: true } })) await loadLegacyCertificates(db, t.id);
   });
 }
 

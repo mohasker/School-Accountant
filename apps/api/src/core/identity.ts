@@ -141,6 +141,15 @@ export async function authenticate(req: Request) {
 
 export type Identity = Awaited<ReturnType<typeof authenticate>>;
 
+/** The identity of an active user outside a browser session (the Telegram bot acts for the linked account). */
+export async function identityForUser(userId: string): Promise<Identity | null> {
+  const user = await db.user.findUnique({ where: { id: userId }, include: { memberships: { include: { school: true } } } });
+  if (!user || !user.active || user.mustChangePassword) return null;
+  if (user.isTenantAdmin) await withAllSchools({ user });
+  const now = new Date();
+  return { tokenHash: '', userId: user.id, csrf: '', createdAt: now, lastSeen: now, expiresAt: now, user } as Identity;
+}
+
 /** The system administrator has full rights in every school of the tenant. */
 const ADMIN_ROLES = ['ACCOUNTANT', 'ADMIN', 'AUDITOR'];
 async function withAllSchools(session: { user: { tenantId: string; id: string; memberships: any[] } }) {

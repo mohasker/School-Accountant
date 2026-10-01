@@ -1,20 +1,13 @@
 import { addStandardSuppliers } from '../core/suppliers-list';
 import { ConflictException, NotFoundException } from '@nestjs/common';
 import { z } from 'zod';
-import { fail, id, parse, text } from '../common/validation';
+import { fail, id, normaliseIban, parse, text } from '../common/validation';
+import { ensureSupplierCards } from '../core/standard-data';
+import { upsertCard } from './bank';
 import { scope, WORK } from '../core/identity';
 import type { WriteCtx } from './context';
 
 const EDITORS = WORK;
-
-function normaliseIban(iban: string) {
-  if (!iban) return iban;
-  const v = iban.replace(/\s/g, '').toUpperCase();
-  if (!/^[A-Z]{2}\d{2}[A-Z0-9]{11,30}$/.test(v)) fail('IBAN غير صالح');
-  const digits = (v.slice(4) + v.slice(0, 4)).replace(/[A-Z]/g, (c) => String(c.charCodeAt(0) - 55));
-  if (BigInt(digits) % 97n !== 1n) fail('رقم تحقق IBAN غير صالح');
-  return v;
-}
 
 /** Create, update (optimistic version check) or delete a supplier; a used supplier is deactivated instead. */
 export async function writeSupplier({ s, school, t, body, rid, method }: WriteCtx) {
@@ -51,13 +44,24 @@ export async function writeSupplier({ s, school, t, body, rid, method }: WriteCt
   );
   const { version, ...data } = p;
   data.iban = normaliseIban(data.iban);
+  // Every school supplier has its card in the tenant's supplier bank (the card keeps the full contact data).
+  const card = await upsertCard(t, s.user.tenantId, {
+    name: data.name,
+    cr: data.cr ?? '',
+    iban: data.iban,
+    phone: data.phone,
+    email: data.email,
+  });
   if (rid) {
     const current = await t.supplier.findUnique({ where: { id: parse(id, rid), schoolId: school } });
     if (!current) throw new NotFoundException();
     if (current.version !== version) throw new ConflictException('تم تعديل المورد؛ أعد تحميله');
-    return t.supplier.update({ where: { id: rid, schoolId: school, version }, data: { ...data, version: { increment: 1 } } });
+    return t.supplier.update({
+      where: { id: rid, schoolId: school, version },
+      data: { ...data, cardId: card.id, version: { increment: 1 } },
+    });
   }
-  return t.supplier.create({ data: { ...data, schoolId: school } });
+  return t.supplier.create({ data: { ...data, cardId: card.id, schoolId: school } });
 }
 
 /** All-or-nothing import; an existing commercial registration is never silently replaced. */
@@ -87,12 +91,17 @@ export async function importSuppliers({ s, school, t, body }: WriteCtx) {
     codes.add(r.cr);
     if (await t.supplier.findUnique({ where: { schoolId_cr: { schoolId: school, cr: r.cr } } })) fail('مورد موجود بالفعل: ' + r.cr);
   }
-  await t.supplier.createMany({ data: p.rows.map((r) => ({ ...r, schoolId: school })) });
+  for (const r of p.rows) {
+    const card = await upsertCard(t, s.user.tenantId, r);
+    await t.supplier.create({ data: { ...r, cardId: card.id, schoolId: school } });
+  }
   return { count: p.rows.length };
 }
 
 /** Adds the suppliers of the approved workbooks that the school does not have yet (existing ones stay as edited). */
 export async function addStandard({ s, school, t }: WriteCtx) {
   scope(s, school, EDITORS);
-  return { added: await addStandardSuppliers(t, school) };
+  const added = await addStandardSuppliers(t, school);
+  await ensureSupplierCards(t, s.user.tenantId);
+  return { added };
 }

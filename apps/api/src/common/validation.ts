@@ -20,6 +20,16 @@ export const quantity = z
 export const text = z.string().trim().min(1).max(300);
 export const optionalText = (max = 300) => z.string().trim().max(max).default('');
 export const id = z.string().uuid();
+
+/** Upper-case IBAN without spaces, with the mod-97 check; empty stays empty. */
+export function normaliseIban(iban: string) {
+  if (!iban) return iban;
+  const v = iban.replace(/\s/g, '').toUpperCase();
+  if (!/^[A-Z]{2}\d{2}[A-Z0-9]{11,30}$/.test(v)) fail('IBAN غير صالح');
+  const digits = (v.slice(4) + v.slice(0, 4)).replace(/[A-Z]/g, (c) => String(c.charCodeAt(0) - 55));
+  if (BigInt(digits) % 97n !== 1n) fail('رقم تحقق IBAN غير صالح');
+  return v;
+}
 export const date = z
   .string()
   .regex(/^\d{4}-\d{2}-\d{2}$/)

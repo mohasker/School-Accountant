@@ -2,6 +2,7 @@
 import { useWorkspace } from '../components/context';
 import type { Dialog } from '../components/FormDialog';
 import { Panel, Table } from '../components/ui';
+import { TelegramLinkPanel } from './TelegramPanel';
 import { useLoad } from '../components/useLoad';
 import type { Row } from '../lib/api';
 import { day, ROLE_CHOICES, ROLE_NAMES } from '../lib/format';
@@ -256,6 +257,8 @@ export function Settings() {
           تعديل البريد
         </button>
       </Panel>
+
+      <TelegramLinkPanel />
 
       <Panel title="أمان حسابك">
         <button

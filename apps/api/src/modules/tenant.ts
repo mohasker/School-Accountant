@@ -12,6 +12,11 @@ import { purge } from './purge';
 import { followUp } from './overview';
 import { emailStatus, saveEmailConfig } from './email';
 import { addStandardSuppliers } from '../core/suppliers-list';
+import { STANDARD_SCHOOLS } from '../core/standard-schools';
+import { ensureSupplierCards } from '../core/standard-data';
+import { readBank, readLegacy, writeBank } from './bank';
+import { tenantAddressees } from './cases/fulfilment';
+import { saveTelegramConfig, telegramStatus } from './telegram';
 
 /**
  * Tenant-wide settings under /api/admin/…. Every user may maintain the official holidays and add
@@ -78,8 +83,16 @@ export async function readTenant(
     case 'school-names': {
       // Names only (no data), to pick a school name when adding one; each accountant enters the data.
       const rows = await db.school.findMany({ where: { tenantId }, select: { name: true }, distinct: ['name'], orderBy: { name: 'asc' } });
-      return rows.map((r) => r.name);
+      return [...new Set([...rows.map((r) => r.name), ...STANDARD_SCHOOLS])].sort((a, b) => a.localeCompare(b, 'ar'));
     }
+    case 'addressees':
+      return tenantAddressees(db, tenantId);
+    case 'supplier-bank':
+      return readBank(s, query);
+    case 'legacy-certificates':
+      return readLegacy(s, query);
+    case 'telegram':
+      return telegramStatus(s);
     case 'users':
       if (rid && action === 'report') return userReport(s, rid, query);
       if (rid && action === 'profile') return accountProfile(s, rid);
@@ -112,7 +125,7 @@ export async function writeTenant(
   prepared?: PreparedArchive,
 ) {
   const tenantId = s.user.tenantId;
-  if (!['holidays', 'schools', 'archive', 'notes'].includes(resource)) requireTenantAdmin(s);
+  if (!['holidays', 'schools', 'archive', 'notes', 'supplier-bank'].includes(resource)) requireTenantAdmin(s);
   // Holidays and schools change fine calculations and documents: an account whose only role anywhere is the
   // read-only auditor may not touch them. A new account with no school yet may add its first one.
   const auditorOnly = s.user.memberships.length > 0 && !s.user.memberships.some((m) => m.roles.some((r) => WORK.includes(r)));
@@ -243,6 +256,21 @@ export async function writeTenant(
       await addStandardSuppliers(t, created.id);
       return created;
     }
+    case 'supplier-bank':
+      if (rid === 'standard') {
+        if (!s.user.isTenantAdmin && auditorOnly) throw new ForbiddenException('هذه العملية للمحاسبين');
+        return { added: await ensureSupplierCards(t, tenantId) };
+      }
+      return writeBank(s, t, rid, method, body);
+    case 'addressees': {
+      // The departments a certificate or covering letter may be addressed to; the list grows as needed.
+      const p = parse(z.object({ list: z.array(z.string().trim().min(2).max(120)).min(1).max(30) }).strict(), body);
+      const list = [...new Set(p.list)];
+      return t.tenant.update({ where: { id: tenantId }, data: { addressees: list }, select: { addressees: true } });
+    }
+    case 'telegram':
+      if (rid === 'config') return saveTelegramConfig(s, t, body);
+      throw new NotFoundException();
     case 'purge':
       return purge(s, t, body);
     case 'archive':

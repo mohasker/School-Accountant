@@ -28,11 +28,6 @@ const RATING_OPTIONS = [
   { value: 'AVERAGE', label: 'متوسط' },
   { value: 'POOR', label: 'رديء' },
 ];
-const ADDRESSEES = [
-  { value: '1', label: 'إدارة الشؤون المالية' },
-  { value: '2', label: 'إدارة الخدمات العامة' },
-  { value: '3', label: 'إدارة المشتريات والمناقصات' },
-];
 /** Covering-letter attachments (template «Cover Let»); the certificate is always attached. */
 const COVER_ATTACHMENTS: [string, string][] = [
   ['invoice', 'فاتورة بالمبلغ المستحق (أصل) معتمدة من الشركة'],
@@ -251,7 +246,14 @@ export function caseDialogs(w: Workspace, c: Row) {
       { name: 'completionDate', label: 'تاريخ الإنجاز / التوريد الفعلي', type: 'date', value: dateNow() },
       { name: 'invoice', label: 'رقم فاتورة الشركة' },
       { name: 'date', label: 'تاريخ الشهادة وكتاب التغطية', type: 'date', value: dateNow() },
-      { name: 'addressee', label: 'الشهادة موجهة إلى', type: 'select', options: ADDRESSEES },
+      {
+        name: 'addressee',
+        label: 'الشهادة وكتاب التغطية موجهان إلى',
+        type: 'select',
+        options: (w.setup.addressees as string[] | undefined)?.map((a) => ({ value: a, label: a })) ?? [
+          { value: 'إدارة الشؤون المالية', label: 'إدارة الشؤون المالية' },
+        ],
+      },
       { name: 'scope', label: 'الالتزام بنطاق العمل', type: 'select', options: RATING_OPTIONS },
       { name: 'time', label: 'الالتزام بالمدة الزمنية', type: 'select', options: RATING_OPTIONS },
       { name: 'supervision', label: 'الالتزام بتعليمات جهة الإشراف', type: 'select', options: RATING_OPTIONS },
@@ -283,7 +285,7 @@ export function caseDialogs(w: Workspace, c: Row) {
         completionDate: v.completionDate,
         invoice: v.invoice,
         date: v.date,
-        addressee: Number(v.addressee),
+        addressee: String(v.addressee),
         notes: v.notes,
         ratings: { scope: v.scope, time: v.time, supervision: v.supervision },
         attachments: ['certificate', ...COVER_ATTACHMENTS.map(([k]) => k).filter((k) => fd.get('att_' + k) === 'on')],

@@ -5,11 +5,14 @@ import { ADDRESSEES, CLOSING, GREETING, dateHtml, esc, money, printDocument, sig
 export const RATINGS = { EXCELLENT: 'ممتاز', AVERAGE: 'متوسط', POOR: 'رديء' } as const;
 export type Rating = keyof typeof RATINGS;
 
+export const addresseeName = (a: number | string) => (typeof a === 'string' && a ? a : (ADDRESSEES[Number(a) - 1] ?? ADDRESSEES[0]));
+
 export type CertificateData = {
   number: string;
   kind: 'PARTIAL' | 'FINAL';
   date: string;
-  addressee: number;
+  /** Name of the addressed department (older certificates stored the position in the fixed list). */
+  addressee: number | string;
   school: string;
   principal: string;
   accountant: string;
@@ -55,7 +58,7 @@ export function certificateDocument(d: CertificateData) {
     (code) => `<span class="${d.attachments.includes(code) ? 'on' : ''}">${esc(EVIDENCE[code].print)}</span>`,
   ).join('');
   const body = `
-<div class="to"><span>السادة / ${esc(ADDRESSEES[d.addressee - 1] ?? ADDRESSEES[0])}</span><span>المحترمين</span></div>
+<div class="to"><span>السادة / ${esc(addresseeName(d.addressee))}</span><span>المحترمين</span></div>
 <h1>الموضوع: شهادة إنجاز أعمال${d.kind === 'PARTIAL' ? ' (جزئية)' : ''}</h1>
 <p>تتقدم إليكم مدرسة: <b>${esc(d.school)}</b> بأخلص التحيات،</p>
 <p>بالإشارة إلى الموضوع أعلاه، وبناءً على قيام السادة شركة / <b>${esc(d.supplier)}</b> بتوريد الأصناف / تنفيذ الأعمال المنصوص عليها في أمر التوريد / كتاب التكليف (${esc(d.subject)})، حسب الآتي:</p>
@@ -91,7 +94,7 @@ ${signatures([
 export function certificateCover(d: CertificateData & { coverDate: string; coverAttachments: string[] }) {
   const items = COVER_ATTACHMENTS.filter((a) => a.key === 'certificate' || d.coverAttachments.includes(a.key));
   const body = `
-<div class="to"><span>السادة / ${esc(ADDRESSEES[d.addressee - 1] ?? ADDRESSEES[0])}</span><span>المحترمين</span></div>
+<div class="to"><span>السادة / ${esc(addresseeName(d.addressee))}</span><span>المحترمين</span></div>
 ${GREETING}
 <p>تحية طيبة وبعد،،،</p>
 <p class="subject">الموضوع: صرف مستحقات شركة ${esc(d.supplier)}</p>

@@ -1,4 +1,4 @@
-npm test — 2026-10-01 — 58 passed, 0 failed
+npm test — 2026-10-01 — 62 passed, 0 failed
 
 ok 1 - PEN: exact partial delivery and single cumulative cap
 ok 2 - AUTH: school isolation on list, search, dashboard and mutation
@@ -58,3 +58,7 @@ ok 55 - EMAIL: weekly reminder settings are the administrator's; each account ke
 ok 56 - HELP: video links are set by the administrator and read by everyone
 ok 57 - HARDENING: forged archive metadata, auditor edits, sign-in throttle, video links and the first-password rule
 ok 58 - SERVER GATES: temporary password blocks the API, uploads must match their type, forwarded addresses are not trusted, maintenance jobs
+ok 59 - ADDRESSEES: the administrator keeps the list; a certificate and its covering letter go to the chosen department
+ok 60 - SUPPLIER BANK: one card per company with full contact data, shared by the schools, with the history of earlier certificates
+ok 61 - LEGACY CERTIFICATES: the certificates issued before the system are a searchable reference register with totals and Excel
+ok 62 - TELEGRAM: the administrator sets the bot; an accountant links the phone with a code and issues an assignment letter from the chat

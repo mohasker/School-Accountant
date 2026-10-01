@@ -35,6 +35,12 @@ model Tenant {
   digestHour  Int             @default(7)
   lastDigest  String          @default("")
   helpVideos  Json            @default("{}")
+  /// Departments a completion certificate and its covering letter may be addressed to (the administrator extends the list).
+  addressees  Json            @default("[\"إدارة الشؤون المالية\", \"إدارة الخدمات العامة\", \"إدارة المشتريات والمناقصات\"]")
+  tgToken     String          @default("")
+  tgOn        Boolean         @default(false)
+  cards       SupplierCard[]
+  legacy      LegacyCertificate[]
 }
 
 model User {
@@ -53,6 +59,10 @@ model User {
   email         String       @default("")
   /// Set for accounts created with a known initial password; cleared when the user chooses their own.
   mustChangePassword Boolean  @default(false)
+  /// Telegram: the chat linked to this account and the one-time code used to link it.
+  tgChatId      String       @default("")
+  tgCode        String       @default("")
+  tgCodeExp     DateTime?
 
   @@unique([id, tenantId])
 }
@@ -140,9 +150,62 @@ model Supplier {
   version  Int     @default(1)
   quotes   Quote[]
   cases    Case[]
+  cardId   String? @db.Uuid
+  card     SupplierCard? @relation(fields: [cardId], references: [id])
 
   @@unique([schoolId, cr])
   @@unique([id, schoolId])
+}
+
+/// The supplier bank: one card per company across all schools, with the full contact and bank data.
+model SupplierCard {
+  id        String     @id @default(uuid()) @db.Uuid
+  tenantId  String     @db.Uuid
+  tenant    Tenant     @relation(fields: [tenantId], references: [id])
+  name      String
+  legalName String     @default("")
+  cr        String     @default("")
+  iban      String     @default("")
+  bank      String     @default("")
+  phone     String     @default("")
+  mobile    String     @default("")
+  email     String     @default("")
+  contact   String     @default("")
+  address   String     @default("")
+  category  String     @default("")
+  note      String     @default("")
+  active    Boolean    @default(true)
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @default(now()) @updatedAt
+  suppliers Supplier[]
+
+  @@unique([tenantId, name])
+}
+
+/// Completion certificates issued before the system (from the approved workbook), kept for reference only.
+model LegacyCertificate {
+  id           String   @id @default(uuid()) @db.Uuid
+  tenantId     String   @db.Uuid
+  tenant       Tenant   @relation(fields: [tenantId], references: [id])
+  seq          Int
+  date         DateTime @db.Date
+  schoolName   String   @default("")
+  supplier     String
+  orderNo      String   @default("")
+  invoice      String   @default("")
+  orderValue   Decimal  @default(0) @db.Decimal(18, 2)
+  orderDate    DateTime? @db.Date
+  deliveryDate DateTime? @db.Date
+  delivered    Decimal  @default(0) @db.Decimal(18, 2)
+  lateDays     Int      @default(0)
+  finePct      Decimal  @default(0) @db.Decimal(8, 2)
+  fine         Decimal  @default(0) @db.Decimal(18, 2)
+  net          Decimal  @default(0) @db.Decimal(18, 2)
+  note         String   @default("")
+
+  @@unique([tenantId, seq])
+  @@index([tenantId, supplier])
+  @@index([tenantId, schoolName])
 }
 
 model Budget {
