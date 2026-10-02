@@ -3362,3 +3362,13 @@ tr.diff-row td {
 .check-list .lvl-WARN {
   color: #7a4b00;
 }
+
+.external-check {
+  margin: 10px 0;
+  padding: 10px 12px;
+  border: 1px dashed var(--line);
+  border-radius: 10px;
+}
+.external-check summary {
+  cursor: pointer;
+}

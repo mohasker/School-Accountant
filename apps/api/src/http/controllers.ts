@@ -18,7 +18,7 @@ import { parseErpReport } from '../modules/erp-recon';
 import { sendNow, setEmail } from '../modules/email';
 import { readTenant, writeTenant } from '../modules/tenant';
 import { linkCode, unlinkTelegram } from '../modules/telegram';
-import { filesFromBody, runFileCheck } from '../modules/file-check';
+import { checkInput, runFileCheck } from '../modules/file-check';
 
 const segments = (path: string | string[]) => (Array.isArray(path) ? path : path.split('/'));
 const idempotencyKey = (req: Request) => String(req.headers['idempotency-key'] ?? '');
@@ -175,7 +175,7 @@ export class WorkspaceController {
     @Req() req: Request,
     @Body() b: any,
   ) {
-    return runFileCheck(await authenticate(req), school, caseId, filesFromBody(b ?? {}), 'WEB');
+    return runFileCheck(await authenticate(req), school, caseId, checkInput(b ?? {}), 'WEB');
   }
 
   /** Reads an uploaded ERP expense report (PDF) and proposes the comparison; nothing is saved. */

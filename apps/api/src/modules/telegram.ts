@@ -231,7 +231,7 @@ export async function handleMessage(tenantId: string, token: string, chat: strin
     collecting.delete(key);
     await send(token, chat, `جارٍ فحص ${open.files.length} ملف/صورة للمعاملة ${open.number}…`);
     try {
-      const r = await runFileCheck(s, open.school, open.caseId, open.files, 'TELEGRAM');
+      const r = await runFileCheck(s, open.school, open.caseId, { files: open.files }, 'TELEGRAM');
       const head =
         r.result === 'READY' ? '✅ جاهز للإرسال' : r.result === 'REVIEW' ? '🟡 جاهز بعد مراجعة التنبيهات' : '⛔ يحتاج تصحيحاً قبل الإرسال';
       const top = r.findings

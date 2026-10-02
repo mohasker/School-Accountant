@@ -2019,11 +2019,20 @@ test('FILE CHECK (text): the printed file is compared with the case; a wrong ref
   assert.equal((await load(full.id)).state, full.state, 'checking never changes the case');
 });
 
-test('FILE CHECK (AI): pages read blind by the service, then fixed rules: school name, sequence of dates, references, amounts, signatures, requirements', async () => {
+test('FILE CHECK (AI / Claude / ChatGPT): pages read blind, then fixed rules on names, dates, references, items, amounts, registrations, IBAN, undertaking, signatures, requirements', async () => {
   const { createServer } = await import('node:http');
   const { full, cert, files } = await finishedCase('INV-FC2');
   const d = cert.details;
+  const IBAN = 'QA58DOHB00001234567890ABCDEFG';
+  // The supplier's recorded IBAN lives on its card in the supplier bank.
+  const supplierRow = await db.supplier.findUnique({ where: { id: full.supplierId } });
+  if (supplierRow.cardId) await db.supplierCard.update({ where: { id: supplierRow.cardId }, data: { iban: IBAN } });
+  else await db.supplier.update({ where: { id: full.supplierId }, data: { iban: IBAN } });
   const other = (await db.school.findFirst({ where: { id: { not: school } } })).name;
+  const item = full.items[0];
+  const line = (extra: any = {}) => [
+    { name: item.name, qty: Number(item.qty), unitPrice: Number(item.unitPrice), total: Number(item.value), ...extra },
+  ];
   const page = (n: number, docType: string, extra: any = {}) => ({
     page: n,
     docType,
@@ -2034,46 +2043,76 @@ test('FILE CHECK (AI): pages read blind by the service, then fixed rules: school
     orderNumber: null,
     invoiceNumber: null,
     quoteReference: null,
+    crNumber: null,
+    validUntil: null,
+    iban: null,
     amounts: { total: null, gross: null, fine: null, net: null },
+    items: [],
     signatures: [{ role: 'مدير المدرسة', signed: true }],
     stamp: true,
     legible: 'high',
     remarks: null,
     ...extra,
   });
-  const quotes = full.quotes.map((q: any, i: number) =>
-    page(i + 1, 'QUOTE', {
+  const quotes = full.quotes.map((q: any) =>
+    page(0, 'QUOTE', {
       supplierName: q.supplier.name,
       quoteReference: q.reference,
       amounts: { total: Number(q.total), gross: null, fine: null, net: null },
+      items: q.supplier.name === full.supplier.name ? line() : [],
       signatures: [],
     }),
   );
-  const good = [
-    ...quotes,
-    page(4, 'QUOTE_REPORT', { documentDate: full.reportDate.slice(0, 10) }),
-    page(5, 'ORDER', {
-      documentDate: full.issueDate.slice(0, 10),
-      orderNumber: full.orderNumber,
-      amounts: { total: Number(full.total), gross: null, fine: null, net: null },
-    }),
-    page(6, 'INVOICE', {
-      documentDate: '2026-09-09',
-      invoiceNumber: 'INV-FC2',
-      orderNumber: full.orderNumber,
-      amounts: { total: Number(full.total), gross: null, fine: null, net: null },
-      signatures: [],
-    }),
-    page(7, 'RECEIPT', { documentDate: '2026-09-10', signatures: [{ role: 'المستلم', signed: true }] }),
-    page(8, 'CERTIFICATE', {
-      documentDate: d.date,
-      orderNumber: full.orderNumber,
-      invoiceNumber: 'INV-FC2',
-      amounts: { total: null, gross: Number(cert.gross), fine: Number(cert.fine), net: Number(cert.net) },
-    }),
-    page(9, 'COVER', { documentDate: d.cover.date, amounts: { total: Number(cert.net), gross: null, fine: null, net: Number(cert.net) } }),
-  ];
-  let answer: any = { pages: good, rules: [] };
+  const crs = full.quotes.map((q: any) =>
+    page(0, 'CR', { supplierName: q.supplier.name, crNumber: '12345', validUntil: '2027-01-01', signatures: [] }),
+  );
+  const build = (over: Record<string, any> = {}, drop: string[] = []) =>
+    [
+      ...quotes,
+      ...crs,
+      page(0, 'QUOTE_REPORT', { documentDate: full.reportDate.slice(0, 10) }),
+      page(0, 'ORDER', {
+        documentDate: full.issueDate.slice(0, 10),
+        orderNumber: full.orderNumber,
+        amounts: { total: Number(full.total), gross: null, fine: null, net: null },
+        items: line(),
+        ...over.ORDER,
+      }),
+      page(0, 'DELIVERY_NOTE', {
+        documentDate: '2026-09-10',
+        orderNumber: full.orderNumber,
+        items: line(),
+        signatures: [],
+        ...over.DELIVERY_NOTE,
+      }),
+      page(0, 'RECEIPT', { documentDate: '2026-09-10', items: line(), signatures: [{ role: 'المستلم', signed: true }], ...over.RECEIPT }),
+      page(0, 'INVOICE', {
+        documentDate: '2026-09-09',
+        invoiceNumber: 'INV-FC2',
+        orderNumber: full.orderNumber,
+        amounts: { total: Number(full.total), gross: null, fine: null, net: null },
+        items: line(),
+        signatures: [],
+        ...over.INVOICE,
+      }),
+      page(0, 'IBAN', { iban: IBAN, signatures: [], ...over.IBAN }),
+      page(0, 'UNDERTAKING', { documentDate: '2026-08-30', signatures: [{ role: 'المورد', signed: true }], ...over.UNDERTAKING }),
+      page(0, 'CERTIFICATE', {
+        documentDate: d.date,
+        orderNumber: full.orderNumber,
+        invoiceNumber: 'INV-FC2',
+        amounts: { total: null, gross: Number(cert.gross), fine: Number(cert.fine), net: Number(cert.net) },
+        ...over.CERTIFICATE,
+      }),
+      page(0, 'COVER', {
+        documentDate: d.cover.date,
+        amounts: { total: Number(cert.net), gross: null, fine: null, net: Number(cert.net) },
+        ...over.COVER,
+      }),
+    ]
+      .filter((p) => !drop.includes(p.docType))
+      .map((p, i) => ({ ...p, page: i + 1 }));
+  let answer: any = { pages: build(), rules: [] };
   const seen: any[] = [];
   const ms = createServer(async (q, r) => {
     const chunks: Buffer[] = [];
@@ -2096,6 +2135,7 @@ test('FILE CHECK (AI): pages read blind by the service, then fixed rules: school
   await new Promise<void>((res) => ms.listen(0, '127.0.0.1', res));
   process.env.AI_API_BASE = `http://127.0.0.1:${(ms.address() as any).port}`;
   process.env.ANTHROPIC_API_KEY = 'sk-ant-test-key-for-the-mock-server-only';
+  const check = (body: any) => req(acc, 'file-check/' + school + '/' + full.id, 'POST', body);
   try {
     assert.equal((await req(acc, 'admin/file-check', 'POST', { ai: true, rules: [] })).status, 403);
     const set = await req(admin, 'admin/file-check', 'POST', {
@@ -2103,78 +2143,122 @@ test('FILE CHECK (AI): pages read blind by the service, then fixed rules: school
       rules: [{ text: 'الفاتورة إلكترونية وعليها رمز QR', level: 'ERROR' }],
     });
     assert.ok(set.status < 300, JSON.stringify(set.body));
+    assert.deepEqual(set.body.docs, ['QUOTE', 'CR', 'DELIVERY_NOTE', 'RECEIPT', 'INVOICE', 'IBAN', 'UNDERTAKING']);
     const ruleId = set.body.rules[0].id;
     answer.rules = [{ id: ruleId, met: 'yes', page: 6, evidence: 'QR' }];
 
-    const ok1 = await req(acc, 'file-check/' + school + '/' + full.id, 'POST', { files });
+    // A complete, consistent file.
+    const ok1 = await check({ files });
     assert.ok(ok1.status < 300, JSON.stringify(ok1.body));
     assert.equal(ok1.body.mode, 'AI');
     assert.equal(ok1.body.result, 'READY', JSON.stringify(ok1.body.findings));
-    // Blind reading: the request carries the file and the requirement, never the recorded values.
     const sent = JSON.stringify(seen.at(-1));
     assert.ok(sent.includes('"type":"document"') && sent.includes('رمز QR'));
-    assert.ok(!sent.includes(full.orderNumber) && !sent.includes('INV-FC2') && !sent.includes(full.school.name));
+    assert.ok(
+      !sent.includes(full.orderNumber) && !sent.includes('INV-FC2') && !sent.includes(full.school.name) && !sent.includes(IBAN),
+      'blind reading',
+    );
 
     // Every kind of defect on the paper.
     answer = {
-      pages: [
-        ...quotes,
-        page(4, 'QUOTE_REPORT', { documentDate: full.reportDate.slice(0, 10) }),
-        page(5, 'ORDER', {
+      pages: build({
+        ORDER: {
           schoolName: other,
-          documentDate: full.issueDate.slice(0, 10),
-          orderNumber: full.orderNumber,
           amounts: { total: Number(full.total) + 100, gross: null, fine: null, net: null },
-        }),
-        page(6, 'INVOICE', {
+          items: line({ qty: Number(item.qty) - 10 }),
+        },
+        INVOICE: {
           documentDate: '2026-08-20',
           invoiceNumber: 'INV-OTHER',
-          amounts: { total: Number(full.total), gross: null, fine: null, net: null },
-          signatures: [],
+          items: line({ unitPrice: Number(item.unitPrice) + 1 }),
           stamp: false,
-        }),
-        page(7, 'RECEIPT', { documentDate: '2026-09-10', signatures: [{ role: 'المستلم', signed: false }] }),
-        page(8, 'CERTIFICATE', {
+        },
+        RECEIPT: { signatures: [{ role: 'المستلم', signed: false }] },
+        IBAN: { iban: 'QA00QNBA000000000000000099999' },
+        UNDERTAKING: { stamp: false },
+        CERTIFICATE: {
           schoolName: full.school.name.slice(0, 6) + 'ب' + full.school.name.slice(6),
           documentDate: '2026-09-11',
-          orderNumber: full.orderNumber,
           amounts: { total: null, gross: Number(cert.gross), fine: 0, net: Number(cert.net) - 50 },
-        }),
-        page(9, 'COVER', { documentDate: '2026-09-09', amounts: { total: null, gross: null, fine: null, net: Number(cert.net) } }),
-        page(10, 'OTHER', { remarks: 'صفحة إضافية', legible: 'low' }),
-      ],
+        },
+        COVER: { documentDate: '2026-09-09' },
+      }).map((p: any) => (p.docType === 'CR' && p.supplierName === full.quotes[1].supplier.name ? { ...p, validUntil: '2026-01-01' } : p)),
       rules: [{ id: ruleId, met: 'no', page: 6, evidence: 'لا يوجد رمز QR' }],
     };
-    const bad = await req(acc, 'file-check/' + school + '/' + full.id, 'POST', { files });
+    answer.pages.push({ ...answer.pages[0], page: answer.pages.length + 1, docType: 'OTHER', remarks: 'صفحة إضافية', legible: 'low' });
+    const bad = await check({ files });
     assert.ok(bad.status < 300, JSON.stringify(bad.body));
     const f = bad.body.findings as any[];
     const has = (level: string, area: string, part: string) => f.some((x) => x.level === level && x.area === area && x.text.includes(part));
     assert.equal(bad.body.result, 'FIX');
     assert.ok(has('ERROR', 'SCHOOL', other), 'another school on the order');
     assert.ok(
-      f.some((x) => x.area === 'SCHOOL' && x.page === 8),
+      f.some((x) => x.area === 'SCHOOL' && x.text.includes('شهادة إنجاز')),
       'school spelt differently on the certificate',
     );
     assert.ok(has('ERROR', 'AMOUNT', 'كتاب التكليف'), 'order value differs');
+    assert.ok(has('ERROR', 'ITEMS', 'كمية'), 'item quantity differs');
+    assert.ok(has('ERROR', 'ITEMS', 'أعلى من سعر التكليف'), 'invoice price above the order');
     assert.ok(has('ERROR', 'REF', 'INV-OTHER'), 'invoice not recorded');
     assert.ok(has('ERROR', 'DATE', 'الفاتورة قبل كتاب التكليف'), 'invoice before the order');
     assert.ok(has('ERROR', 'DATE', 'شهادة الإنجاز بعد كتاب التغطية'), 'cover before certificate');
-    assert.ok(has('ERROR', 'DATE', 'شهادة الإنجاز'), 'certificate date differs from the record');
     assert.ok(has('ERROR', 'SIGN', 'المستلم'), 'receipt not signed');
-    assert.ok(has('ERROR', 'SIGN', 'ختم أو توقيع المورد'), 'invoice without supplier stamp');
+    assert.ok(has('ERROR', 'SIGN', 'بلا ختم المورد'), 'undertaking without the supplier stamp');
+    assert.ok(has('ERROR', 'BANK', 'QA00QNBA'), 'IBAN differs');
+    assert.ok(has('ERROR', 'CR', 'منتهٍ'), 'expired commercial registration');
     assert.ok(has('ERROR', 'AMOUNT', 'الصافي'), 'net differs');
     assert.ok(has('ERROR', 'RULE', 'رمز QR'), 'administration requirement');
     assert.ok(has('WARN', 'READ', 'غير واضحة'), 'unreadable page');
-    // Missing documents.
+
+    // Missing documents: the supplier's delivery note, the undertaking, the covering letter, one registration.
     answer = {
-      pages: good.filter((p) => !['RECEIPT', 'COVER'].includes(p.docType)),
+      pages: build({}, ['DELIVERY_NOTE', 'UNDERTAKING', 'COVER']).filter(
+        (p: any) => !(p.docType === 'CR' && p.supplierName === full.quotes[2].supplier.name),
+      ),
       rules: [{ id: ruleId, met: 'unknown', page: null, evidence: null }],
     };
-    const missing = (await req(acc, 'file-check/' + school + '/' + full.id, 'POST', { files })).body.findings as any[];
-    assert.ok(missing.some((x) => x.area === 'COMPLETE' && x.text.includes('سند استلام')));
-    assert.ok(missing.some((x) => x.area === 'COMPLETE' && x.text.includes('كتاب التغطية')));
+    const missing = (await check({ files })).body.findings as any[];
+    for (const part of ['إذن التسليم من المورد', 'تعهد', 'كتاب التغطية'])
+      assert.ok(
+        missing.some((x) => x.area === 'COMPLETE' && x.text.includes(part)),
+        part,
+      );
+    assert.ok(
+      missing.some((x) => x.area === 'CR' && x.text.includes(full.quotes[2].supplier.name)),
+      'registration of every company',
+    );
     assert.ok(missing.some((x) => x.level === 'WARN' && x.area === 'RULE'));
-    await req(admin, 'admin/file-check', 'POST', { ai: false, rules: [] });
+
+    // Without any credit: the accountant's own Claude / ChatGPT with the prompt from the system, reply pasted back.
+    const prompts = (await req(acc, route('file-check-prompt/' + full.id))).body;
+    assert.ok(prompts.reading.includes('"docType"') && prompts.reading.includes('UNDERTAKING') && prompts.reading.includes(ruleId));
+    assert.ok(
+      !prompts.reading.includes(full.orderNumber) && !prompts.reading.includes(full.school.name),
+      'the reading prompt carries no recorded values',
+    );
+    assert.ok(
+      prompts.review.includes(full.school.name) &&
+        prompts.review.includes(full.orderNumber) &&
+        prompts.review.includes(item.name) &&
+        prompts.review.includes(IBAN),
+    );
+    assert.ok(prompts.required.some((r: any) => r.type === 'UNDERTAKING'));
+    const reply =
+      'هذه النتيجة:\n```json\n' +
+      JSON.stringify({ pages: build(), rules: [{ id: ruleId, met: 'yes', page: 6, evidence: 'QR' }] }) +
+      '\n```';
+    const ext = await check({ pasted: reply });
+    assert.ok(ext.status < 300, JSON.stringify(ext.body));
+    assert.equal(ext.body.mode, 'EXTERNAL');
+    assert.equal(ext.body.result, 'READY', JSON.stringify(ext.body.findings));
+    assert.ok((await req(acc, route('file-checks/' + ext.body.id))).body.html.includes('Claude / ChatGPT'));
+    assert.equal((await check({ pasted: 'لا توجد نتيجة' })).status, 400);
+    assert.equal((await check({ pasted: '{"pages": [{"page": 1, "docType": "SOMETHING"}]}' })).status, 400);
+    // The administrator may stop the external route.
+    await req(admin, 'admin/file-check', 'POST', { ai: false, prompt: false, rules: [] });
+    assert.equal((await req(acc, route('file-check-prompt/' + full.id))).status, 400);
+    assert.equal((await check({ pasted: reply })).status, 400);
+    await req(admin, 'admin/file-check', 'POST', { ai: false, prompt: true, rules: [] });
   } finally {
     delete process.env.AI_API_BASE;
     delete process.env.ANTHROPIC_API_KEY;

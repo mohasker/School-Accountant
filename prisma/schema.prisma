@@ -45,6 +45,9 @@ model Tenant {
   /// Paper-file check: whether pages may be read by the AI service, and the administration's requirements.
   checkAi     Boolean         @default(false)
   checkRules  Json            @default("[]")
+  /// Documents always required at payment, and whether accountants may use their own Claude / ChatGPT for the reading.
+  checkDocs   Json            @default("[\"QUOTE\", \"CR\", \"DELIVERY_NOTE\", \"RECEIPT\", \"INVOICE\", \"IBAN\", \"UNDERTAKING\"]")
+  checkPrompt Boolean         @default(true)
   cards       SupplierCard[]
   legacy      LegacyCertificate[]
 }

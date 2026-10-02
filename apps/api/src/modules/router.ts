@@ -12,7 +12,7 @@ import { readAudit, readReportRuns, readTransactionsReport } from './reports';
 import { readSetup, writeSchool, writeUser, writeYear } from './school';
 import { addStandard, importSuppliers, writeSupplier } from './suppliers';
 import { supplierFromBank } from './bank';
-import { readFileChecks } from './file-check';
+import { readCheckPrompt, readFileChecks } from './file-check';
 
 /** GET schools/:school/:resource[/:id[/:action]] */
 const READERS: Record<string, Reader> = {
@@ -29,6 +29,7 @@ const READERS: Record<string, Reader> = {
   'direct-expenses': readDirectExpenses,
   'erp-recon': readErpRecon,
   'file-checks': readFileChecks,
+  'file-check-prompt': readCheckPrompt,
   'report-runs': readReportRuns,
   audit: readAudit,
 };

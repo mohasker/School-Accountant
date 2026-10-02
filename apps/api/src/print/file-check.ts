@@ -23,7 +23,7 @@ export type FileCheckReport = {
   checklist: string[];
   result: keyof typeof RESULT;
   counts: { errors: number; warnings: number; notes: number };
-  mode: 'AI' | 'TEXT';
+  mode: 'AI' | 'TEXT' | 'EXTERNAL';
   source: 'WEB' | 'TELEGRAM';
   files: { name: string; pages: number }[];
   pages: number;
@@ -64,12 +64,12 @@ ol,ul{margin:0 6mm 0 0;padding:0;font-size:9.5pt;line-height:1.45}
 <tr><th>المدرسة</th><td>${esc(r.x.school)}</td><th>رقم المعاملة</th><td>${num(r.x.caseNumber)}</td></tr>
 <tr><th>المورد</th><td>${esc(r.supplier || '—')}</td><th>رقم التكليف</th><td>${num(r.x.order?.number || '—')}</td></tr>
 <tr><th>قيمة التكليف</th><td>${num(r.total)} ر.ق</td><th>الملف</th><td>${num(r.pages)} صفحة — ${esc(r.files.map((f) => f.name).join('، ')).slice(0, 120)}</td></tr>
-<tr><th>طريقة القراءة</th><td>${r.mode === 'AI' ? 'قراءة آلية لكل صفحة (صور و PDF)' : 'نص ملفات PDF فقط (بدون قراءة آلية)'}</td><th>المصدر</th><td>${r.source === 'TELEGRAM' ? 'بوت تليجرام' : 'شاشة النظام'}</td></tr>
+<tr><th>طريقة القراءة</th><td>${r.mode === 'AI' ? 'قراءة آلية لكل صفحة (صور و PDF)' : r.mode === 'EXTERNAL' ? 'قراءة Claude / ChatGPT خارج النظام (رد ملصق)' : 'نص ملفات PDF فقط (بدون قراءة آلية)'}</td><th>المصدر</th><td>${r.source === 'TELEGRAM' ? 'بوت تليجرام' : 'شاشة النظام'}</td></tr>
 </table>
 <div class="fc-result ${res.cls}"><span>النتيجة: ${res.text}</span><span>أخطاء ${num(r.counts.errors)} — تنبيهات ${num(r.counts.warnings)} — ملاحظات ${num(r.counts.notes)}</span></div>
 ${sections || '<p>لم تُرصد أي ملاحظة على الملف.</p>'}
 ${hidden > 0 ? `<p class="fc-foot">و ${num(hidden)} بنداً آخر محفوظة في النظام (صفحة المعاملة ← فحص الملف).</p>` : ''}
 ${r.checklist.length ? `<h3>مراجعة يدوية قبل الإرسال</h3><ul class="fc-check">${r.checklist.map((c) => `<li>${esc(c)}</li>`).join('')}</ul>` : ''}
-<p class="fc-foot">${r.mode === 'AI' ? 'القيم مستخرجة آلياً من الصور ثم قورنت بقواعد ثابتة مع بيانات النظام؛ راجع أي رقم مذكور هنا على الورقة الأصلية قبل التصحيح. ' : ''}فحص: ${esc(r.by)} — ${dateHtml(r.at)} ${num(r.at.toISOString().slice(11, 16))} — قيمة الصافي المسجل: ${num(showAmount(r.x.certificates.at(-1)?.net ?? null))} ر.ق</p>`;
+<p class="fc-foot">${r.mode !== 'TEXT' ? 'القيم مستخرجة آلياً من الصور ثم قورنت بقواعد ثابتة مع بيانات النظام؛ راجع أي رقم مذكور هنا على الورقة الأصلية قبل التصحيح. ' : ''}فحص: ${esc(r.by)} — ${dateHtml(r.at)} ${num(r.at.toISOString().slice(11, 16))} — قيمة الصافي المسجل: ${num(showAmount(r.x.certificates.at(-1)?.net ?? null))} ر.ق</p>`;
   return printDocument({ title: 'تقرير فحص المعاملة', ref: r.x.caseNumber, body, date: r.at, compact: true, showRef: false });
 }
