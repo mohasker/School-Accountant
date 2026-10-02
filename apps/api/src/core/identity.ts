@@ -1,0 +1,187 @@
+import { ForbiddenException, UnauthorizedException, HttpException } from '@nestjs/common';
+import { randomBytes, timingSafeEqual } from 'node:crypto';
+import * as argon2 from 'argon2';
+import type { Request, Response } from 'express';
+import { db } from '../common/db';
+import { hash } from '../common/crypto';
+
+export const ROLES = ['ACCOUNTANT', 'REVIEWER', 'APPROVER', 'ERP', 'AUDITOR', 'ADMIN'] as const;
+/**
+ * The accountant prepares and issues the whole file (quote report, assignment, completion certificate,
+ * covering letter) and runs the imprests, so every working role may do every step in its schools.
+ * AUDITOR alone is read-only.
+ */
+export const WORK = ['ACCOUNTANT', 'REVIEWER', 'APPROVER', 'ERP', 'ADMIN'];
+export const ACCOUNT = WORK,
+  REVIEW = WORK,
+  APPROVE = WORK,
+  ERP = WORK;
+
+const SESSION_HOURS = 8,
+  IDLE_MINUTES = 30,
+  COOKIE = 'sa_session';
+
+export const passwordHash = (p: string) => argon2.hash(p, { type: argon2.argon2id, memoryCost: 65536, timeCost: 3, parallelism: 1 });
+
+/**
+ * In-memory login throttling per 10 minutes (single-instance deployment): 10 attempts per account,
+ * 30 per network address — several accountants of one school usually share one address.
+ */
+const buckets = new Map<string, { n: number; start: number }>();
+const WINDOW = 600000;
+function bucket(key: string) {
+  const now = Date.now();
+  let b = buckets.get(key);
+  if (!b || now - b.start > WINDOW) {
+    b = { n: 0, start: now };
+    buckets.set(key, b);
+  }
+  if (buckets.size > 10000) for (const [k, v] of buckets) if (now - v.start > WINDOW) buckets.delete(k);
+  return b;
+}
+/** Refuses while the key has reached its limit of failures in the window. */
+export function throttle(key: string, limit = 10) {
+  if (bucket(key).n >= limit) throw new HttpException('محاولات كثيرة؛ حاول بعد عشر دقائق', 429);
+}
+/** Only failed attempts count, so working accountants are never locked out by their own sign-ins. */
+export function recordFailure(key: string) {
+  bucket(key).n++;
+}
+/** The address the browser came from: through the Next proxy it is in X-Forwarded-For (set by Next on the same machine). */
+export function clientAddress(req: Request) {
+  // The forwarded address is believed only behind the trusted proxy chain (TRUST_PROXY); otherwise the socket address.
+  const forwarded = process.env.TRUST_PROXY
+    ? String(req.headers['x-forwarded-for'] ?? '')
+        .split(',')[0]
+        .trim()
+    : '';
+  return (forwarded || req.ip || req.socket?.remoteAddress || 'unknown').slice(0, 64);
+}
+
+/** With a temporary password only these may be called; everything else waits for the user's own password. */
+const BEFORE_PASSWORD = new Set(['/api/auth/me', '/api/auth/password', '/api/auth/logout']);
+
+let dummy: Promise<string>;
+export async function login(
+  username: string,
+  password: string,
+  req: Request,
+  res: Response,
+  location?: { lat: number; lng: number; accuracy?: number },
+) {
+  const address = clientAddress(req);
+  const keys = ['ip:' + address, 'u:' + hash(username.trim().toLowerCase())];
+  throttle(keys[0], 30);
+  throttle(keys[1]);
+  // «Admin» and «admin» are the same account at sign-in.
+  const user =
+    (await db.user.findUnique({ where: { username } })) ??
+    (await db.user.findFirst({ where: { username: { equals: username.trim(), mode: 'insensitive' } } }));
+  dummy ??= passwordHash(randomBytes(30).toString('hex'));
+  const valid = await argon2.verify(user?.passwordHash ?? (await dummy), password).catch(() => false);
+  if (!valid || !user?.active) {
+    for (const k of keys) recordFailure(k);
+    throw new UnauthorizedException('بيانات الدخول غير صحيحة');
+  }
+  await db.user.update({ where: { id: user.id }, data: { lastLoginAt: new Date() } });
+  // Sign-in record for the administrator: address, browser and the device location when the user allowed it.
+  await db.loginLog.create({
+    data: {
+      userId: user.id,
+      ip: address,
+      userAgent: String(req.headers['user-agent'] ?? '').slice(0, 300),
+      lat: location?.lat,
+      lng: location?.lng,
+      accuracy: location?.accuracy,
+    },
+  });
+  const token = randomBytes(32).toString('hex'),
+    csrf = randomBytes(32).toString('hex');
+  await db.session.create({
+    data: { tokenHash: hash(token), userId: user.id, csrf, expiresAt: new Date(Date.now() + SESSION_HOURS * 3600000) },
+  });
+  res.cookie(COOKIE, token, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'strict',
+    maxAge: SESSION_HOURS * 3600000,
+    path: '/',
+  });
+  return { csrf, user: { id: user.id, name: user.name } };
+}
+
+export function clearSessionCookie(res: Response) {
+  res.clearCookie(COOKIE, { path: '/' });
+}
+
+export async function authenticate(req: Request) {
+  const token = req.cookies?.[COOKIE];
+  if (!token) throw new UnauthorizedException('سجّل الدخول');
+  const session = await db.session.findUnique({
+    where: { tokenHash: hash(token) },
+    include: { user: { include: { memberships: { include: { school: true } } } } },
+  });
+  const now = Date.now();
+  if (!session || !session.user.active || session.expiresAt.getTime() < now || now - session.lastSeen.getTime() > IDLE_MINUTES * 60000) {
+    if (session) await db.session.deleteMany({ where: { tokenHash: session.tokenHash } });
+    throw new UnauthorizedException('انتهت الجلسة');
+  }
+  if (!['GET', 'HEAD', 'OPTIONS'].includes(req.method)) {
+    const csrf = String(req.headers['x-csrf-token'] ?? '');
+    if (csrf.length !== session.csrf.length || !timingSafeEqual(Buffer.from(csrf), Buffer.from(session.csrf)))
+      throw new ForbiddenException('رمز حماية الطلب غير صالح');
+  }
+  if (now - session.lastSeen.getTime() > 60000)
+    await db.session.update({ where: { tokenHash: session.tokenHash }, data: { lastSeen: new Date() } });
+  if (session.user.mustChangePassword && !BEFORE_PASSWORD.has(req.path))
+    throw new ForbiddenException('اختر كلمة مرور خاصة بك أولاً من شاشة الدخول');
+  if (session.user.isTenantAdmin) await withAllSchools(session);
+  return session;
+}
+
+export type Identity = Awaited<ReturnType<typeof authenticate>>;
+
+/** The identity of an active user outside a browser session (the Telegram bot acts for the linked account). */
+export async function identityForUser(userId: string): Promise<Identity | null> {
+  const user = await db.user.findUnique({ where: { id: userId }, include: { memberships: { include: { school: true } } } });
+  if (!user || !user.active || user.mustChangePassword) return null;
+  if (user.isTenantAdmin) await withAllSchools({ user });
+  const now = new Date();
+  return { tokenHash: '', userId: user.id, csrf: '', createdAt: now, lastSeen: now, expiresAt: now, user } as Identity;
+}
+
+/** The system administrator has full rights in every school of the tenant. */
+const ADMIN_ROLES = ['ACCOUNTANT', 'ADMIN', 'AUDITOR'];
+async function withAllSchools(session: { user: { tenantId: string; id: string; memberships: any[] } }) {
+  const schools = await db.school.findMany({ where: { tenantId: session.user.tenantId } });
+  for (const school of schools) {
+    const m = session.user.memberships.find((x) => x.schoolId === school.id);
+    if (m) m.roles = [...new Set([...m.roles, ...ADMIN_ROLES])];
+    else
+      session.user.memberships.push({
+        id: 'tenant-admin:' + school.id,
+        tenantId: school.tenantId,
+        userId: session.user.id,
+        schoolId: school.id,
+        roles: [...ADMIN_ROLES],
+        school,
+      });
+  }
+}
+export type Membership = Identity['user']['memberships'][number];
+
+/** Membership of the user in an active school of their tenant, optionally requiring one of `roles`. */
+export function scope(s: Identity, schoolId: string, roles: string[] = []): Membership {
+  const m = s.user.memberships.find((m) => m.schoolId === schoolId && m.school.active);
+  if (!m || m.school.tenantId !== s.user.tenantId || (roles.length && !roles.some((r) => m.roles.includes(r))))
+    throw new ForbiddenException('غير مصرح بهذا الإجراء في المدرسة');
+  return m;
+}
+
+/** Financial policy, the budget catalog, user accounts and data purges belong to the system administrator. */
+export function requireTenantAdmin(s: Identity) {
+  if (!s.user.isTenantAdmin) throw new ForbiddenException('هذا الإجراء لمسؤول النظام فقط');
+}
+
+export const schoolIds = (s: Identity) =>
+  s.user.memberships.filter((m) => m.school.active && m.school.tenantId === s.user.tenantId).map((m) => m.schoolId);

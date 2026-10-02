@@ -1,0 +1,19 @@
+{
+  "name": "مدار V0 — تجربة سريعة",
+  "image": "mcr.microsoft.com/devcontainers/base:bookworm",
+  "features": {
+    "ghcr.io/devcontainers/features/node:1": { "version": "24" }
+  },
+  "hostRequirements": { "cpus": 2, "memory": "4gb" },
+  "forwardPorts": [3000],
+  "portsAttributes": {
+    "3000": { "label": "مدار", "onAutoForward": "openBrowser" },
+    "3001": { "onAutoForward": "ignore" },
+    "55432": { "onAutoForward": "ignore" }
+  },
+  "secrets": {
+    "DEMO_PASSWORD": { "description": "كلمة مرور حسابات التجربة (12 حرفاً على الأقل)" }
+  },
+  "postCreateCommand": "bash .devcontainer/setup.sh",
+  "postStartCommand": "bash .devcontainer/start.sh"
+}

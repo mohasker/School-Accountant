@@ -1,32 +1,67 @@
-npm warn Unknown env config "http-proxy". This will stop working in the next major version of npm.
+npm test — 2026-10-02 (2026-10-02.1) — 65 passed, 0 failed
 
-> school-accounting@0.2.0 test
-> node --import tsx --test --test-concurrency=1 tests/*.test.ts
-
-✔ PEN: exact partial delivery and single cumulative cap (2971.443161ms)
-✔ AUTH: school isolation on list, search, dashboard and mutation (45.251366ms)
-✔ AUTH: CSRF rejected and logout revokes copied session (94.174849ms)
-✔ SUPPLIER: create/update conflict/delete/atomic duplicate import (115.61401ms)
-(node:239) DeprecationWarning: Calling client.query() when the client is already executing a query is deprecated and will be removed in pg@9.0. Use async/await or an external async flow control mechanism instead.
-(Use `node --trace-deprecation ...` to show where the warning was created)
-✔ WORKFLOW: create compare lowest, forbid self approval and reserve budget (358.90581ms)
-✔ WORKFLOW: cross-school case and attachment inaccessible (5.971619ms)
-✔ DELIVERY: idempotent partial acceptance, reject oversupply, rollback (92.96378ms)
-✔ DOCS: certificate blocked until verified; forged file rejected (651.611326ms)
-✔ FINANCE: partial certificate consumes only accepted quantity once (96.264158ms)
-✔ FINANCE: late remainder fine 200, final certificate, covering letter, completeness, ERP no double posting (396.781535ms)
-✔ ARCHIVE: old certificate stays unchanged after supplier rename (48.275419ms)
-✔ MINISTRY: independent direct order with no fabricated quote (184.579178ms)
-✔ BUDGET: competing orders cannot overcommit and cancellation releases residual (464.225146ms)
-✔ IMPREST: expense once, settlement no new expense, actual replenishment and close (169.288854ms)
-✔ REPORTS: headers include school accountant period and isolation (31.651578ms)
-✔ DATABASE: audit history immutable; invalid budget fails constraint (24.721369ms)
-✔ CLOSED YEAR: disallows new financial writes (14.835742ms)
-ℹ tests 17
-ℹ suites 0
-ℹ pass 17
-ℹ fail 0
-ℹ cancelled 0
-ℹ skipped 0
-ℹ todo 0
-ℹ duration_ms 6331.437149
+ok 1 - PEN: exact partial delivery and single cumulative cap
+ok 2 - AUTH: school isolation on list, search, dashboard and mutation
+ok 3 - AUTH: CSRF rejected and logout revokes copied session
+ok 4 - SUPPLIER: create/update conflict/delete/atomic duplicate import
+ok 5 - WORKFLOW: quote report awards the lowest, the accountant issues the assignment and reserves budget
+ok 6 - WORKFLOW: cross-school case and attachment inaccessible
+ok 7 - DELIVERY: idempotent partial acceptance, reject oversupply, rollback
+ok 8 - DOCS: attachments are optional; forged file rejected
+ok 9 - FINANCE: partial certificate consumes only accepted quantity once
+ok 10 - FINANCE: late remainder fine 200, final certificate, covering letter, completeness, ERP no double posting
+ok 11 - ARCHIVE: old certificate stays unchanged after supplier rename
+ok 12 - MINISTRY: independent direct order with no fabricated quote
+ok 13 - BUDGET: competing orders cannot overcommit and cancellation releases residual
+ok 14 - IMPREST: 75% replenishment rule, petty invoice limit, settlement documents, replenishment and close
+ok 15 - IMPREST: book fair imprest is settled and closed, never replenished
+ok 16 - REPORTS: headers include school accountant period and isolation
+ok 17 - DATABASE: audit history immutable; invalid budget fails constraint
+ok 18 - CLOSED YEAR: disallows new financial writes
+ok 19 - TAFQEET: Qatari riyal amount in words
+ok 20 - PRINT: official templates carry the logo, order number, working-day terms and amount in words
+ok 21 - PROCUREMENT: one quote up to 1000, three above it unless exclusive, tender above 200000
+ok 22 - HOLIDAYS: every user maintains the official holidays
+ok 23 - POLICY: threshold changes are dated history and apply to new evaluations
+ok 24 - REGISTRY: certificate register across own schools only, with Excel export
+ok 25 - BUDGET: catalog lines, school/kindergarten split, assumptions and estimate print
+ok 26 - DASHBOARD: late orders and replenishment alerts
+ok 27 - LIBRARY: expense account 510201 with books on asset account 110805
+ok 28 - ADMIN: system administrator sees every school, account overview and per-account report
+ok 29 - ADMIN: password reset, deactivation, role removal
+ok 30 - PDF: server-side export of a stored document
+ok 31 - FLOW: four documents — quote report (lowest wins), assignment, certificate and covering letter in one step
+ok 32 - PERMISSIONS: accountants add schools and fiscal years; policy and purge are for the administrator
+ok 33 - PURGE: the administrator deletes a file or an imprest and the budget balances are restored
+ok 34 - QUOTES: the quote report takes only company and value; item values are set for the awarded company
+ok 35 - REGISTERS: quote reports and assignment letters by school, accountant, company and period, with print and Excel
+ok 36 - SETTLEMENT: all invoices entered once on the settlement screen (Arabic digits accepted by the client)
+ok 37 - FINANCIAL REPORT: figures and charts by group and line, with Excel; home shows incomplete files
+ok 38 - NUMBERS: hand-typed amounts in Arabic or English digits are cleaned for entry
+ok 39 - REFERENCES: assignment letters numbered SCHOOL/YEAR/NNN; certificates carry no reference box
+ok 40 - ARCHIVE: every accountant adds and downloads shared documents; only the administrator removes
+ok 41 - NOTES: shared board is read by everyone and written by the administrator only
+ok 42 - LOGINS: sign-ins are recorded with the shared location and shown to the administrator only
+ok 43 - ERP CODE: the school keeps its ERP code for the accountant
+ok 44 - DIRECT EXPENSES: post to the line at once; Excel template imports all rows or nothing; administrator deletes with reversal
+ok 45 - REPEAT SUPPLIERS: companies bought from more than twice in the calendar year appear on the home screen
+ok 46 - AI: status and a clear message when no key is configured; only the administrator sets the key
+ok 47 - ONEDRIVE: archive files go to the linked OneDrive; secrets stay encrypted; falls back to the database when unlinked
+ok 48 - ACCOUNTS: a new accountant starts with no schools, adds their own, and the administrator sees everything
+ok 49 - ACCOUNTANTS REPORT: totals per accountant for a period, printable and as Excel
+ok 50 - SUPPLIERS: a new school starts with the suppliers of the approved sheets, editable; missing ones are added on request
+ok 51 - LOGIN: user names are not case sensitive
+ok 52 - WELCOME: after signing in, pending work of every school with the next step
+ok 53 - ERP RECON: the monthly ERP report (PDF) is read by budget code, compared, settled or exported
+ok 54 - OVERVIEW: all schools of an accountant with budget position and warnings; the administrator picks any accountant
+ok 55 - EMAIL: weekly reminder settings are the administrator's; each account keeps its own address; the test message lists pending files
+ok 56 - HELP: video links are set by the administrator and read by everyone
+ok 57 - HARDENING: forged archive metadata, auditor edits, sign-in throttle, video links and the first-password rule
+ok 58 - SERVER GATES: temporary password blocks the API, uploads must match their type, forwarded addresses are not trusted, maintenance jobs
+ok 59 - ADDRESSEES: the administrator keeps the list; a certificate and its covering letter go to the chosen department
+ok 60 - SUPPLIER BANK: one card per company with full contact data, shared by the schools, with the history of earlier certificates
+ok 61 - LEGACY CERTIFICATES: the certificates issued before the system are a searchable reference register with totals and Excel
+ok 62 - TELEGRAM: the administrator sets the bot; an accountant links the phone with a code and issues an assignment letter from the chat
+ok 63 - FILE CHECK (text): the printed file is compared with the case; a wrong reference is an error; one-page report; school isolation
+ok 64 - FILE CHECK (AI / Claude / ChatGPT): pages read blind, then fixed rules on names, dates, references, items, amounts, registrations, IBAN, undertaking, signatures, requirements
+ok 65 - FILE CHECK (Telegram): «فحص» then files then «تم» runs the same check and sends the report

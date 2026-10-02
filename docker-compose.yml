@@ -29,6 +29,8 @@ services:
       NODE_ENV: ${NODE_ENV:-development}
       DEMO_MODE: ${DEMO_MODE:-true}
       DEMO_PASSWORD: ${DEMO_PASSWORD:-}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      SECRETS_KEY: ${SECRETS_KEY:-}
     command: npm run start:api
     depends_on:
       migrate:

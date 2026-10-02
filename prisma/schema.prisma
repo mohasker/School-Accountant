@@ -9,22 +9,69 @@ datasource db {
 }
 
 model Tenant {
-  id      String   @id @default(uuid()) @db.Uuid
-  name    String
-  schools School[]
-  users   User[]
+  id          String          @id @default(uuid()) @db.Uuid
+  name        String
+  schools     School[]
+  users       User[]
+  holidays    Holiday[]
+  policies    PolicySetting[]
+  catalog     BudgetCatalog[]
+  archives    Archive[]
+  notes       Note[]
+  aiKey       String          @default("")
+  odClientId  String          @default("")
+  odSecret    String          @default("")
+  odAuthority String          @default("common")
+  odRefresh   String          @default("")
+  odAccount   String          @default("")
+  odFolder    String          @default("MOESAS-Archive")
+  smtpHost    String          @default("")
+  smtpPort    Int             @default(587)
+  smtpUser    String          @default("")
+  smtpPass    String          @default("")
+  smtpFrom    String          @default("")
+  digestOn    Boolean         @default(false)
+  digestDay   Int             @default(0)
+  digestHour  Int             @default(7)
+  lastDigest  String          @default("")
+  helpVideos  Json            @default("{}")
+  /// Departments a completion certificate and its covering letter may be addressed to (the administrator extends the list).
+  addressees  Json            @default("[\"إدارة الشؤون المالية\", \"إدارة الخدمات العامة\", \"إدارة المشتريات والمناقصات\"]")
+  tgToken     String          @default("")
+  tgOn        Boolean         @default(false)
+  /// Issuing from the bot may be switched off, or limited to files up to this value (0 = no limit).
+  tgIssue     Boolean         @default(true)
+  tgLimit     Decimal         @default(0) @db.Decimal(18, 2)
+  /// Paper-file check: whether pages may be read by the AI service, and the administration's requirements.
+  checkAi     Boolean         @default(false)
+  checkRules  Json            @default("[]")
+  /// Documents always required at payment, and whether accountants may use their own Claude / ChatGPT for the reading.
+  checkDocs   Json            @default("[\"QUOTE\", \"CR\", \"DELIVERY_NOTE\", \"RECEIPT\", \"INVOICE\", \"IBAN\", \"UNDERTAKING\"]")
+  checkPrompt Boolean         @default(true)
+  cards       SupplierCard[]
+  legacy      LegacyCertificate[]
 }
 
 model User {
-  id           String       @id @default(uuid()) @db.Uuid
-  tenantId     String       @db.Uuid
-  tenant       Tenant       @relation(fields: [tenantId], references: [id])
-  username     String       @unique
-  name         String
-  passwordHash String
-  active       Boolean      @default(true)
-  memberships  Membership[]
-  sessions     Session[]
+  id            String       @id @default(uuid()) @db.Uuid
+  tenantId      String       @db.Uuid
+  tenant        Tenant       @relation(fields: [tenantId], references: [id])
+  username      String       @unique
+  name          String
+  passwordHash  String
+  active        Boolean      @default(true)
+  memberships   Membership[]
+  sessions      Session[]
+  isTenantAdmin Boolean      @default(false)
+  lastLoginAt   DateTime?
+  logins        LoginLog[]
+  email         String       @default("")
+  /// Set for accounts created with a known initial password; cleared when the user chooses their own.
+  mustChangePassword Boolean  @default(false)
+  /// Telegram: the chat linked to this account and the one-time code used to link it.
+  tgChatId      String       @default("")
+  tgCode        String       @default("")
+  tgCodeExp     DateTime?
 
   @@unique([id, tenantId])
 }
@@ -44,9 +91,19 @@ model School {
   years              FiscalYear[]
   suppliers          Supplier[]
   cases              Case[]
+  orderPrefix        String       @default("")
+  purchasingOfficer  String       @default("")
+  erpCode            String       @default("")
+  plans              BudgetPlan[]
+  /// The account that added the school; its data is entered by that accountant and seen by the administrator.
+  createdBy          String?      @db.Uuid
+  lat                Float?
+  lng                Float?
+  createdAt          DateTime     @default(now())
 
   @@unique([id, tenantId])
   @@unique([tenantId, code])
+  @@index([createdBy])
 }
 
 model Membership {
@@ -72,16 +129,18 @@ model Session {
 }
 
 model FiscalYear {
-  id        String    @id @default(uuid()) @db.Uuid
-  schoolId  String    @db.Uuid
-  school    School    @relation(fields: [schoolId], references: [id])
+  id        String          @id @default(uuid()) @db.Uuid
+  schoolId  String          @db.Uuid
+  school    School          @relation(fields: [schoolId], references: [id])
   label     String
-  startDate DateTime  @db.Date
-  endDate   DateTime  @db.Date
-  closed    Boolean   @default(false)
+  startDate DateTime        @db.Date
+  endDate   DateTime        @db.Date
+  closed    Boolean         @default(false)
   cases     Case[]
   budgets   Budget[]
   imprests  Imprest[]
+  plans     BudgetPlan[]
+  direct    DirectExpense[]
 
   @@unique([id, schoolId])
   @@unique([schoolId, label])
@@ -92,7 +151,7 @@ model Supplier {
   schoolId String  @db.Uuid
   school   School  @relation(fields: [schoolId], references: [id])
   name     String
-  cr       String
+  cr       String?
   iban     String  @default("")
   phone    String  @default("")
   email    String  @default("")
@@ -100,24 +159,90 @@ model Supplier {
   version  Int     @default(1)
   quotes   Quote[]
   cases    Case[]
+  cardId   String? @db.Uuid
+  card     SupplierCard? @relation(fields: [cardId], references: [id])
 
   @@unique([schoolId, cr])
   @@unique([id, schoolId])
 }
 
-model Budget {
+/// The supplier bank: one card per company across all schools, with the full contact and bank data.
+model SupplierCard {
   id        String     @id @default(uuid()) @db.Uuid
-  schoolId  String     @db.Uuid
-  yearId    String     @db.Uuid
-  year      FiscalYear @relation(fields: [yearId, schoolId], references: [id, schoolId])
-  code      String
+  tenantId  String     @db.Uuid
+  tenant    Tenant     @relation(fields: [tenantId], references: [id])
   name      String
-  approved  Decimal    @db.Decimal(18, 2)
-  committed Decimal    @default(0) @db.Decimal(18, 2)
-  spent     Decimal    @default(0) @db.Decimal(18, 2)
-  entries   Ledger[]
-  items     Item[]
-  expenses  Expense[]
+  legalName String     @default("")
+  cr        String     @default("")
+  iban      String     @default("")
+  bank      String     @default("")
+  phone     String     @default("")
+  mobile    String     @default("")
+  email     String     @default("")
+  contact   String     @default("")
+  address   String     @default("")
+  category  String     @default("")
+  note      String     @default("")
+  nameEn    String     @default("")
+  crExpiry  DateTime?  @db.Date
+  accountsEmail String @default("")
+  website   String     @default("")
+  beneficiary String   @default("")
+  ibanVerified Boolean @default(false)
+  active    Boolean    @default(true)
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @default(now()) @updatedAt
+  suppliers Supplier[]
+
+  @@unique([tenantId, name])
+}
+
+/// Completion certificates issued before the system (from the approved workbook), kept for reference only.
+model LegacyCertificate {
+  id           String   @id @default(uuid()) @db.Uuid
+  tenantId     String   @db.Uuid
+  tenant       Tenant   @relation(fields: [tenantId], references: [id])
+  seq          Int
+  date         DateTime @db.Date
+  schoolName   String   @default("")
+  supplier     String
+  orderNo      String   @default("")
+  invoice      String   @default("")
+  orderValue   Decimal  @default(0) @db.Decimal(18, 2)
+  orderDate    DateTime? @db.Date
+  deliveryDate DateTime? @db.Date
+  delivered    Decimal  @default(0) @db.Decimal(18, 2)
+  lateDays     Int      @default(0)
+  finePct      Decimal  @default(0) @db.Decimal(8, 2)
+  fine         Decimal  @default(0) @db.Decimal(18, 2)
+  net          Decimal  @default(0) @db.Decimal(18, 2)
+  note         String   @default("")
+
+  @@unique([tenantId, seq])
+  @@index([tenantId, supplier])
+  @@index([tenantId, schoolName])
+}
+
+model Budget {
+  id           String          @id @default(uuid()) @db.Uuid
+  schoolId     String          @db.Uuid
+  yearId       String          @db.Uuid
+  year         FiscalYear      @relation(fields: [yearId, schoolId], references: [id, schoolId])
+  code         String
+  name         String
+  approved     Decimal         @db.Decimal(18, 2)
+  committed    Decimal         @default(0) @db.Decimal(18, 2)
+  spent        Decimal         @default(0) @db.Decimal(18, 2)
+  entries      Ledger[]
+  items        Item[]
+  expenses     Expense[]
+  direct       DirectExpense[]
+  nameEn       String          @default("")
+  assetCode    String          @default("")
+  groupKey     String          @default("")
+  schoolAmount Decimal         @default(0) @db.Decimal(18, 2)
+  kgAmount     Decimal         @default(0) @db.Decimal(18, 2)
+  sort         Int             @default(0)
 
   @@unique([id, schoolId, yearId])
   @@unique([schoolId, yearId, code])
@@ -159,6 +284,11 @@ model Case {
   certificates      Certificate[]
   evidence          Evidence[]
   erp               Erp?
+  method            String?
+  exclusiveReason   String?
+  deliveryDays      Int?
+  policy            Json?
+  reportDate        DateTime?     @db.Date
 
   @@unique([id, schoolId, yearId])
   @@unique([schoolId, yearId, number])
@@ -182,23 +312,25 @@ model Item {
   acceptedValue Decimal   @default(0) @db.Decimal(18, 2)
   certifiedQty  Decimal   @default(0) @db.Decimal(12, 3)
   portions      Portion[]
+  position      Int       @default(0)
 
   @@unique([id, caseId])
 }
 
 model Quote {
-  id         String   @id @default(uuid()) @db.Uuid
-  schoolId   String   @db.Uuid
-  yearId     String   @db.Uuid
-  caseId     String   @db.Uuid
-  case       Case     @relation(fields: [caseId, schoolId, yearId], references: [id, schoolId, yearId])
-  supplierId String   @db.Uuid
-  supplier   Supplier @relation(fields: [supplierId, schoolId], references: [id, schoolId])
+  id         String    @id @default(uuid()) @db.Uuid
+  schoolId   String    @db.Uuid
+  yearId     String    @db.Uuid
+  caseId     String    @db.Uuid
+  case       Case      @relation(fields: [caseId, schoolId, yearId], references: [id, schoolId, yearId])
+  supplierId String    @db.Uuid
+  supplier   Supplier  @relation(fields: [supplierId, schoolId], references: [id, schoolId])
   reference  String
   prices     Json
-  total      Decimal  @db.Decimal(18, 2)
-  compliant  Boolean  @default(true)
-  note       String   @default("")
+  total      Decimal   @db.Decimal(18, 2)
+  compliant  Boolean   @default(true)
+  note       String    @default("")
+  quoteDate  DateTime? @db.Date
 
   @@unique([caseId, supplierId])
 }
@@ -255,6 +387,7 @@ model Certificate {
   issuedBy       String     @db.Uuid
   createdAt      DateTime   @default(now())
   portions       Portion[]
+  details        Json?
 
   @@unique([id, caseId])
   @@unique([caseId, number])
@@ -320,6 +453,9 @@ model Imprest {
   expenses    Expense[]
   settlements Settlement[]
   movements   CashMovement[]
+  amount      Decimal        @default(0) @db.Decimal(18, 2)
+  reference   String         @default("")
+  createdAt   DateTime       @default(now())
 
   @@unique([id, schoolId, yearId])
 }
@@ -336,12 +472,15 @@ model Expense {
   invoice      String
   date         DateTime    @db.Date
   amount       Decimal     @db.Decimal(18, 2)
-  proof        String
+  proof        String      @default("")
   createdBy    String      @db.Uuid
   settlementId String?     @db.Uuid
   settlement   Settlement? @relation(fields: [settlementId, imprestId], references: [id, imprestId])
+  vendor       String      @default("")
+  accountCode  String      @default("")
+  note         String      @default("")
 
-  @@unique([imprestId, invoice])
+  @@index([imprestId])
 }
 
 model Settlement {
@@ -356,6 +495,9 @@ model Settlement {
   html        String
   createdAt   DateTime  @default(now())
   expenses    Expense[]
+  number      Int       @default(1)
+  coverHtml   String?
+  details     Json?
 
   @@unique([id, imprestId])
 }
@@ -373,7 +515,8 @@ model CashMovement {
 
 model Audit {
   id        String   @id @default(uuid()) @db.Uuid
-  schoolId  String   @db.Uuid
+  schoolId  String?  @db.Uuid
+  tenantId  String?  @db.Uuid
   actor     String   @db.Uuid
   action    String
   entity    String
@@ -407,4 +550,179 @@ model ReportRun {
   createdAt DateTime @default(now())
 
   @@index([schoolId, yearId, createdAt])
+}
+
+model Holiday {
+  id        String   @id @default(uuid()) @db.Uuid
+  tenantId  String   @db.Uuid
+  tenant    Tenant   @relation(fields: [tenantId], references: [id])
+  date      DateTime @db.Date
+  name      String
+  createdBy String   @db.Uuid
+  createdAt DateTime @default(now())
+
+  @@unique([tenantId, date])
+}
+
+model PolicySetting {
+  id            String   @id @default(uuid()) @db.Uuid
+  tenantId      String   @db.Uuid
+  tenant        Tenant   @relation(fields: [tenantId], references: [id])
+  key           String
+  value         Json
+  effectiveFrom DateTime @db.Date
+  reason        String
+  createdBy     String   @db.Uuid
+  createdAt     DateTime @default(now())
+
+  @@index([tenantId, key, effectiveFrom])
+}
+
+model BudgetCatalog {
+  id        String  @id @default(uuid()) @db.Uuid
+  tenantId  String  @db.Uuid
+  tenant    Tenant  @relation(fields: [tenantId], references: [id])
+  code      String
+  nameAr    String
+  nameEn    String  @default("")
+  assetCode String  @default("")
+  groupKey  String
+  note      String  @default("")
+  sort      Int     @default(0)
+  active    Boolean @default(true)
+
+  @@unique([tenantId, code])
+}
+
+model BudgetPlan {
+  id              String     @id @default(uuid()) @db.Uuid
+  schoolId        String     @db.Uuid
+  yearId          String     @db.Uuid
+  school          School     @relation(fields: [schoolId], references: [id])
+  year            FiscalYear @relation(fields: [yearId, schoolId], references: [id, schoolId])
+  schoolBuildings Int        @default(1)
+  kgBuildings     Int        @default(0)
+  studentsSchool  Int        @default(0)
+  studentsKg      Int        @default(0)
+  teachersSchool  Int        @default(0)
+  teachersKg      Int        @default(0)
+  adminSchool     Int        @default(0)
+  adminKg         Int        @default(0)
+  updatedAt       DateTime   @updatedAt
+
+  @@unique([schoolId, yearId])
+}
+
+/// Expenses paid directly (not through an imprest) or entered from prior records; they post to the budget line.
+model DirectExpense {
+  id          String     @id @default(uuid()) @db.Uuid
+  schoolId    String     @db.Uuid
+  yearId      String     @db.Uuid
+  year        FiscalYear @relation(fields: [yearId, schoolId], references: [id, schoolId])
+  budgetId    String     @db.Uuid
+  budget      Budget     @relation(fields: [budgetId, schoolId, yearId], references: [id, schoolId, yearId])
+  date        DateTime   @db.Date
+  vendor      String     @default("")
+  reference   String     @default("")
+  description String
+  amount      Decimal    @db.Decimal(18, 2)
+  source      String     @default("MANUAL")
+  note        String     @default("")
+  createdBy   String     @db.Uuid
+  createdAt   DateTime   @default(now())
+
+  @@index([schoolId, yearId])
+}
+
+/// Shared document library: commercial registrations, undertakings and similar papers of companies.
+model Archive {
+  id           String   @id @default(uuid()) @db.Uuid
+  tenantId     String   @db.Uuid
+  tenant       Tenant   @relation(fields: [tenantId], references: [id])
+  kind         String
+  company      String
+  title        String
+  note         String   @default("")
+  fileName     String
+  mime         String
+  size         Int
+  hash         String
+  data         Bytes?
+  storage      String   @default("DATABASE")
+  remoteId     String   @default("")
+  remoteUrl    String   @default("")
+  uploadedBy   String   @db.Uuid
+  uploaderName String
+  createdAt    DateTime @default(now())
+
+  @@index([tenantId, company])
+}
+
+/// Shared notes board (general entries, settlements, depreciation…); read by all, edited by the administrator.
+model Note {
+  id        String   @id @default(uuid()) @db.Uuid
+  tenantId  String   @db.Uuid
+  tenant    Tenant   @relation(fields: [tenantId], references: [id])
+  title     String
+  body      String
+  category  String   @default("")
+  sort      Int      @default(0)
+  updatedBy String   @db.Uuid
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+/// Sign-in record: address, browser and (with the user's consent) the device location; visible to the administrator.
+model LoginLog {
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String   @db.Uuid
+  user      User     @relation(fields: [userId], references: [id])
+  ip        String
+  userAgent String   @default("")
+  lat       Float?
+  lng       Float?
+  accuracy  Float?
+  createdAt DateTime @default(now())
+
+  @@index([userId, createdAt])
+}
+
+/// A comparison of the monthly ERP expense report (PDF) with the figures recorded in the system.
+model ErpRecon {
+  id        String   @id @default(uuid()) @db.Uuid
+  schoolId  String   @db.Uuid
+  yearId    String   @db.Uuid
+  period    String
+  mode      String
+  fileName  String
+  rows      Json
+  settled   Int      @default(0)
+  createdBy String   @db.Uuid
+  createdAt DateTime @default(now())
+
+  @@index([schoolId, yearId])
+}
+
+/// One check of the signed paper file of a case (uploaded on the screen or sent to the Telegram bot).
+model FileCheck {
+  id        String   @id @default(uuid()) @db.Uuid
+  schoolId  String   @db.Uuid
+  caseId    String   @db.Uuid
+  source    String
+  mode      String
+  files     Json
+  pages     Int
+  facts     Json
+  findings  Json
+  result    String
+  errors    Int
+  warnings  Int
+  notes     Int
+  html      String
+  createdBy String   @db.Uuid
+  byName    String
+  createdAt DateTime @default(now())
+
+  @@index([caseId, createdAt])
+  @@index([schoolId, createdAt])
 }
