@@ -87,6 +87,25 @@ export function SupplierBank() {
     save: (v) => w.api('admin/supplier-bank' + (r ? '/' + r.id : ''), r ? 'PATCH' : 'POST', cardPayload(v, r ? r.active : true)),
   });
 
+  const mergeDialog = (r: Row): Dialog => ({
+    title: `دمج «${r.name}» في مورد آخر`,
+    intro: (
+      <p>
+        تنتقل نسخ المدارس إلى المورد المختار، وتُكمَّل بياناته الفارغة من هذا المورد، ثم يُحذف هذا المورد. المستندات الصادرة تبقى كما صدرت.
+        يُسجَّل الدمج في سجل التدقيق.
+      </p>
+    ),
+    fields: [
+      {
+        name: 'into',
+        label: 'المورد الذي يبقى',
+        type: 'select',
+        options: (cards ?? []).filter((x) => x.id !== r.id).map((x) => ({ value: x.id, label: x.name + (x.cr ? ` — ${x.cr}` : '') })),
+      },
+    ],
+    submit: 'دمج',
+    save: (v) => w.api('admin/supplier-bank/' + r.id + '/merge', 'POST', { into: v.into }),
+  });
   return (
     <Panel
       title="بنك الموردين — كل الموردين وبيانات التواصل"
@@ -125,7 +144,7 @@ export function SupplierBank() {
       {!cards ? (
         <p>جارٍ التحميل…</p>
       ) : cards.length ? (
-        <Table heads={['المورد', 'السجل التجاري', 'التواصل', 'البنك / IBAN', 'الشهادات السابقة', 'المدارس', 'المستندات', '']}>
+        <Table heads={['المورد', 'السجل التجاري', 'التواصل', 'البنك / IBAN', 'الشهادات السابقة', 'الأداء', 'المدارس', 'المستندات', '']}>
           {cards.map((r) => (
             <tr key={r.id} className={r.active ? '' : 'muted'}>
               <td>
@@ -173,12 +192,56 @@ export function SupplierBank() {
                 {r.beneficiary && <small>المستفيد: {r.beneficiary}</small>}
                 <span className="mono">{r.iban || '—'}</span>
                 {r.iban && <small>{r.ibanVerified ? '✓ تم التحقق' : 'لم يُتحقق منه'}</small>}
+                {r.pendingIban && (
+                  <small className="warn-text">
+                    بانتظار موافقة على IBAN جديد: <span className="mono">{r.pendingIban}</span>{' '}
+                    {r.pendingBy !== w.me.user.id && editor && (
+                      <>
+                        <button
+                          className="link"
+                          onClick={() =>
+                            w.task(
+                              () => w.api('admin/supplier-bank/' + r.id + '/iban-decision', 'POST', { approve: true }),
+                              'اعتُمد IBAN الجديد',
+                            )
+                          }
+                        >
+                          موافقة
+                        </button>
+                        <button
+                          className="link danger"
+                          onClick={() =>
+                            w.task(
+                              () => w.api('admin/supplier-bank/' + r.id + '/iban-decision', 'POST', { approve: false }),
+                              'رُفض التغيير',
+                            )
+                          }
+                        >
+                          رفض
+                        </button>
+                      </>
+                    )}
+                  </small>
+                )}
               </td>
               <td>
                 {r.history ? (
                   <>
                     {r.history.count} شهادة — {currency(r.history.total)} ر.ق<small>آخرها {day(r.history.last)}</small>
                   </>
+                ) : (
+                  '—'
+                )}
+              </td>
+              <td>
+                {r.performance ? (
+                  <span className={r.performance.rating === 'POOR' ? 'danger' : r.performance.rating === 'WATCH' ? 'warn-text' : ''}>
+                    {r.performance.rating === 'POOR' ? 'ضعيف' : r.performance.rating === 'WATCH' ? 'يحتاج متابعة' : 'جيد'}
+                    <small>
+                      تأخر {r.performance.late}/{r.performance.files} — غرامات {currency(r.performance.fines)}
+                      {r.performance.returns ? ` — مرتجعات ${r.performance.returns}` : ''}
+                    </small>
+                  </span>
                 ) : (
                   '—'
                 )}
@@ -206,6 +269,11 @@ export function SupplierBank() {
                   {editor && (
                     <button className="link" onClick={() => w.open(form(r))}>
                       تعديل
+                    </button>
+                  )}
+                  {w.me.user.isTenantAdmin && (
+                    <button className="link" onClick={() => w.open(mergeDialog(r))}>
+                      دمج في مورد آخر
                     </button>
                   )}
                   {editor && r.active && (

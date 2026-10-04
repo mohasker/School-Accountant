@@ -222,6 +222,12 @@ export async function evaluate({ s, school, t, body, c }: WriteCtx & { c: FullCa
   const on = p.date ?? today();
   if (on > today()) fail('تاريخ مستقبلي');
   inYear(c.year, on);
+  // The report follows the quotations it studies.
+  const lastQuote = c.quotes
+    .map((x) => (x.quoteDate ? isoDay(x.quoteDate) : ''))
+    .sort()
+    .at(-1);
+  if (lastQuote && on < lastQuote) fail('تاريخ تقرير العروض قبل تاريخ أحد عروض الأسعار؛ صحّح أحد التاريخين');
   const policy = await loadPolicy(t, s.user.tenantId, on);
   const method = purchaseMethod(policy, q.total, c.quotes.length, p.exclusiveReason);
   if (method === 'EXCLUSIVE' && c.quotes.length > 1) fail('حالة المورد المحتكر تكون بعرض سعر واحد');

@@ -313,7 +313,7 @@ test('FINANCE: late remainder fine 200, final certificate, covering letter, comp
   const before = await db.ledger.count();
   await ok(acc, `cases/${c.id}/erp`, {
     reference: 'ERP-TEST-01',
-    date: '2026-09-20',
+    date: (await load(c.id)).certificates.at(-1).details.date,
     evidence: 'دليل قيد تجريبي',
   });
   assert.equal(await db.ledger.count(), before);
@@ -2318,4 +2318,329 @@ test('FILE CHECK (Telegram): «فحص» then files then «تم» runs the same c
     delete process.env.TG_API_BASE;
     ms.close();
   }
+});
+
+/** An account with one role in the test school only. */
+async function member(username: string, roles: string[]) {
+  const { passwordHash } = await import('../apps/api/src/core/identity');
+  const tenant = await db.tenant.findFirst();
+  const user = await db.user.create({
+    data: { tenantId: tenant.id, username, name: 'حساب ' + username, passwordHash: await passwordHash(password) },
+  });
+  await db.membership.create({ data: { tenantId: tenant.id, userId: user.id, schoolId: school, roles } });
+  return log(username);
+}
+
+test('DATE ORDER, INVOICE TOTAL and CERTIFICATE GATE: the system refuses papers out of sequence before they are printed', async () => {
+  // A report dated before one of its quotations.
+  const draft = await ok(acc, 'cases', {
+    yearId: year,
+    subject: 'تسلسل التواريخ',
+    origin: 'SCHOOL',
+    items: [{ name: 'صنف', unit: 'عدد', qty: '10', budgetId: budget }],
+  });
+  const fullDraft = await load(draft.id);
+  await ok(acc, `cases/${draft.id}/quotes`, {
+    supplierId: suppliers[0].id,
+    reference: 'Q-D',
+    quoteDate: '2026-08-31',
+    prices: [{ itemId: fullDraft.items[0].id, price: '50' }],
+    compliant: true,
+    note: '',
+  });
+  const early = await req(acc, route(`cases/${draft.id}/evaluate`), 'POST', { date: '2026-08-30', reason: 'الوحيد' });
+  assert.equal(early.status, 400);
+  assert.match(early.body.message, /قبل تاريخ أحد عروض الأسعار/);
+
+  const row = await issue(await makeCase('3000.00'));
+  const finish = (extra: any) =>
+    req(acc, route(`cases/${row.id}/finish`), 'POST', { completionDate: '2026-09-10', invoice: 'INV-R11', date: '2026-09-10', ...extra });
+  const before = await finish({ date: '2026-09-09' });
+  assert.equal(before.status, 400);
+  assert.match(before.body.message, /قبل تاريخ الاستلام/);
+  const wrongTotal = await finish({ invoiceAmount: '2999.00' });
+  assert.equal(wrongTotal.status, 400);
+  assert.match(wrongTotal.body.message, /لا تساوي قيمة الكميات المستلمة/);
+
+  // The administrator's gate: required documents ticked, IBAN verified.
+  await req(admin, 'admin/file-check', 'POST', { ai: false, prompt: true, gate: true, rules: [] });
+  const caseView = await load(row.id);
+  assert.ok(caseView.gate.some((g: any) => g.type === 'UNDERTAKING') && caseView.gate.some((g: any) => g.type === 'RECEIPT'));
+  const noTicks = await finish({ invoiceAmount: '3000' });
+  assert.equal(noTicks.status, 400);
+  assert.match(noTicks.body.message, /أكّد وجود هذه المستندات/);
+  const present = caseView.gate.map((g: any) => g.type);
+  const card = (await db.supplier.findUnique({ where: { id: caseView.supplierId } })).cardId;
+  await db.supplierCard.update({ where: { id: card }, data: { ibanVerified: false } });
+  const noIban = await finish({ invoiceAmount: '3000', present });
+  assert.equal(noIban.status, 400);
+  assert.match(noIban.body.message, /IBAN/);
+  await db.supplierCard.update({ where: { id: card }, data: { ibanVerified: true, crExpiry: null } });
+  const cert = await finish({ invoiceAmount: '3000', present });
+  assert.ok(cert.status < 300, JSON.stringify(cert.body));
+  assert.equal(Number((await db.delivery.findFirst({ where: { caseId: row.id } })).invoiceAmount), 3000);
+  await req(admin, 'admin/file-check', 'POST', { ai: false, prompt: true, gate: false, rules: [] });
+
+  // ERP registration dated before the certificate.
+  const erp = await req(acc, route(`cases/${row.id}/erp`), 'POST', { reference: 'ERP-X', date: '2026-09-01', evidence: 'دليل' });
+  assert.equal(erp.status, 400);
+  assert.match(erp.body.message, /قبل تاريخ شهادة الإنجاز/);
+});
+
+test('BUNDLE: one PDF with an index page and every document in the auditors order; missing documents listed', async () => {
+  const row = await issue(await makeCase('3000.00'));
+  await ok(acc, `cases/${row.id}/finish`, { completionDate: '2026-09-10', invoice: 'INV-B1', date: '2026-09-10' });
+  const png = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==';
+  await ok(acc, `cases/${row.id}/evidence`, { code: 7, name: 'delivery.png', mime: 'image/png', base64: png });
+  const b = (await req(acc, route(`cases/${row.id}/bundle`))).body;
+  assert.equal(b.mime, 'application/pdf');
+  const { PDFDocument } = await import('pdf-lib');
+  const pdf = await PDFDocument.load(Buffer.from(b.base64, 'base64'));
+  assert.equal(pdf.getPageCount(), b.pages);
+  assert.ok(b.documents >= 5, 'report, order, delivery note, certificate, cover');
+  assert.ok(b.pages >= b.documents + 1, 'index first');
+  assert.ok(b.missing.includes('التعهد') || b.missing.some((m: string) => m.includes('التعهد')), JSON.stringify(b.missing));
+  assert.ok(!b.missing.some((m: string) => m.includes('إذن التسليم')), 'the attached delivery note is in');
+});
+
+test('RETURNS and COMMENTS: reasons recorded and counted, resolved, auditor remarks, a reason becomes a check rule', async () => {
+  const auditor = await member('r11.auditor', ['AUDITOR']);
+  const row = await issue(await makeCase('3000.00'));
+  await ok(acc, `cases/${row.id}/finish`, { completionDate: '2026-09-10', invoice: 'INV-RT', date: '2026-09-10' });
+  assert.equal((await req(acc, route('case-returns'), 'POST', { caseId: row.id, date: '2026-09-15', reasons: [] })).status, 400);
+  assert.equal(
+    (await req(acc, route('case-returns'), 'POST', { caseId: row.id, date: '2026-09-15', reasons: ['OTHER'] })).status,
+    400,
+    'OTHER needs details',
+  );
+  const r1 = await ok(acc, 'case-returns', {
+    caseId: row.id,
+    date: '2026-09-15',
+    reasons: ['DATES', 'SIGNATURE'],
+    note: 'تاريخ الشهادة وتوقيع المدير',
+  });
+  const r2 = await ok(auditor, 'case-returns', { caseId: row.id, date: '2026-09-16', reasons: ['DATES'] });
+  assert.ok(r2.id, 'the auditor may record a return');
+  const c1 = await ok(auditor, 'case-comments', { caseId: row.id, text: 'تاريخ إذن الاستلام غير واضح', docCode: 8 });
+  assert.equal(
+    (await req(auditor, route(`cases/${row.id}/issue`), 'POST', { trigger: '2026-09-01', days: 5, policyConfirmed: true })).status,
+    403,
+    'still read-only for the case itself',
+  );
+  await ok(acc, 'case-comments/' + c1.id, { resolved: true }, 'PATCH');
+  assert.equal((await req(acc, route('case-comments?case=' + row.id))).body[0].resolved, true);
+  const list = (await req(acc, route('cases?year=' + year))).body.find((x: any) => x.id === row.id);
+  assert.equal(list.returns.length, 2, 'open returns shown on the list');
+  assert.equal((await req(acc, 'welcome')).body.totals.returns >= 2, true);
+  assert.equal((await req(acc, route('case-returns/' + r1.id), 'PATCH', { resolveNote: 'x' })).status, 400, 'say what was corrected');
+  await ok(acc, 'case-returns/' + r1.id, { resolveNote: 'أُعيد توقيع الشهادة وتصحيح التاريخ' }, 'PATCH');
+  const rep = (await req(admin, 'admin/returns-report?from=2026-09-01&to=2026-09-30')).body;
+  const dates = rep.byReason.find((x: any) => x.reason === 'DATES');
+  assert.ok(dates.count >= 2 && dates.rule);
+  assert.ok(rep.open >= 1 && rep.rows.some((x: any) => x.id === r1.id && x.resolvedAt));
+  // The administrator turns the most frequent reason into a rule of the paper-file check.
+  const settings = (await req(admin, 'admin/file-check')).body;
+  await req(admin, 'admin/file-check', 'POST', {
+    ...settings,
+    aiConfigured: undefined,
+    rules: [...settings.rules, { text: dates.rule, level: 'ERROR', docType: '' }],
+  });
+  assert.ok((await req(admin, 'admin/file-check')).body.rules.some((r: any) => r.text === dates.rule));
+  await req(admin, 'admin/file-check', 'POST', { ai: false, prompt: true, rules: [] });
+});
+
+test('SUPPLIER PERFORMANCE and MERGE: delivery record from earlier and current certificates; duplicates merged by the administrator', async () => {
+  const bank = (await req(acc, 'admin/supplier-bank')).body;
+  const late = bank.find((c: any) => c.performance && c.performance.late > 0);
+  assert.ok(late, 'a supplier of the sheets was late before');
+  assert.ok(['GOOD', 'WATCH', 'POOR'].includes(late.performance.rating));
+  const row = await makeCase('3000.00');
+  const view = await load(row.id);
+  assert.equal(typeof view.performance, 'object');
+  // Merge a duplicate card into the kept one.
+  const keepCard = (await req(acc, 'admin/supplier-bank', 'POST', { name: 'شركة الدمج الأصلية', cr: 'CR-M1' })).body;
+  const dup = (await req(acc, 'admin/supplier-bank', 'POST', { name: 'شركة الدمج المكررة', mobile: '55112233', email: 'dup@example.test' }))
+    .body;
+  await ok(acc, 'supplier-from-bank', { cardId: dup.id });
+  assert.equal(
+    (await req(acc, 'admin/supplier-bank/' + dup.id + '/merge', 'POST', { into: keepCard.id })).status,
+    403,
+    'administrator only',
+  );
+  const merged = await req(admin, 'admin/supplier-bank/' + dup.id + '/merge', 'POST', { into: keepCard.id });
+  assert.ok(merged.status < 300, JSON.stringify(merged.body));
+  assert.equal(merged.body.moved, 1);
+  assert.equal(merged.body.mobile, '55112233', 'empty fields filled from the duplicate');
+  assert.equal(await db.supplierCard.count({ where: { id: dup.id } }), 0);
+  assert.equal(await db.supplier.count({ where: { cardId: keepCard.id } }), 1);
+  assert.ok(await db.audit.findFirst({ where: { action: 'supplier-bank:merge', entity: keepCard.id } }));
+});
+
+test('BUDGET ALERTS and DAILY DIGEST: lines at 80% / 95% or heading past 100% are flagged; the morning message lists what needs action', async () => {
+  const line = await db.budget.findUnique({ where: { id: budget } });
+  const saved = { spent: line.spent, committed: line.committed };
+  await db.budget.update({ where: { id: budget }, data: { spent: line.approved.mul(0.96), committed: 0 } });
+  try {
+    const w = (await req(acc, 'welcome')).body;
+    const mine = w.schools.find((s: any) => s.id === school) ?? { budgetAlerts: [] };
+    assert.ok(
+      mine.budgetAlerts.some((b: any) => b.code === line.code && b.level === 'CRITICAL'),
+      JSON.stringify(mine.budgetAlerts),
+    );
+    assert.ok(w.totals.budget >= 1);
+    const { budgetWarnings } = await import('../apps/api/src/modules/welcome');
+    const D = (await import('../apps/api/src/common/money')).D;
+    const pace = budgetWarnings(
+      [
+        {
+          code: 'X',
+          name: 'بند',
+          approved: new D(1000),
+          spent: new D(600),
+          committed: new D(0),
+          year: { startDate: new Date('2026-01-01'), endDate: new Date('2026-12-31') },
+        },
+      ],
+      '2026-04-30',
+    );
+    assert.equal(pace[0].level, 'PACE', 'spending pace heading past 100%');
+    const { identityForUser } = await import('../apps/api/src/core/identity');
+    const { digestText } = await import('../apps/api/src/modules/telegram');
+    const user = await db.user.findFirst({ where: { username: 'accountant' } });
+    const text = await digestText((await identityForUser(user.id))!);
+    assert.ok(text.includes('ملخص اليوم') && text.includes(`بند ${line.code}`), text);
+  } finally {
+    await db.budget.update({ where: { id: budget }, data: saved });
+  }
+});
+
+test('IMPREST CHECK: every recorded invoice in the file with the same number, supplier, date and amount; extra, over-limit and future invoices', async () => {
+  const a = await ok(acc, 'imprests', {
+    yearId: year,
+    name: 'عهدة فحص',
+    custodian: 'أمين',
+    type: 'EDUCATION',
+    amount: '3000',
+    reference: 'EDU-CHK',
+  });
+  const invoices = [
+    { vendor: 'مكتبة الفحص', invoice: 'K-1', date: '2026-09-20', description: 'مستلزمات', budgetId: budget, amount: '400', note: '' },
+    { vendor: 'مطبعة الفحص', invoice: 'K-2', date: '2026-09-21', description: 'طباعة', budgetId: budget, amount: '250', note: '' },
+  ];
+  const st = await ok(acc, `imprests/${a.id}/settle`, { type: 'CLOSE', invoices, returnReference: 'إيصال 99' });
+  const inv = (n: number, vendor: string, number: string, date: string, total: number, extra: any = {}) => ({
+    page: n,
+    docType: 'INVOICE',
+    supplierName: vendor,
+    invoiceNumber: number,
+    documentDate: date,
+    amounts: { total, gross: null, fine: null, net: null },
+    signatures: [],
+    stamp: true,
+    legible: 'high',
+    ...extra,
+  });
+  const check = (pages: any[]) =>
+    req(acc, 'imprest-check/' + school + '/' + st.id, 'POST', { pasted: JSON.stringify({ pages, rules: [] }) });
+  const good = await check([inv(1, 'مكتبة الفحص', 'K-1', '2026-09-20', 400), inv(2, 'مطبعة الفحص', 'K-2', '2026-09-21', 250)]);
+  assert.ok(good.status < 300, JSON.stringify(good.body));
+  assert.equal(good.body.result, 'READY', JSON.stringify(good.body.findings));
+  const bad = await check([
+    inv(1, 'مكتبة الفحص', 'K-1', '2026-09-20', 450),
+    inv(2, 'شركة أخرى', 'K-9', '2026-09-22', 1200),
+    inv(3, 'مورد', 'K-3', '2099-01-01', 10),
+  ]);
+  const f = bad.body.findings as any[];
+  const has = (part: string) => f.some((x) => x.level === 'ERROR' && x.text.includes(part));
+  assert.equal(bad.body.result, 'FIX');
+  assert.ok(has('450') && has('K-2') && has('غير مسجلة في الكشف') && has('مستقبلي') && has('إجمالي الفواتير'), JSON.stringify(f));
+  const prompts = (await req(acc, route('imprest-check-prompt/' + st.id))).body;
+  assert.ok(prompts.review.includes('K-1') && prompts.reading.includes('"docType"'));
+  assert.equal((await req(acc, route('file-checks?case=' + st.id))).body.length, 2);
+});
+
+test('SECOND-PERSON APPROVAL: a new IBAN waits for another user; a large certificate needs another user to approve and is issued by someone else', async () => {
+  await req(admin, 'admin/file-check', 'POST', { ai: false, prompt: true, fourEyes: true, fourEyesLimit: 1000, rules: [] });
+  try {
+    // IBAN.
+    const IBAN1 = 'QA58DOHB00001234567890ABCDEFG';
+    const IBAN2 = 'QA56QNBA000000000000000012345';
+    const card = (await req(acc, 'admin/supplier-bank', 'POST', { name: 'شركة الموافقة', iban: IBAN1 })).body;
+    await ok(acc, 'supplier-from-bank', { cardId: card.id });
+    const changed = (await req(acc, 'admin/supplier-bank/' + card.id, 'PATCH', { name: 'شركة الموافقة', iban: IBAN2 })).body;
+    assert.equal(changed.iban, IBAN1, 'the IBAN stays until approved');
+    assert.equal(changed.pendingIban, IBAN2);
+    assert.equal(
+      (await req(acc, 'admin/supplier-bank/' + card.id + '/iban-decision', 'POST', { approve: true })).status,
+      400,
+      'not by the requester',
+    );
+    const approved = await req(admin, 'admin/supplier-bank/' + card.id + '/iban-decision', 'POST', { approve: true });
+    assert.ok(approved.status < 300, JSON.stringify(approved.body));
+    assert.equal(approved.body.iban, IBAN2);
+    assert.equal(approved.body.ibanVerified, false);
+    assert.equal((await db.supplier.findFirst({ where: { cardId: card.id } })).iban, IBAN2, 'school copies follow');
+    // Certificate.
+    const row = await issue(await makeCase('3000.00'));
+    assert.equal((await load(row.id)).approval.required, true);
+    const blocked = await req(acc, route(`cases/${row.id}/finish`), 'POST', {
+      completionDate: '2026-09-10',
+      invoice: 'INV-4E',
+      date: '2026-09-10',
+    });
+    assert.equal(blocked.status, 400);
+    assert.match(blocked.body.message, /موافقة مستخدم آخر/);
+    const asked = await ok(acc, `cases/${row.id}/request-approval`, {});
+    assert.equal(
+      (await req(acc, route(`cases/${row.id}/decide-approval`), 'POST', { approvalId: asked.id, approve: true })).status,
+      400,
+      'not by the requester',
+    );
+    assert.equal(
+      (await req(admin, route(`cases/${row.id}/decide-approval`), 'POST', { approvalId: asked.id, approve: false })).status,
+      400,
+      'a rejection needs a reason',
+    );
+    await ok(admin, `cases/${row.id}/decide-approval`, { approvalId: asked.id, approve: true });
+    const byApprover = await req(admin, route(`cases/${row.id}/finish`), 'POST', {
+      completionDate: '2026-09-10',
+      invoice: 'INV-4E',
+      date: '2026-09-10',
+    });
+    assert.equal(byApprover.status, 400, 'the approver does not issue it');
+    const cert = await req(acc, route(`cases/${row.id}/finish`), 'POST', {
+      completionDate: '2026-09-10',
+      invoice: 'INV-4E',
+      date: '2026-09-10',
+    });
+    assert.ok(cert.status < 300, JSON.stringify(cert.body));
+  } finally {
+    await req(admin, 'admin/file-check', 'POST', { ai: false, prompt: true, fourEyes: false, fourEyesLimit: 0, rules: [] });
+  }
+});
+
+test('YEAR PACKAGE: one ZIP with every file, statement and the registers, built in the background', async () => {
+  const { passwordHash } = await import('../apps/api/src/core/identity');
+  const tenant = await db.tenant.findFirst();
+  const otherSchool = (await db.school.findFirst({ where: { id: { not: school } } })).id;
+  const u = await db.user.create({
+    data: { tenantId: tenant.id, username: 'r11.year', name: 'محاسب الحزمة', passwordHash: await passwordHash(password) },
+  });
+  await db.membership.create({ data: { tenantId: tenant.id, userId: u.id, schoolId: otherSchool, roles: ['ACCOUNTANT'] } });
+  const s = await log('r11.year');
+  const y = (await req(s, `schools/${otherSchool}/setup`)).body.years[0].id;
+  const started = await req(s, `year-package/${otherSchool}/${y}`, 'POST', {});
+  assert.ok(started.status < 300, JSON.stringify(started.body));
+  assert.equal((await req(acc, 'year-package/' + started.body.job)).status, 404, 'only the requester gets the file');
+  let st: any;
+  for (let i = 0; i < 240; i++) {
+    st = (await req(s, 'year-package/' + started.body.job)).body;
+    if (st.status !== 'RUNNING') break;
+    await new Promise((r) => setTimeout(r, 500));
+  }
+  assert.equal(st.status, 'DONE', JSON.stringify(st));
+  const JSZip = (await import('jszip')).default;
+  const zip = await JSZip.loadAsync(Buffer.from(st.base64, 'base64'));
+  const names = Object.keys(zip.files);
+  assert.ok(names.includes('السجلات.xlsx') && names.includes('اقرأني.txt'), names.join(', '));
 });

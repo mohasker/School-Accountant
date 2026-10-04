@@ -181,6 +181,46 @@ export function Reports() {
           <Empty text="لا توجد تقارير محفوظة بعد" />
         )}
       </Panel>
+      <YearPackage />
     </>
+  );
+}
+
+/** «حزمة نهاية السنة»: every file, statement and register of the school's year in one ZIP (built in the background). */
+function YearPackage() {
+  const w = useWorkspace();
+  const [state, setState] = useState<Row | null>(null);
+  const start = async () => {
+    try {
+      const { job, total } = await w.api(`year-package/${w.school}/${w.year}`, 'POST', {});
+      setState({ status: 'RUNNING', done: 0, total });
+      for (;;) {
+        await new Promise((r) => setTimeout(r, 2500));
+        const st = await w.api('year-package/' + job);
+        setState(st);
+        if (st.status === 'DONE') {
+          downloadFile(st);
+          break;
+        }
+        if (st.status === 'FAILED') throw Error(st.error || 'تعذر إعداد الحزمة');
+      }
+    } catch (e) {
+      setState(null);
+      w.fail(e);
+    }
+  };
+  return (
+    <Panel title="حزمة نهاية السنة">
+      <p>
+        <small>
+          ملف ZIP للعام المختار فيه كل ملفات المعاملات (فهرس + المستندات بترتيب التدقيق)، وكشوف تسوية العهد وكتب تغطيتها، وسجلات Excel
+          للمعاملات وفواتير العهد والموازنة. قد يستغرق إعدادها بضع دقائق.
+        </small>
+      </p>
+      <button onClick={start} disabled={state?.status === 'RUNNING'}>
+        {state?.status === 'RUNNING' ? `جارٍ الإعداد… ${state.done} من ${state.total}` : 'إعداد حزمة نهاية السنة'}
+      </button>
+      {state?.status === 'DONE' && <small> ✓ نُزّلت الحزمة.</small>}
+    </Panel>
   );
 }

@@ -9,6 +9,7 @@ import { htmlToPdf } from '../core/pdf';
 import { seal, unseal } from '../core/secrets';
 import { mutate, read } from './router';
 import { runFileCheck } from './file-check';
+import { pendingBySchool } from './welcome';
 import type { UploadedFile } from '../core/file-check/extract';
 
 /**
@@ -402,4 +403,53 @@ export function startTelegram() {
   return () => {
     running = false;
   };
+}
+
+/* ---------- daily digest ---------- */
+
+const qatarHour = () => Number(new Date().toLocaleString('en-GB', { timeZone: 'Asia/Qatar', hour: '2-digit', hour12: false }));
+
+/** The morning message to every linked account: what needs action today in each of its schools. */
+export async function digestText(s: Identity) {
+  const schools = s.user.memberships.filter((m) => m.school.active).map((m) => m.school);
+  const rows = (await pendingBySchool(s.user.tenantId, schools)).filter((r) => r.attention > 0 || r.dueSoon > 0);
+  if (!rows.length) return '';
+  const lines = ['<b>صباح الخير — ملخص اليوم</b>'];
+  for (const r of rows) {
+    const bits: string[] = [];
+    if (r.late) bits.push(`⛔ متأخرة ${r.late}`);
+    if (r.dueSoon) bits.push(`⏳ تستحق خلال 3 أيام ${r.dueSoon}`);
+    if (r.returns) bits.push(`↩ مرتجعة من التدقيق ${r.returns}`);
+    if (r.pending) bits.push(`ملفات مفتوحة ${r.pending}`);
+    if (r.replenish.length) bits.push(`عهد تحتاج استعاضة ${r.replenish.length}`);
+    if (r.awaiting.length) bits.push(`استعاضة لم تُستلم ${r.awaiting.length}`);
+    if (r.erp) bits.push(`لم تُسجل في ERP ${r.erp}`);
+    for (const b of r.budgetAlerts.slice(0, 2))
+      bits.push(`بند ${b.code} مستخدم ${b.used}%${b.level === 'PACE' ? ` (المتوقع ${b.projected}%)` : ''}`);
+    lines.push(`\n<b>${r.name.replace(/[<>&]/g, ' ')}</b>\n${bits.join(' — ')}`);
+  }
+  return lines.join('\n');
+}
+
+/** Called every few minutes: sends the digest once a day after 7:00 Qatar time. */
+export async function telegramDigestTick() {
+  if (qatarHour() < 7) return;
+  const day = today();
+  const tenants = await db.tenant.findMany({ where: { tgOn: true, NOT: { tgToken: '' } }, select: { id: true, tgToken: true } });
+  for (const t of tenants) {
+    const users = await db.user.findMany({
+      where: { tenantId: t.id, active: true, NOT: [{ tgChatId: '' }, { tgDigestDay: day }] },
+      select: { id: true, tgChatId: true },
+    });
+    for (const u of users) {
+      await db.user.update({ where: { id: u.id }, data: { tgDigestDay: day } });
+      const s = await identityForUser(u.id);
+      if (!s) continue;
+      const text = await digestText(s);
+      if (text)
+        await send(unseal(t.tgToken), u.tgChatId, text).catch((e) =>
+          console.error('telegram_digest_failed', String(e?.message ?? e).slice(0, 120)),
+        );
+    }
+  }
 }

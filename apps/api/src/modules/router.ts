@@ -13,6 +13,8 @@ import { readSetup, writeSchool, writeUser, writeYear } from './school';
 import { addStandard, importSuppliers, writeSupplier } from './suppliers';
 import { supplierFromBank } from './bank';
 import { readCheckPrompt, readFileChecks } from './file-check';
+import { readComments, readReturns, writeComments, writeReturns } from './returns';
+import { readImprestPrompt } from './imprest-check';
 
 /** GET schools/:school/:resource[/:id[/:action]] */
 const READERS: Record<string, Reader> = {
@@ -30,6 +32,9 @@ const READERS: Record<string, Reader> = {
   'erp-recon': readErpRecon,
   'file-checks': readFileChecks,
   'file-check-prompt': readCheckPrompt,
+  'case-returns': readReturns,
+  'imprest-check-prompt': readImprestPrompt,
+  'case-comments': readComments,
   'report-runs': readReportRuns,
   audit: readAudit,
 };
@@ -40,6 +45,8 @@ const WRITERS: Record<string, Writer> = {
   'supplier-import': importSuppliers,
   'supplier-standard': addStandard,
   'supplier-from-bank': supplierFromBank,
+  'case-returns': writeReturns,
+  'case-comments': writeComments,
   school: writeSchool,
   users: writeUser,
   years: writeYear,

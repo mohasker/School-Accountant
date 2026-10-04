@@ -19,6 +19,8 @@ import { sendNow, setEmail } from '../modules/email';
 import { readTenant, writeTenant } from '../modules/tenant';
 import { linkCode, unlinkTelegram } from '../modules/telegram';
 import { checkInput, runFileCheck } from '../modules/file-check';
+import { runImprestCheck } from '../modules/imprest-check';
+import { startYearPackage, yearPackageStatus } from '../modules/year-package';
 
 const segments = (path: string | string[]) => (Array.isArray(path) ? path : path.split('/'));
 const idempotencyKey = (req: Request) => String(req.headers['idempotency-key'] ?? '');
@@ -176,6 +178,24 @@ export class WorkspaceController {
     @Body() b: any,
   ) {
     return runFileCheck(await authenticate(req), school, caseId, checkInput(b ?? {}), 'WEB');
+  }
+
+  /** The same check for an imprest settlement statement and its invoices. */
+  @Post('imprest-check/:school/:settlement') async imprestCheck(
+    @Param('school') school: string,
+    @Param('settlement') settlement: string,
+    @Req() req: Request,
+    @Body() b: any,
+  ) {
+    return runImprestCheck(await authenticate(req), school, settlement, checkInput(b ?? {}));
+  }
+
+  /** Year-end package: start building it in the background, then poll for progress and the ZIP. */
+  @Post('year-package/:school/:year') async yearPackage(@Param('school') school: string, @Param('year') year: string, @Req() req: Request) {
+    return startYearPackage(await authenticate(req), school, year);
+  }
+  @Get('year-package/:job') async yearPackageJob(@Param('job') job: string, @Req() req: Request) {
+    return yearPackageStatus(await authenticate(req), job);
   }
 
   /** Reads an uploaded ERP expense report (PDF) and proposes the comparison; nothing is saved. */

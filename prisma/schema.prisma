@@ -48,6 +48,11 @@ model Tenant {
   /// Documents always required at payment, and whether accountants may use their own Claude / ChatGPT for the reading.
   checkDocs   Json            @default("[\"QUOTE\", \"CR\", \"DELIVERY_NOTE\", \"RECEIPT\", \"INVOICE\", \"IBAN\", \"UNDERTAKING\"]")
   checkPrompt Boolean         @default(true)
+  /// Optional gate before a completion certificate: the required documents ticked, IBAN verified, registration valid.
+  certGate    Boolean         @default(false)
+  /// Second-person approval: IBAN changes wait for another user; certificates from this case value need another user to approve (0 = none).
+  fourEyes      Boolean       @default(false)
+  fourEyesLimit Decimal       @default(0) @db.Decimal(18, 2)
   cards       SupplierCard[]
   legacy      LegacyCertificate[]
 }
@@ -72,6 +77,8 @@ model User {
   tgChatId      String       @default("")
   tgCode        String       @default("")
   tgCodeExp     DateTime?
+  /// Day (YYYY-MM-DD) the daily Telegram digest was last sent.
+  tgDigestDay   String       @default("")
 
   @@unique([id, tenantId])
 }
@@ -189,6 +196,10 @@ model SupplierCard {
   website   String     @default("")
   beneficiary String   @default("")
   ibanVerified Boolean @default(false)
+  /// An IBAN change waiting for another user to approve it.
+  pendingIban String     @default("")
+  pendingBy   String?    @db.Uuid
+  pendingAt   DateTime?
   active    Boolean    @default(true)
   createdAt DateTime   @default(now())
   updatedAt DateTime   @default(now()) @updatedAt
@@ -284,6 +295,9 @@ model Case {
   certificates      Certificate[]
   evidence          Evidence[]
   erp               Erp?
+  returns           CaseReturn[]
+  approvals         Approval[]
+  comments          CaseComment[]
   method            String?
   exclusiveReason   String?
   deliveryDays      Int?
@@ -344,6 +358,8 @@ model Delivery {
   date      DateTime  @db.Date
   note      String
   invoice   String
+  /// Total on the supplier invoice as entered; must equal the value of the accepted quantities.
+  invoiceAmount Decimal? @db.Decimal(18, 2)
   createdBy String    @db.Uuid
   portions  Portion[]
 
@@ -707,6 +723,8 @@ model ErpRecon {
 model FileCheck {
   id        String   @id @default(uuid()) @db.Uuid
   schoolId  String   @db.Uuid
+  /// CASE: a purchase file (caseId = the case); IMPREST: a settlement statement (caseId = the settlement).
+  kind      String   @default("CASE")
   caseId    String   @db.Uuid
   source    String
   mode      String
@@ -725,4 +743,60 @@ model FileCheck {
 
   @@index([caseId, createdAt])
   @@index([schoolId, createdAt])
+}
+
+/// A case sent back by the auditors, with the reasons (fixed list) and its resolution.
+model CaseReturn {
+  id          String    @id @default(uuid()) @db.Uuid
+  schoolId    String    @db.Uuid
+  caseId      String    @db.Uuid
+  case        Case      @relation(fields: [caseId], references: [id])
+  date        DateTime  @db.Date
+  reasons     Json
+  note        String    @default("")
+  createdBy   String    @db.Uuid
+  byName      String
+  createdAt   DateTime  @default(now())
+  resolvedAt  DateTime?
+  resolvedBy  String?   @db.Uuid
+  resolveNote String    @default("")
+
+  @@index([schoolId, date])
+  @@index([caseId])
+}
+
+/// Remarks on a case (accountants, the administrator, the read-only auditor), optionally about one document.
+model CaseComment {
+  id        String   @id @default(uuid()) @db.Uuid
+  schoolId  String   @db.Uuid
+  caseId    String   @db.Uuid
+  case      Case     @relation(fields: [caseId], references: [id])
+  userId    String   @db.Uuid
+  byName    String
+  text      String
+  docCode   Int?
+  resolved  Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@index([caseId, createdAt])
+}
+
+/// A request for another user's approval (a certificate above the administrator's limit).
+model Approval {
+  id            String    @id @default(uuid()) @db.Uuid
+  schoolId      String    @db.Uuid
+  caseId        String    @db.Uuid
+  case          Case      @relation(fields: [caseId], references: [id])
+  kind          String
+  status        String    @default("PENDING")
+  requestedBy   String    @db.Uuid
+  requestedName String
+  decidedBy     String?   @db.Uuid
+  decidedName   String    @default("")
+  note          String    @default("")
+  createdAt     DateTime  @default(now())
+  decidedAt     DateTime?
+
+  @@index([caseId])
+  @@index([schoolId, status])
 }

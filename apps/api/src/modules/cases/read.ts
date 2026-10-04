@@ -1,4 +1,8 @@
 import { NotFoundException } from '@nestjs/common';
+import { gateDocuments } from './fulfilment';
+import { caseBundle } from './bundle';
+import { performance } from '../bank';
+import { approvalRequired } from './approvals';
 import { db } from '../../common/db';
 import { isoDay, today } from '../../common/dates';
 import { D, num } from '../../common/money';
@@ -50,6 +54,7 @@ export async function readCases({ s, school, rid, action, query }: ReadCtx) {
       supplier: true,
       certificates: { select: { id: true, number: true, gross: true, fine: true, net: true, finalized: true } },
       erp: true,
+      returns: { where: { resolvedAt: null }, select: { id: true } },
     },
     orderBy: { createdAt: 'desc' },
     take: 500,
@@ -70,12 +75,36 @@ async function readCase(tenantId: string, school: string, caseId: string, action
     }
     throw new NotFoundException('أضف عروض الأسعار لمعاينة التقرير');
   }
+  if (action === 'bundle') return caseBundle(school, caseId);
   if (action === 'order-print') {
     if (!c.orderHtml) throw new NotFoundException('يصدر كتاب التكليف بعد الإصدار');
     return { html: c.orderHtml };
   }
   if (action) throw new NotFoundException();
-  return { ...c, checklist: checklist(c) };
+  const tenant = await db.tenant.findUniqueOrThrow({ where: { id: tenantId }, select: { certGate: true, checkDocs: true } });
+  // The delivery record of every quoting company, shown next to its quotation.
+  const cardIds = [...new Set([...c.quotes.map((q) => q.supplier.cardId), c.supplier?.cardId].filter((v): v is string => !!v))];
+  const cards = cardIds.length
+    ? await db.supplierCard.findMany({ where: { id: { in: cardIds } }, select: { id: true, name: true, legalName: true } })
+    : [];
+  const perf = await performance(tenantId, cards);
+  const performanceBySupplier = Object.fromEntries(
+    [...c.quotes.map((q) => q.supplier), ...(c.supplier ? [c.supplier] : [])]
+      .filter((x) => x.cardId && perf.has(x.cardId))
+      .map((x) => [x.id, perf.get(x.cardId!)]),
+  );
+  return {
+    ...c,
+    checklist: checklist(c),
+    gate: tenant.certGate ? gateDocuments(c, tenant.checkDocs) : null,
+    approval: (await approvalRequired(db, tenantId, c))
+      ? {
+          required: true,
+          last: await db.approval.findFirst({ where: { caseId: c.id, kind: 'CERTIFICATE' }, orderBy: { createdAt: 'desc' } }),
+        }
+      : null,
+    performance: performanceBySupplier,
+  };
 }
 
 const inPeriod = (d: Date | string | null | undefined, from: string, to: string) => {

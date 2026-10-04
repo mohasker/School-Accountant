@@ -56,6 +56,13 @@ export async function writeSupplier({ s, school, t, body, rid, method }: WriteCt
     const current = await t.supplier.findUnique({ where: { id: parse(id, rid), schoolId: school } });
     if (!current) throw new NotFoundException();
     if (current.version !== version) throw new ConflictException('تم تعديل المورد؛ أعد تحميله');
+    // While second-person approval is on, a new IBAN waits on the supplier card for another user.
+    if (
+      current.iban &&
+      data.iban !== current.iban &&
+      (await t.tenant.findUniqueOrThrow({ where: { id: s.user.tenantId }, select: { fourEyes: true } })).fourEyes
+    )
+      data.iban = current.iban;
     return t.supplier.update({
       where: { id: rid, schoolId: school, version },
       data: { ...data, cardId: card.id, version: { increment: 1 } },

@@ -1,4 +1,4 @@
-npm test — 2026-10-02 (2026-10-02.1) — 65 passed, 0 failed
+npm test — 2026-10-04 (2026-10-04.1) — 73 passed, 0 failed
 
 ok 1 - PEN: exact partial delivery and single cumulative cap
 ok 2 - AUTH: school isolation on list, search, dashboard and mutation
@@ -65,3 +65,13 @@ ok 62 - TELEGRAM: the administrator sets the bot; an accountant links the phone 
 ok 63 - FILE CHECK (text): the printed file is compared with the case; a wrong reference is an error; one-page report; school isolation
 ok 64 - FILE CHECK (AI / Claude / ChatGPT): pages read blind, then fixed rules on names, dates, references, items, amounts, registrations, IBAN, undertaking, signatures, requirements
 ok 65 - FILE CHECK (Telegram): «فحص» then files then «تم» runs the same check and sends the report
+ok 66 - DATE ORDER, INVOICE TOTAL and CERTIFICATE GATE: the system refuses papers out of sequence before they are printed
+ok 67 - BUNDLE: one PDF with an index page and every document in the auditors order; missing documents listed
+ok 68 - RETURNS and COMMENTS: reasons recorded and counted, resolved, auditor remarks, a reason becomes a check rule
+ok 69 - SUPPLIER PERFORMANCE and MERGE: delivery record from earlier and current certificates; duplicates merged by the administrator
+ok 70 - BUDGET ALERTS and DAILY DIGEST: lines at 80% / 95% or heading past 100% are flagged; the morning message lists what needs action
+ok 71 - IMPREST CHECK: every recorded invoice in the file with the same number, supplier, date and amount; extra, over-limit and future invoices
+ok 72 - SECOND-PERSON APPROVAL: a new IBAN waits for another user; a large certificate needs another user to approve and is issued by someone else
+ok 73 - YEAR PACKAGE: one ZIP with every file, statement and the registers, built in the background
+
+npm run test:concurrency (PostgreSQL 16, 10 connections) — 6/6 PASS, 3 consecutive runs

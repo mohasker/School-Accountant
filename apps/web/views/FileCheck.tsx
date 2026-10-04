@@ -46,7 +46,7 @@ const REQUIRABLE = [
 const MAX_TOTAL = 25 * 1024 * 1024;
 
 /** Photos are reduced to 2000 px JPEG in the browser (clear enough to read, small enough to send); PDFs go as they are. */
-async function prepare(file: File) {
+async function prepare(file: File, enhance = false) {
   if (file.type === 'application/pdf') return { name: file.name, mime: 'application/pdf', base64: await readBase64(file), size: file.size };
   if (!['image/jpeg', 'image/png'].includes(file.type)) throw Error(`«${file.name}»: أرفق PDF أو صور JPG / PNG فقط`);
   const bmp = await createImageBitmap(file);
@@ -54,7 +54,10 @@ async function prepare(file: File) {
   const canvas = document.createElement('canvas');
   canvas.width = Math.round(bmp.width * scale);
   canvas.height = Math.round(bmp.height * scale);
-  canvas.getContext('2d')!.drawImage(bmp, 0, 0, canvas.width, canvas.height);
+  const ctx = canvas.getContext('2d')!;
+  // Phone photos of paper: grey scale with more contrast keeps text, signatures and stamps readable.
+  if (enhance) ctx.filter = 'grayscale(1) contrast(1.35) brightness(1.08)';
+  ctx.drawImage(bmp, 0, 0, canvas.width, canvas.height);
   const blob = await new Promise<Blob>((res, rej) =>
     canvas.toBlob((b) => (b ? res(b) : rej(Error('تعذر تجهيز الصورة'))), 'image/jpeg', 0.85),
   );
@@ -67,21 +70,79 @@ async function prepare(file: File) {
  * the pages, compares them with this transaction and returns a one-page report.
  */
 export function FileCheckPanel({ c, work }: { c: Row; work: boolean }) {
+  if (!c.issueDate && !c.reportDate) return null;
+  return (
+    <CheckPanel
+      id={c.id}
+      work={work}
+      post="file-check"
+      prompt="file-check-prompt"
+      title="فحص الملف قبل الإرسال"
+      intro="ارفع الملف الموقّع بعد مسحه ضوئياً (PDF) أو صور أوراقه بالترتيب. يُراجَع اسم المدرسة في كل ورقة، وتسلسل التواريخ، وأرقام التكليف والفاتورة، والأصناف والمبالغ والغرامة والصافي، والسجلات التجارية وIBAN والتعهد، والتوقيعات والأختام، ومتطلبات الإدارة، ويصدر تقرير من صفحة واحدة. لا يتغير شيء في المعاملة."
+    />
+  );
+}
+
+/** The same check for an imprest settlement statement and its invoices. */
+export function ImprestCheckPanel({ settlementId }: { settlementId: string }) {
+  return (
+    <CheckPanel
+      id={settlementId}
+      work
+      post="imprest-check"
+      prompt="imprest-check-prompt"
+      title="فحص كشف التسوية وفواتيره قبل الإرسال"
+      intro="ارفع فواتير الكشف (PDF أو صور). تُطابق كل فاتورة مسجلة في الكشف برقمها ومورّدها وتاريخها ومبلغها، وتُكشف الفواتير الزائدة، وحد فاتورة النثرية، والتواريخ، وختم المورد، والإجمالي."
+    />
+  );
+}
+
+function CheckPanel({
+  id,
+  work,
+  post,
+  prompt,
+  title,
+  intro,
+}: {
+  id: string;
+  work: boolean;
+  post: string;
+  prompt: string;
+  title: string;
+  intro: string;
+}) {
+  const c = { id };
   const w = useWorkspace();
   const input = useRef<HTMLInputElement>(null);
+  const camera = useRef<HTMLInputElement>(null);
+  const [pages, setPages] = useState<File[]>([]);
+  const [enhance, setEnhance] = useState(true);
+  const addFiles = (list: FileList | null) => {
+    if (list?.length) setPages((p) => [...p, ...Array.from(list)]);
+    if (input.current) input.current.value = '';
+    if (camera.current) camera.current.value = '';
+  };
+  const move = (i: number, d: number) =>
+    setPages((p) => {
+      const n = [...p];
+      const j = i + d;
+      if (j < 0 || j >= n.length) return p;
+      [n[i], n[j]] = [n[j], n[i]];
+      return n;
+    });
   const [running, setRunning] = useState(false);
   const [last, setLast] = useState<Row | null>(null);
   const [prompts, setPrompts] = useState<Row | null>(null);
   const [shown, setShown] = useState<'reading' | 'review' | null>(null);
   const [pasted, setPasted] = useState('');
   const [history] = useLoad<Row[]>(() => w.api(w.root('file-checks?case=' + c.id)), [c.id, last?.id]);
-  if (!c.issueDate && !c.reportDate) return null;
   const latest: Row | null = last ?? history?.[0] ?? null;
 
   /** Copies one of the two prompts; when the browser refuses the clipboard, the text is shown to copy by hand. */
   const copyPrompt = async (kind: 'reading' | 'review') => {
     try {
-      const p = prompts ?? (await w.api(w.root('file-check-prompt/' + c.id)));
+      const p = prompts ?? (await w.api(w.root(prompt + '/' + c.id)));
       setPrompts(p);
       setShown(kind);
       await navigator.clipboard?.writeText(p[kind]).catch(() => {});
@@ -93,7 +154,7 @@ export function FileCheckPanel({ c, work }: { c: Row; work: boolean }) {
     if (pasted.trim().length < 2) return w.fail(Error('الصق رد Claude / ChatGPT أولاً'));
     setRunning(true);
     try {
-      setLast(await w.api(`file-check/${w.school}/${c.id}`, 'POST', { pasted }));
+      setLast(await w.api(`${post}/${w.school}/${c.id}`, 'POST', { pasted }));
       setPasted('');
     } catch (e) {
       w.fail(e);
@@ -103,16 +164,16 @@ export function FileCheckPanel({ c, work }: { c: Row; work: boolean }) {
   };
 
   const run = async () => {
-    const files = Array.from(input.current?.files ?? []);
-    if (!files.length) return w.fail(Error('اختر ملف PDF أو صور أوراق المعاملة أولاً'));
+    const files = pages;
+    if (!files.length) return w.fail(Error('اختر ملف PDF أو صور أوراق المعاملة أولاً، أو صوّرها بالكاميرا'));
     setRunning(true);
     try {
       const ready = [];
-      for (const f of files) ready.push(await prepare(f));
+      for (const f of files) ready.push(await prepare(f, enhance));
       if (ready.reduce((n, f) => n + f.size, 0) > MAX_TOTAL) throw Error('حجم الملفات أكبر من 25 ميجابايت؛ قسّمها على دفعتين');
-      const r = await w.api(`file-check/${w.school}/${c.id}`, 'POST', { files: ready.map(({ size: _size, ...f }) => f) });
+      const r = await w.api(`${post}/${w.school}/${c.id}`, 'POST', { files: ready.map(({ size: _size, ...f }) => f) });
       setLast(r);
-      if (input.current) input.current.value = '';
+      setPages([]);
     } catch (e) {
       w.fail(e);
     } finally {
@@ -123,20 +184,60 @@ export function FileCheckPanel({ c, work }: { c: Row; work: boolean }) {
   const findings: Row[] = latest?.findings ?? [];
   const checklist: string[] = latest?.checklist ?? latest?.facts?.checklist ?? [];
   return (
-    <Panel title="فحص الملف قبل الإرسال">
+    <Panel title={title}>
       <p>
-        <small>
-          ارفع الملف الموقّع بعد مسحه ضوئياً (PDF) أو صور أوراقه بالترتيب. يُراجَع اسم المدرسة في كل ورقة، وتسلسل التواريخ، وأرقام التكليف
-          والفاتورة، والمبالغ والغرامة والصافي، والتوقيعات والأختام، ومتطلبات الإدارة، ويصدر تقرير من صفحة واحدة. لا يتغير شيء في المعاملة.
-        </small>
+        <small>{intro}</small>
       </p>
       {work && (
-        <div className="toolbar wrap">
-          <input ref={input} type="file" multiple accept="application/pdf,image/jpeg,image/png" disabled={running} />
-          <button onClick={run} disabled={running || w.busy}>
-            {running ? 'جارٍ الفحص… (قد يستغرق دقيقة)' : 'فحص الملف'}
-          </button>
-        </div>
+        <>
+          <div className="toolbar wrap">
+            <input
+              ref={input}
+              type="file"
+              multiple
+              accept="application/pdf,image/jpeg,image/png"
+              disabled={running}
+              onChange={(e) => addFiles(e.target.files)}
+            />
+            <label className="secondary button-like">
+              📷 تصوير الأوراق
+              <input
+                ref={camera}
+                type="file"
+                accept="image/*"
+                capture="environment"
+                multiple
+                hidden
+                disabled={running}
+                onChange={(e) => addFiles(e.target.files)}
+              />
+            </label>
+            <label className="check">
+              <input type="checkbox" checked={enhance} onChange={(e) => setEnhance(e.target.checked)} /> تحسين وضوح الصور
+            </label>
+            <button onClick={run} disabled={running || w.busy || !pages.length}>
+              {running ? 'جارٍ الفحص… (قد يستغرق دقيقة)' : `فحص الملف${pages.length ? ` (${pages.length})` : ''}`}
+            </button>
+          </div>
+          {pages.length > 0 && (
+            <ol className="page-list">
+              {pages.map((f, i) => (
+                <li key={i + f.name}>
+                  {f.name} <small>({Math.round(f.size / 1024)} ك.ب)</small>{' '}
+                  <button className="link" onClick={() => move(i, -1)} disabled={i === 0} title="لأعلى">
+                    ↑
+                  </button>
+                  <button className="link" onClick={() => move(i, 1)} disabled={i === pages.length - 1} title="لأسفل">
+                    ↓
+                  </button>
+                  <button className="link danger" onClick={() => setPages((p) => p.filter((_, j) => j !== i))} title="حذف">
+                    ✕
+                  </button>
+                </li>
+              ))}
+            </ol>
+          )}
+        </>
       )}
       {work && (
         <details className="external-check">
@@ -160,7 +261,9 @@ export function FileCheckPanel({ c, work }: { c: Row; work: boolean }) {
             <>
               <small>نُسخ الأمر. إن لم يُنسخ تلقائياً فانسخه من هنا:</small>
               <textarea readOnly rows={5} value={prompts[shown]} onFocus={(e) => e.target.select()} dir="auto" style={{ width: '100%' }} />
-              <small>المستندات المطلوبة لهذه المعاملة: {prompts.required.map((r: Row) => DOC_NAMES[r.type] ?? r.type).join('، ')}</small>
+              {prompts.required && (
+                <small>المستندات المطلوبة لهذه المعاملة: {prompts.required.map((r: Row) => DOC_NAMES[r.type] ?? r.type).join('، ')}</small>
+              )}
             </>
           )}
           <textarea
@@ -234,7 +337,17 @@ export function FileCheckSettingsPanel() {
   if (!st) return null;
   const save = (patch: Row) =>
     w.task(
-      () => w.api('admin/file-check', 'POST', { ai: st.ai, prompt: st.prompt, docs: st.docs, rules: st.rules, ...patch }),
+      () =>
+        w.api('admin/file-check', 'POST', {
+          ai: st.ai,
+          prompt: st.prompt,
+          gate: st.gate,
+          fourEyes: st.fourEyes,
+          fourEyesLimit: st.fourEyesLimit,
+          docs: st.docs,
+          rules: st.rules,
+          ...patch,
+        }),
       'حُفظت إعدادات الفحص',
     );
   return (
@@ -255,6 +368,25 @@ export function FileCheckSettingsPanel() {
       <label className="check">
         <input type="checkbox" checked={st.prompt} onChange={(e) => save({ prompt: e.target.checked })} disabled={w.busy} /> السماح
         للمحاسبين بالفحص عبر Claude أو ChatGPT الخاص بهم (أمر جاهز يُنسخ، ثم يُلصق الرد في النظام)
+      </label>
+      <label className="check">
+        <input type="checkbox" checked={st.gate} onChange={(e) => save({ gate: e.target.checked })} disabled={w.busy} /> بوابة قبل شهادة
+        الإنجاز: لا تصدر الشهادة إلا بعد تأكيد وجود المستندات المطلوبة أدناه في الملف، وتحقق IBAN المورد، وسريان سجله التجاري
+      </label>
+      <h3>مراجعة من شخص آخر</h3>
+      <label className="check">
+        <input type="checkbox" checked={st.fourEyes} onChange={(e) => save({ fourEyes: e.target.checked })} disabled={w.busy} /> تغيير IBAN
+        لمورد له IBAN مسجل ينتظر موافقة مستخدم آخر
+      </label>
+      <label>
+        وشهادة الإنجاز لمعاملة قيمتها من (ر.ق، 0 = بلا موافقة):{' '}
+        <input
+          type="number"
+          min={0}
+          defaultValue={st.fourEyesLimit}
+          style={{ width: 140 }}
+          onBlur={(e) => Number(e.target.value) !== st.fourEyesLimit && save({ fourEyesLimit: Number(e.target.value || 0) })}
+        />
       </label>
       <h3>مستندات مطلوبة دائماً عند الصرف</h3>
       <p>

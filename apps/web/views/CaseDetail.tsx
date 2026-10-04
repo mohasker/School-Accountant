@@ -5,6 +5,7 @@ import { useWorkspace, type Workspace } from '../components/context';
 import type { Dialog, Field } from '../components/FormDialog';
 import { Badge, DocButtons, Empty, Panel, Table } from '../components/ui';
 import { FileCheckPanel } from './FileCheck';
+import { ApprovalPanel, CaseReturnsPanel } from './Returns';
 import { NumberInput, toNumberText } from '../components/NumberInput';
 import { useLoad } from '../components/useLoad';
 import type { Row } from '../lib/api';
@@ -246,6 +247,12 @@ export function caseDialogs(w: Workspace, c: Row) {
     fields: [
       { name: 'completionDate', label: 'تاريخ الإنجاز / التوريد الفعلي', type: 'date', value: dateNow() },
       { name: 'invoice', label: 'رقم فاتورة الشركة' },
+      {
+        name: 'invoiceAmount',
+        label: `إجمالي الفاتورة (يجب أن يساوي قيمة المتبقي ${currency(c.items.reduce((v: number, i: Row) => v + Number(i.value) - Number(i.acceptedValue), 0))} ر.ق)`,
+        type: 'number',
+        required: false,
+      },
       { name: 'date', label: 'تاريخ الشهادة وكتاب التغطية', type: 'date', value: dateNow() },
       {
         name: 'addressee',
@@ -262,6 +269,19 @@ export function caseDialogs(w: Workspace, c: Row) {
     ],
     body: (
       <>
+        {c.gate && (
+          <>
+            <h3>تأكيد المستندات الموجودة في الملف (مطلوب قبل الشهادة)</h3>
+            <div className="check-grid">
+              {c.gate.map((g: Row) => (
+                <label key={g.type} className="check">
+                  <input type="checkbox" name={'gate_' + g.type} />
+                  {g.label}
+                </label>
+              ))}
+            </div>
+          </>
+        )}
         <h3>مرفقات كتاب التغطية</h3>
         <div className="check-grid">
           {COVER_ATTACHMENTS.map(([key, label]) => (
@@ -285,6 +305,8 @@ export function caseDialogs(w: Workspace, c: Row) {
       act('finish', {
         completionDate: v.completionDate,
         invoice: v.invoice,
+        ...(String(v.invoiceAmount ?? '').trim() ? { invoiceAmount: String(v.invoiceAmount).replace(/,/g, '') } : {}),
+        ...(c.gate ? { present: c.gate.map((g: Row) => g.type).filter((t: string) => fd.get('gate_' + t) === 'on') } : {}),
         date: v.date,
         addressee: String(v.addressee),
         notes: v.notes,
@@ -528,6 +550,7 @@ export function CaseDetail({ id, intent }: { id: string; intent?: string }) {
                         <td>
                           <b>{q.supplier.name}</b>
                           {q.id === lowest?.id && <small className="tag-best">الأقل سعراً</small>}
+                          <PerformanceNote p={c.performance?.[q.supplier.id]} />
                         </td>
                         <td>
                           <b>{currency(q.total)}</b> <small>ر.ق</small>
@@ -614,6 +637,10 @@ export function CaseDetail({ id, intent }: { id: string; intent?: string }) {
           </Panel>
 
           <FileCheckPanel c={c} work={work} />
+
+          <ApprovalPanel c={c} />
+
+          <CaseReturnsPanel c={c} />
         </div>
 
         <div className="case-side">
@@ -636,6 +663,15 @@ export function CaseDetail({ id, intent }: { id: string; intent?: string }) {
                 )}
               </div>
             ))}
+            {(c.orderHtml || c.evaluationHtml) && (
+              <button
+                className="side-action"
+                title="فهرس + كل المستندات الصادرة والمرفقة بترتيب التدقيق في ملف PDF واحد"
+                onClick={() => w.task(async () => downloadFile(await w.api(w.root(`cases/${c.id}/bundle`))), 'جُهّز ملف المعاملة المجمّع')}
+              >
+                ⬇ ملف المعاملة المجمّع (PDF)
+              </button>
+            )}
             {cert && (
               <div className="side-money">
                 <span>الصافي المستحق</span>
@@ -700,5 +736,17 @@ export function CaseDetail({ id, intent }: { id: string; intent?: string }) {
         </div>
       </div>
     </>
+  );
+}
+
+/** The supplier's delivery record next to its quotation: late deliveries, penalties, files sent back. */
+function PerformanceNote({ p }: { p?: Row }) {
+  if (!p) return null;
+  const tone = p.rating === 'POOR' ? 'danger' : p.rating === 'WATCH' ? 'warn-text' : 'muted';
+  return (
+    <small className={tone} title="من شهادات الإنجاز السابقة والحالية">
+      {p.rating === 'POOR' ? '⚠ ' : ''}
+      تأخر في {p.late} من {p.files} ({p.lateRate}%){p.returns ? ` — مرتجعات ${p.returns}` : ''}
+    </small>
   );
 }

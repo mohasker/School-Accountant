@@ -9,6 +9,7 @@ export type View =
   | 'case'
   | 'suppliers'
   | 'supplier-bank'
+  | 'returns'
   | 'budget'
   | 'imprests'
   | 'reports'

@@ -7,6 +7,7 @@ import { Select } from '../components/Select';
 import { openImprestDialog } from '../components/dialogs';
 import type { Dialog } from '../components/FormDialog';
 import { DocButtons, Empty, Panel, Table } from '../components/ui';
+import { ImprestCheckPanel } from './FileCheck';
 import { useLoad } from '../components/useLoad';
 import type { Row } from '../lib/api';
 import { currency, dateNow, day, IMPREST_TYPES, percent } from '../lib/format';
@@ -191,7 +192,7 @@ export function Imprests() {
             </button>
           )}
           {a.settlements.map((st: Row) => (
-            <Statement key={st.id} invoices={a.expenses.filter((e: Row) => e.settlementId === st.id)}>
+            <Statement key={st.id} id={st.id} work={w.can('ACCOUNTANT')} invoices={a.expenses.filter((e: Row) => e.settlementId === st.id)}>
               <b>
                 كشف رقم {st.number} — {st.type === 'REPLENISH' ? 'استعاضة' : 'تسوية وإغلاق'} — {currency(st.amount)} ر.ق
               </b>
@@ -236,8 +237,9 @@ export function Imprests() {
 }
 
 /** One settlement statement: its figures and documents, with its invoices shown on request (entered once, never twice). */
-function Statement({ invoices, children }: { invoices: Row[]; children: React.ReactNode }) {
+function Statement({ id, work, invoices, children }: { id: string; work: boolean; invoices: Row[]; children: React.ReactNode }) {
   const [open, setOpen] = useState(false);
+  const [check, setCheck] = useState(false);
   return (
     <div className="settlement-block">
       <div className="settlement">
@@ -245,8 +247,14 @@ function Statement({ invoices, children }: { invoices: Row[]; children: React.Re
         <button className="link" onClick={() => setOpen((o) => !o)}>
           {open ? 'إخفاء الفواتير' : `الفواتير (${invoices.length})`}
         </button>
+        {work && (
+          <button className="link" onClick={() => setCheck((o) => !o)}>
+            {check ? 'إخفاء الفحص' : 'فحص الكشف قبل الإرسال'}
+          </button>
+        )}
       </div>
       {open && <InvoiceTable rows={invoices} />}
+      {check && <ImprestCheckPanel settlementId={id} />}
     </div>
   );
 }

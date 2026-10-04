@@ -122,6 +122,7 @@ export function CaseTable({ rows }: { rows: Row[] }) {
           </td>
           <td>
             <Badge state={r.state} />
+            {r.returns?.length > 0 && <span className="badge returned">↩ مرتجعة</span>}
           </td>
           <td>
             <RowActions r={r} />

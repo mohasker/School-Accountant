@@ -35,6 +35,10 @@ export async function deleteCase(t: Tx, caseId: string) {
   ];
   await reverseLedger(t, { eventKey: { in: keys } });
   await t.evidence.deleteMany({ where: { caseId } });
+  await t.caseReturn.deleteMany({ where: { caseId } });
+  await t.caseComment.deleteMany({ where: { caseId } });
+  await t.approval.deleteMany({ where: { caseId } });
+  await t.fileCheck.deleteMany({ where: { caseId } });
   await t.portion.deleteMany({ where: { caseId } });
   await t.certificate.deleteMany({ where: { caseId } });
   await t.delivery.deleteMany({ where: { caseId } });

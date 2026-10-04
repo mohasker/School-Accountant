@@ -34,6 +34,8 @@ export async function welcome(s: Identity) {
       replenish: rows.reduce((n, r) => n + r.replenish.length, 0),
       awaiting: rows.reduce((n, r) => n + r.awaiting.length, 0),
       erp: rows.reduce((n, r) => n + r.erp, 0),
+      returns: rows.reduce((n, r) => n + r.returns, 0),
+      budget: rows.reduce((n, r) => n + r.budgetAlerts.length, 0),
     },
     schools: busy,
     clear: rows.length - busy.length,
@@ -44,7 +46,7 @@ export async function welcome(s: Identity) {
 export async function pendingBySchool(tenantId: string, schools: { id: string; name: string }[]) {
   const ids = schools.map((x) => x.id);
   const now = today();
-  const [cases, erp, imprests, policy] = await Promise.all([
+  const [cases, erp, imprests, policy, returns, budgets, approvals] = await Promise.all([
     db.case.findMany({
       where: { schoolId: { in: ids }, state: { in: OPEN }, year: { closed: false } },
       select: {
@@ -79,9 +81,33 @@ export async function pendingBySchool(tenantId: string, schools: { id: string; n
       },
     }),
     loadPolicy(db, tenantId),
+    db.caseReturn.groupBy({ by: ['schoolId'], where: { schoolId: { in: ids }, resolvedAt: null }, _count: true }),
+    db.budget.findMany({
+      where: { schoolId: { in: ids }, approved: { gt: 0 }, year: { closed: false } },
+      select: {
+        schoolId: true,
+        code: true,
+        name: true,
+        approved: true,
+        spent: true,
+        committed: true,
+        year: { select: { startDate: true, endDate: true } },
+      },
+    }),
+    db.approval.groupBy({ by: ['schoolId'], where: { schoolId: { in: ids }, status: 'PENDING' }, _count: true }),
   ]);
   const rows = schools.map((sc) => {
     const own = cases.filter((c) => c.schoolId === sc.id);
+    const openReturns = returns.find((x) => x.schoolId === sc.id)?._count ?? 0;
+    const waitingApproval = approvals.find((x) => x.schoolId === sc.id)?._count ?? 0;
+    const soon = isoDay(new Date(Date.now() + 3 * 86400000));
+    const dueSoon = own.filter(
+      (c) => ['ORDERED', 'PARTIAL'].includes(c.state) && c.dueDate && isoDay(c.dueDate) >= now && isoDay(c.dueDate) <= soon,
+    ).length;
+    const budgetAlerts = budgetWarnings(
+      budgets.filter((b) => b.schoolId === sc.id),
+      now,
+    );
     const late = own.filter((c) => ['ORDERED', 'PARTIAL'].includes(c.state) && c.dueDate && isoDay(c.dueDate) < now);
     const stage = (states: string[]) => own.filter((c) => states.includes(c.state));
     const im = imprests.filter((a) => a.schoolId === sc.id);
@@ -116,11 +142,45 @@ export async function pendingBySchool(tenantId: string, schools: { id: string; n
       replenish,
       awaiting,
       erp: erpCount,
+      returns: openReturns,
+      approvals: waitingApproval,
+      dueSoon,
+      budgetAlerts,
       // Late ones first, then the longest waiting.
       oldest: items.reduce((m, c) => Math.max(m, c.waiting), 0),
       items: items.sort((a, b) => Number(b.late) - Number(a.late) || b.waiting - a.waiting).slice(0, 6),
-      attention: own.length + replenish.length + awaiting.length + erpCount,
+      attention: own.length + replenish.length + awaiting.length + erpCount + openReturns + budgetAlerts.length + waitingApproval,
     };
   });
   return rows;
+}
+
+/**
+ * Budget lines that need attention: used (spent + committed) at 80% or 95% of the approved amount,
+ * or heading past 100% by the end of the year at the pace spent so far.
+ */
+export function budgetWarnings(
+  lines: {
+    code: string;
+    name: string;
+    approved: InstanceType<typeof D>;
+    spent: InstanceType<typeof D>;
+    committed: InstanceType<typeof D>;
+    year: { startDate: Date; endDate: Date };
+  }[],
+  now: string,
+) {
+  return lines
+    .map((b) => {
+      const used = Number(b.spent.plus(b.committed)) / Number(b.approved);
+      const start = b.year.startDate.getTime(),
+        end = b.year.endDate.getTime(),
+        at = Math.min(Math.max(new Date(now).getTime(), start), end);
+      const elapsed = (at - start) / Math.max(end - start, 1);
+      const projected = elapsed > 0.08 ? Number(b.spent) / Number(b.approved) / elapsed : 0;
+      const level = used >= 0.95 ? 'CRITICAL' : used >= 0.8 ? 'HIGH' : projected >= 1 ? 'PACE' : null;
+      return level ? { code: b.code, name: b.name, used: Math.round(used * 100), projected: Math.round(projected * 100), level } : null;
+    })
+    .filter((x): x is NonNullable<typeof x> => !!x)
+    .sort((a, b) => b.used - a.used);
 }

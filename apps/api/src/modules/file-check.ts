@@ -47,15 +47,23 @@ const ruleSchema = z.object({
 
 /* ---------- administrator settings ---------- */
 
-async function tenantSettings(tenantId: string) {
+export async function tenantSettings(tenantId: string) {
   const t = await db.tenant.findUniqueOrThrow({
     where: { id: tenantId },
-    select: { checkAi: true, checkRules: true, checkDocs: true, checkPrompt: true },
+    select: { checkAi: true, checkRules: true, checkDocs: true, checkPrompt: true, certGate: true, fourEyes: true, fourEyesLimit: true },
   });
   const docs = Array.isArray(t.checkDocs)
     ? (t.checkDocs as string[]).filter((d): d is DocType => (DOC_KEYS as string[]).includes(d))
     : DEFAULT_REQUIRED;
-  return { ai: t.checkAi, prompt: t.checkPrompt, rules: rulesOf(t.checkRules), docs };
+  return {
+    ai: t.checkAi,
+    prompt: t.checkPrompt,
+    gate: t.certGate,
+    fourEyes: t.fourEyes,
+    fourEyesLimit: Number(t.fourEyesLimit),
+    rules: rulesOf(t.checkRules),
+    docs,
+  };
 }
 
 export async function checkSettings(s: Identity) {
@@ -70,6 +78,9 @@ export async function saveCheckSettings(s: Identity, t: Tx, body: any) {
       .object({
         ai: z.boolean(),
         prompt: z.boolean().default(true),
+        gate: z.boolean().default(false),
+        fourEyes: z.boolean().default(false),
+        fourEyesLimit: z.number().min(0).max(100000000).default(0),
         rules: z.array(ruleSchema).max(40),
         docs: z.array(z.enum(DOC_KEYS)).max(20).default(DEFAULT_REQUIRED),
       })
@@ -79,9 +90,17 @@ export async function saveCheckSettings(s: Identity, t: Tx, body: any) {
   const rules = p.rules.map((r) => ({ ...r, id: r.id || 'R' + randomUUID().slice(0, 8) }));
   await t.tenant.update({
     where: { id: s.user.tenantId },
-    data: { checkAi: p.ai, checkPrompt: p.prompt, checkRules: rules, checkDocs: p.docs },
+    data: {
+      checkAi: p.ai,
+      checkPrompt: p.prompt,
+      certGate: p.gate,
+      fourEyes: p.fourEyes,
+      fourEyesLimit: p.fourEyesLimit,
+      checkRules: rules,
+      checkDocs: p.docs,
+    },
   });
-  return { ai: p.ai, prompt: p.prompt, rules, docs: p.docs };
+  return { ai: p.ai, prompt: p.prompt, gate: p.gate, fourEyes: p.fourEyes, fourEyesLimit: p.fourEyesLimit, rules, docs: p.docs };
 }
 
 function rulesOf(v: unknown): Expected['rules'] {
@@ -129,7 +148,7 @@ export async function readCheckPrompt({ s, school, rid }: ReadCtx) {
 /* ---------- running a check ---------- */
 
 const usage = new Map<string, number[]>();
-function limit(userId: string) {
+export function limit(userId: string) {
   const now = Date.now(),
     recent = (usage.get(userId) ?? []).filter((t) => now - t < 3600_000);
   if (recent.length >= PER_HOUR) throw new HttpException(`الحد ${PER_HOUR} فحصاً في الساعة؛ حاول لاحقاً`, 429);
@@ -175,46 +194,7 @@ export async function runFileCheck(
 ) {
   scope(s, school, WORK);
   const { c, x, settings } = await loadExpected(s, school, caseId);
-  let extraction: Extraction;
-  let fileList: { name: string; mime: string; size: number; sha256: string }[];
-  if ('pasted' in input) {
-    if (!settings.prompt) fail('أوقف مسؤول النظام الفحص عبر Claude / ChatGPT خارج النظام');
-    extraction = readPasted(input.pasted);
-    limit(s.user.id);
-    fileList = [
-      {
-        name: 'رد Claude / ChatGPT',
-        mime: 'application/json',
-        size: input.pasted.length,
-        sha256: createHash('sha256').update(input.pasted).digest('hex'),
-      },
-    ];
-  } else {
-    const files = input.files;
-    if (!files.length || files.length > MAX_FILES) fail(`أرفق من 1 إلى ${MAX_FILES} ملفاً`);
-    let total = 0;
-    for (const f of files) {
-      if (f.data.length > MAX_FILE) fail(`الملف «${f.name}» أكبر من 15 ميجابايت`);
-      total += f.data.length;
-      checkUpload(f.mime, f.data);
-    }
-    if (total > MAX_TOTAL) fail('حجم الملفات أكبر من 25 ميجابايت؛ قسّمها أو صوّر بدقة أقل');
-    limit(s.user.id);
-    const key = settings.ai ? await apiKey(s.user.tenantId) : '';
-    extraction = key
-      ? await readWithAi(
-          key,
-          files,
-          x.rules.map((r) => ({ id: r.id, text: r.text })),
-        )
-      : await readTextLayer(files);
-    fileList = files.map((f) => ({
-      name: f.name,
-      mime: f.mime,
-      size: f.data.length,
-      sha256: createHash('sha256').update(f.data).digest('hex'),
-    }));
-  }
+  const { extraction, fileList } = await extractInput(s, settings, input, x.rules);
   if (extraction.pages.length > MAX_PAGES) fail(`عدد الصفحات أكبر من ${MAX_PAGES}؛ افحص المعاملة على دفعات`);
 
   const findings = evaluate(x, extraction);
@@ -317,4 +297,55 @@ export async function readFileChecks({ s, school, rid, query }: ReadCtx) {
     orderBy: { createdAt: 'desc' },
     take: 20,
   });
+}
+
+/** Reads the uploaded files (text layer or the system's AI) or the pasted Claude / ChatGPT reply. */
+export async function extractInput(
+  s: Identity,
+  settings: Awaited<ReturnType<typeof tenantSettings>>,
+  input: { files: UploadedFile[] } | { pasted: string },
+  rules: { id: string; text: string }[],
+) {
+  let extraction: Extraction;
+  let fileList: { name: string; mime: string; size: number; sha256: string }[];
+  if ('pasted' in input) {
+    if (!settings.prompt) fail('أوقف مسؤول النظام الفحص عبر Claude / ChatGPT خارج النظام');
+    extraction = readPasted(input.pasted);
+    limit(s.user.id);
+    fileList = [
+      {
+        name: 'رد Claude / ChatGPT',
+        mime: 'application/json',
+        size: input.pasted.length,
+        sha256: createHash('sha256').update(input.pasted).digest('hex'),
+      },
+    ];
+  } else {
+    const files = input.files;
+    if (!files.length || files.length > MAX_FILES) fail(`أرفق من 1 إلى ${MAX_FILES} ملفاً`);
+    let total = 0;
+    for (const f of files) {
+      if (f.data.length > MAX_FILE) fail(`الملف «${f.name}» أكبر من 15 ميجابايت`);
+      total += f.data.length;
+      checkUpload(f.mime, f.data);
+    }
+    if (total > MAX_TOTAL) fail('حجم الملفات أكبر من 25 ميجابايت؛ قسّمها أو صوّر بدقة أقل');
+    limit(s.user.id);
+    const key = settings.ai ? await apiKey(s.user.tenantId) : '';
+    extraction = key
+      ? await readWithAi(
+          key,
+          files,
+          rules.map((r) => ({ id: r.id, text: r.text })),
+        )
+      : await readTextLayer(files);
+    fileList = files.map((f) => ({
+      name: f.name,
+      mime: f.mime,
+      size: f.data.length,
+      sha256: createHash('sha256').update(f.data).digest('hex'),
+    }));
+  }
+  if (extraction.pages.length > MAX_PAGES) fail(`عدد الصفحات أكبر من ${MAX_PAGES}؛ افحص على دفعات`);
+  return { extraction, fileList };
 }

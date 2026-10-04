@@ -17,6 +17,7 @@ import type { Tx } from '../../common/db';
 import type { WriteCtx } from '../context';
 import { getCase, requireState, verifiedCodes, type FullCase } from './common';
 import { orderPolicy } from './procurement';
+import { requireCertificateApproval } from './approvals';
 
 type Ctx = WriteCtx & { c: FullCase };
 
@@ -30,6 +31,7 @@ export async function deliver({ s, school, t, body, c }: Ctx) {
         date,
         note: text,
         invoice: text,
+        invoiceAmount: z.union([z.string().regex(/^\d{1,12}(\.\d{1,2})?$/), z.number().nonnegative()]).optional(),
         lines: z.array(z.object({ itemId: id, received: quantity, accepted: z.string().regex(/^\d{1,9}(\.\d{1,3})?$/) })).min(1),
       })
       .strict(),
@@ -48,9 +50,11 @@ export async function deliver({ s, school, t, body, c }: Ctx) {
       date: new Date(p.date),
       note: p.note,
       invoice: p.invoice,
+      invoiceAmount: p.invoiceAmount != null ? String(p.invoiceAmount) : null,
       createdBy: s.user.id,
     },
   });
+  let deliveredValue = new D(0);
   for (const l of p.lines) {
     const i = c.items.find((i) => i.id === l.itemId);
     if (!i) fail('بند غير صحيح');
@@ -64,7 +68,13 @@ export async function deliver({ s, school, t, body, c }: Ctx) {
       data: { caseId: c.id, deliveryId: d.id, itemId: i.id, received, accepted, value, lateDays, rawFine: value.mul(rate).mul(lateDays) },
     });
     await t.item.update({ where: { id: i.id }, data: { acceptedQty: newQty, acceptedValue: i.acceptedValue.plus(value) } });
+    deliveredValue = deliveredValue.plus(value);
   }
+  // The supplier's invoice must carry exactly the value of what was accepted on it.
+  if (p.invoiceAmount != null && !new D(String(p.invoiceAmount)).eq(deliveredValue))
+    fail(
+      `قيمة الفاتورة ${num(new D(String(p.invoiceAmount)))} لا تساوي قيمة الكميات المستلمة ${num(deliveredValue)}؛ راجع الفاتورة أو الكميات`,
+    );
   const items = await t.item.findMany({ where: { caseId: c.id } });
   await t.case.update({
     where: { id: c.id },
@@ -169,6 +179,7 @@ export async function issueCertificate({ s, school, t, body, c }: Ctx) {
       .object({
         kind: z.enum(['PARTIAL', 'FINAL']),
         date: date.optional(),
+        present: z.array(z.string().max(30)).max(30).optional(),
         addressee: addresseeInput,
         invoice: z.string().trim().max(200).optional(),
         notes: z.string().trim().max(1000).default(''),
@@ -189,6 +200,13 @@ export async function issueCertificate({ s, school, t, body, c }: Ctx) {
     orderBy: { item: { position: 'asc' } },
   });
   if (!pending.length) fail('لا توجد كميات جديدة للشهادة');
+  const lastReceipt = pending
+    .map((r) => isoDay(r.delivery.date))
+    .sort()
+    .at(-1)!;
+  if (on < lastReceipt) fail('تاريخ شهادة الإنجاز قبل تاريخ الاستلام؛ صحّح أحد التاريخين');
+  await certificateGate(t, s.user.tenantId, c, p.present, on);
+  await requireCertificateApproval(t, s, c);
   const all = await t.portion.findMany({ where: { caseId: c.id, accepted: { gt: 0 } } });
   const { rate, cap } = orderPolicy(c);
   const prior = sum(c.certificates.map((x) => x.fine)),
@@ -281,6 +299,8 @@ export async function coverLetter({ s, school, t, body, c }: Ctx) {
   const attachments = p.attachments ?? (fromDocuments.length ? fromDocuments : DEFAULT_COVER(c.origin, c.method));
   const details = (cert.details ?? cert.snapshot) as CertificateData;
   const coverDate = p.date ?? today();
+  if (coverDate > today()) fail('تاريخ مستقبلي');
+  if (coverDate < String(details.date)) fail('تاريخ كتاب التغطية قبل تاريخ شهادة الإنجاز؛ صحّح أحد التاريخين');
   return t.certificate.update({
     where: { id: cert.id },
     data: {
@@ -313,6 +333,8 @@ export async function finish(ctx: Ctx) {
       .object({
         completionDate: date,
         invoice: z.string().trim().min(1).max(200),
+        invoiceAmount: z.union([z.string().regex(/^\d{1,12}(\.\d{1,2})?$/), z.number().nonnegative()]).optional(),
+        present: z.array(z.string().max(30)).max(30).optional(),
         note: z.string().trim().max(200).optional(),
         date: date.optional(),
         addressee: addresseeInput,
@@ -335,6 +357,7 @@ export async function finish(ctx: Ctx) {
         date: p.completionDate,
         note: p.note || 'استلام نهائي',
         invoice: p.invoice,
+        ...(p.invoiceAmount != null ? { invoiceAmount: p.invoiceAmount } : {}),
         lines: remaining.map((i) => {
           const rest = i.qty.minus(i.acceptedQty).toString();
           return { itemId: i.id, received: rest, accepted: rest };
@@ -346,7 +369,15 @@ export async function finish(ctx: Ctx) {
   const cert = await issueCertificate({
     ...ctx,
     c,
-    body: { kind: 'FINAL', date: p.date, addressee: p.addressee, invoice: p.invoice, notes: p.notes, ratings: p.ratings },
+    body: {
+      kind: 'FINAL',
+      date: p.date,
+      addressee: p.addressee,
+      invoice: p.invoice,
+      notes: p.notes,
+      ratings: p.ratings,
+      ...(p.present ? { present: p.present } : {}),
+    },
   });
   c = await getCase(t, school, c.id);
   await coverLetter({ ...ctx, c, body: { certificateId: cert.id, date: p.date, attachments: p.attachments } });
@@ -359,9 +390,55 @@ export async function registerErp({ s, school, t, body, c }: Ctx) {
   requireState(c, ['CERTIFIED', 'COMPLETE']);
   const p = parse(z.object({ reference: text, date, evidence: text }).strict(), body);
   if (p.date > today()) fail('تاريخ مستقبلي');
+  const lastCert = c.certificates
+    .map((x) => String(((x.details ?? x.snapshot) as any)?.date ?? ''))
+    .sort()
+    .at(-1);
+  if (lastCert && p.date < lastCert) fail('تاريخ قيد ERP قبل تاريخ شهادة الإنجاز');
   const erp = await t.erp.create({
     data: { caseId: c.id, schoolId: school, reference: p.reference, date: new Date(p.date), evidence: p.evidence, actor: s.user.id },
   });
   await t.case.update({ where: { id: c.id }, data: { state: 'REGISTERED', version: { increment: 1 } } });
   return erp;
+}
+
+/**
+ * Optional gate before a completion certificate (administrator's switch): every document required
+ * for payment is ticked as present in the paper file, the supplier's IBAN is verified, and the
+ * supplier's commercial registration is not expired on the certificate date.
+ */
+async function certificateGate(t: Tx, tenantId: string, c: FullCase, present: string[] | undefined, on: string) {
+  const tenant = await t.tenant.findUniqueOrThrow({ where: { id: tenantId }, select: { certGate: true, checkDocs: true } });
+  if (!tenant.certGate) return;
+  const required = gateDocuments(c, tenant.checkDocs);
+  const missing = required.filter((d) => !(present ?? []).includes(d.type));
+  if (missing.length) fail('قبل الشهادة أكّد وجود هذه المستندات في الملف: ' + missing.map((d) => d.label).join('، '));
+  const card = c.supplier?.cardId ? await t.supplierCard.findUnique({ where: { id: c.supplier.cardId } }) : null;
+  if (!card?.ibanVerified) fail('قبل الشهادة: IBAN المورد غير متحقق منه في بنك الموردين');
+  if (card.crExpiry && isoDay(card.crExpiry) < on) fail(`قبل الشهادة: السجل التجاري للمورد منتهٍ في ${isoDay(card.crExpiry)}`);
+}
+
+const GATE_LABELS: Record<string, string> = {
+  INVITATION: 'دعوة الشركات',
+  QUOTE: 'عروض الأسعار',
+  CR: 'السجلات التجارية',
+  QUOTE_REPORT: 'تقرير دراسة العروض',
+  PROCUREMENT_APPROVAL: 'موافقة إدارة المشتريات',
+  DEPT_APPROVAL: 'موافقة القسم المختص',
+  ORDER: 'كتاب التكليف',
+  DELIVERY_NOTE: 'إذن التسليم من المورد',
+  RECEIPT: 'إذن الاستلام من المدرسة',
+  INVOICE: 'الفاتورة',
+  IBAN: 'إثبات الحساب البنكي',
+  UNDERTAKING: 'التعهد',
+  BENEFICIARIES: 'كشوف المستفيدين',
+};
+
+/** The documents the gate asks for in this case (also shown in the completion dialog). */
+export function gateDocuments(c: { origin: string; reportDate?: Date | null }, checkDocs: unknown) {
+  const list = new Set<string>(['ORDER', 'INVOICE', 'RECEIPT']);
+  if (c.origin === 'SCHOOL' && c.reportDate) list.add('QUOTE_REPORT');
+  for (const d of Array.isArray(checkDocs) ? (checkDocs as string[]) : [])
+    if (GATE_LABELS[d] && !(c.origin === 'MINISTRY' && ['QUOTE', 'CR', 'QUOTE_REPORT', 'INVITATION'].includes(d))) list.add(d);
+  return [...list].map((type) => ({ type, label: GATE_LABELS[type] }));
 }

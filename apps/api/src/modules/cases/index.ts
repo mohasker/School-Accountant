@@ -4,6 +4,7 @@ import type { WriteCtx } from '../context';
 import { getCase, type FullCase } from './common';
 import * as fulfilment from './fulfilment';
 import * as procurement from './procurement';
+import { decideApproval, requestApproval } from './approvals';
 
 type CaseAction = (ctx: WriteCtx & { c: FullCase }) => Promise<any>;
 
@@ -27,6 +28,8 @@ const ACTIONS: Record<string, CaseAction> = {
   complete: fulfilment.completeFile,
   finish: fulfilment.finish,
   erp: fulfilment.registerErp,
+  'request-approval': requestApproval,
+  'decide-approval': decideApproval,
 };
 
 export async function writeCases(ctx: WriteCtx) {

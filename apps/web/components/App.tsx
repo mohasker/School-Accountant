@@ -31,6 +31,7 @@ import { Reports } from '../views/Reports';
 import { FirstSchool, Settings } from '../views/Settings';
 import { Suppliers } from '../views/Suppliers';
 import { SupplierBank } from '../views/SupplierBank';
+import { ReturnsReport } from '../views/Returns';
 
 const NAV: { view: View; icon: string; label: string; show?: (w: { can: Workspace['can']; me: Row }) => boolean }[] = [
   { view: 'admin', icon: '♛', label: 'لوحة مدير النظام', show: ({ me }) => me.user.isTenantAdmin },
@@ -40,6 +41,7 @@ const NAV: { view: View; icon: string; label: string; show?: (w: { can: Workspac
   { view: 'quote-register', icon: '☰', label: 'تقارير عروض الأسعار' },
   { view: 'order-register', icon: '✎', label: 'التكليفات' },
   { view: 'registry', icon: '⌕', label: 'شهادات الإنجاز' },
+  { view: 'returns', icon: '↩', label: 'المرتجعات وأسبابها' },
   { view: 'imprests', icon: '▣', label: 'العهد والتسويات' },
   { view: 'budget', icon: '▥', label: 'الموازنة' },
   { view: 'suppliers', icon: '◈', label: 'الموردون' },
@@ -68,6 +70,7 @@ const TITLES: Record<View, string> = {
   case: 'المعاملة',
   suppliers: 'موردو المدرسة',
   'supplier-bank': 'بنك الموردين — كل الموردين وبيانات التواصل',
+  returns: 'المرتجعات من التدقيق وأسبابها',
   budget: 'الموازنة التشغيلية',
   imprests: 'العهد والتسويات',
   reports: 'التقارير',
@@ -487,6 +490,7 @@ export default function App() {
                 {view === 'case' && caseId && <CaseDetail key={caseId + intent} id={caseId} intent={intent} />}
                 {view === 'suppliers' && <Suppliers />}
                 {view === 'supplier-bank' && <SupplierBank />}
+                {view === 'returns' && <ReturnsReport />}
                 {view === 'budget' && <Budget />}
                 {view === 'imprests' && <Imprests />}
                 {view === 'reports' && <Reports />}

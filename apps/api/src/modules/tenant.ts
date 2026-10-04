@@ -18,6 +18,7 @@ import { readBank, readLegacy, writeBank } from './bank';
 import { tenantAddressees } from './cases/fulfilment';
 import { saveTelegramConfig, telegramStatus } from './telegram';
 import { checkSettings, saveCheckSettings } from './file-check';
+import { returnsReport } from './returns';
 
 /**
  * Tenant-wide settings under /api/admin/…. Every user may maintain the official holidays and add
@@ -96,6 +97,8 @@ export async function readTenant(
       return telegramStatus(s);
     case 'file-check':
       return checkSettings(s);
+    case 'returns-report':
+      return returnsReport(s, query);
     case 'users':
       if (rid && action === 'report') return userReport(s, rid, query);
       if (rid && action === 'profile') return accountProfile(s, rid);
@@ -264,7 +267,7 @@ export async function writeTenant(
         if (!s.user.isTenantAdmin && auditorOnly) throw new ForbiddenException('هذه العملية للمحاسبين');
         return { added: await ensureSupplierCards(t, tenantId) };
       }
-      return writeBank(s, t, rid, method, body);
+      return writeBank(s, t, rid, method, body, action);
     case 'addressees': {
       // The departments a certificate or covering letter may be addressed to; the list grows as needed.
       const p = parse(z.object({ list: z.array(z.string().trim().min(2).max(120)).min(1).max(30) }).strict(), body);

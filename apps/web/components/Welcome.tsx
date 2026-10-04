@@ -81,6 +81,16 @@ export function Welcome({
                   <b>{t.erp}</b> منجزة لم تُسجل في ERP
                 </span>
               )}
+              {t.returns > 0 && (
+                <span className="bad">
+                  <b>{t.returns}</b> مرتجعة من التدقيق
+                </span>
+              )}
+              {t.budget > 0 && (
+                <span>
+                  <b>{t.budget}</b> بند موازنة يقترب من النفاد
+                </span>
+              )}
             </div>
             <div className="welcome-schools">
               {data.schools.map((s: Row) => (
@@ -97,6 +107,14 @@ export function Welcome({
                     {s.stages.certificate > 0 && <span>بانتظار الشهادة: {s.stages.certificate}</span>}
                     {s.late > 0 && <span className="bad">متأخرة: {s.late}</span>}
                     {s.erp > 0 && <span>لم تُسجل في ERP: {s.erp}</span>}
+                    {s.returns > 0 && <span className="bad">مرتجعة: {s.returns}</span>}
+                    {s.approvals > 0 && <span>بانتظار موافقة: {s.approvals}</span>}
+                    {s.dueSoon > 0 && <span>تستحق خلال 3 أيام: {s.dueSoon}</span>}
+                    {s.budgetAlerts?.slice(0, 3).map((b: Row) => (
+                      <span key={b.code} className={b.level === 'CRITICAL' ? 'bad' : ''} title={b.name}>
+                        بند {b.code}: {b.used}%{b.level === 'PACE' ? ` (المتوقع ${b.projected}%)` : ''}
+                      </span>
+                    ))}
                     {s.pending > 0 && <span className="muted">القيمة {currency(s.value)} ر.ق</span>}
                   </div>
                   {s.items.length > 0 && (

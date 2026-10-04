@@ -6,6 +6,7 @@ import express from 'express';
 import type { NextFunction, Request, Response } from 'express';
 import helmet from 'helmet';
 import { AuthController, WorkspaceController } from './http/controllers';
+import { isContention } from './core/transaction';
 
 @Module({ controllers: [AuthController, WorkspaceController] })
 class AppModule {}
@@ -20,6 +21,7 @@ class ErrorFilter implements ExceptionFilter {
     if (e.code === 'P2002') [status, message] = [409, 'بيانات مكررة أو تعارض؛ راجع الإدخال'];
     if (e.code === 'P2025') [status, message] = [404, 'السجل غير موجود أو تم تعديله'];
     if (e.code === 'P2003') [status, message] = [400, 'السجل مرتبط ببيانات أخرى'];
+    if (status === 500 && isContention(e)) [status, message] = [409, 'العملية تزامنت مع عملية أخرى على نفس البيانات؛ أعد المحاولة'];
     // body-parser: payload too large or malformed JSON carry an HTTP status of their own.
     if (status === 500 && typeof e.status === 'number' && e.expose)
       [status, message] = [e.status, e.type === 'entity.too.large' ? 'حجم الطلب كبير؛ الحد 6 ميجابايت للملف' : 'طلب غير صالح'];
@@ -45,6 +47,7 @@ export async function start() {
   app.use(cookieParser());
   // The paper-file check carries a scanned file set (up to 25 MB, base64 in JSON); everything else stays small.
   app.use('/api/file-check', express.json({ limit: '36mb' }));
+  app.use('/api/imprest-check', express.json({ limit: '36mb' }));
   app.use(express.json({ limit: '8mb' }));
   app.use(originGuard);
   app.useGlobalFilters(new ErrorFilter());
@@ -58,6 +61,7 @@ export async function start() {
     Promise.all([
       digestTick().catch((e) => console.error('digest_tick_failed', e?.message)),
       cleanupExpired().catch((e) => console.error('cleanup_failed', e?.message)),
+      import('./modules/telegram').then((m) => m.telegramDigestTick()).catch((e) => console.error('telegram_digest_failed', e?.message)),
     ]);
   const timer = setInterval(tick, 10 * 60000);
   timer.unref();
