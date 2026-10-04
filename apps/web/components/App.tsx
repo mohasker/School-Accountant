@@ -546,6 +546,19 @@ export default function App() {
   );
 }
 
+/** Device location, only when the user keeps the box ticked and the browser allows it; a refusal is not an error. */
+function deviceLocation(): Promise<{ lat: number; lng: number; accuracy?: number } | undefined> {
+  return new Promise((resolve) => {
+    if (typeof navigator === 'undefined' || !navigator.geolocation) return resolve(undefined);
+    const timer = setTimeout(() => resolve(undefined), 6000);
+    navigator.geolocation.getCurrentPosition(
+      (p) => (clearTimeout(timer), resolve({ lat: p.coords.latitude, lng: p.coords.longitude, accuracy: p.coords.accuracy })),
+      () => (clearTimeout(timer), resolve(undefined)),
+      { timeout: 5000, maximumAge: 300000 },
+    );
+  });
+}
+
 function Login({ onLogin }: { onLogin: (me: Row) => void }) {
   const [busy, setBusy] = useState(false),
     [error, setError] = useState('');
@@ -565,9 +578,11 @@ function Login({ onLogin }: { onLogin: (me: Row) => void }) {
           setError('');
           const fd = new FormData(e.currentTarget);
           try {
+            const location = fd.get('share') === 'on' ? await deviceLocation() : undefined;
             await request('auth/login', 'POST', {
               username: String(fd.get('username') ?? '').trim(),
               password: String(fd.get('password') ?? ''),
+              ...(location ? { location } : {}),
             });
             onLogin(await request('auth/me'));
           } catch (err: any) {
@@ -592,6 +607,10 @@ function Login({ onLogin }: { onLogin: (me: Row) => void }) {
         <label>
           كلمة المرور
           <input type="password" autoComplete="current-password" name="password" required />
+        </label>
+        <label className="check">
+          <input type="checkbox" name="share" defaultChecked />
+          مشاركة موقع الجهاز مع مدير النظام عند الدخول
         </label>
         <button disabled={busy}>{busy ? 'جارٍ التحقق…' : 'الدخول إلى مساحة العمل'}</button>
       </form>

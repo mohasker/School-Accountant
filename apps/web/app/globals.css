@@ -792,6 +792,21 @@ tr:last-child td {
 .login input {
   padding: 13px;
 }
+.login label.check {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 4px;
+  font-size: 14px;
+  color: var(--muted, #555);
+}
+.login label.check input {
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  margin: 0;
+}
 .login .eyebrow {
   font-size: 14px;
 }
