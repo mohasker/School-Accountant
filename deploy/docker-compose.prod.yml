@@ -1,0 +1,42 @@
+# Production on a cloud server with a domain:
+#   cp .env.example .env   (fill DOMAIN, DB_PASSWORD, ADMIN_*)
+#   docker compose -f docker-compose.yml -f deploy/docker-compose.prod.yml up --build -d
+#   docker compose -f docker-compose.yml -f deploy/docker-compose.prod.yml run --rm api npm run bootstrap
+services:
+  api:
+    environment:
+      NODE_ENV: production
+      DEMO_MODE: 'false'
+      WEB_ORIGIN: https://${DOMAIN:?Set DOMAIN in .env}
+      TRUST_PROXY: '1'
+      ADMIN_USERNAME: ${ADMIN_USERNAME:-}
+      ADMIN_NAME: ${ADMIN_NAME:-}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      SECRETS_KEY: ${SECRETS_KEY:-}
+      TENANT_NAME: ${TENANT_NAME:-}
+      UPLOAD_SCANNER: ${UPLOAD_SCANNER:-clamscan}
+    restart: unless-stopped
+  web:
+    environment:
+      NODE_ENV: production
+      TRUST_PROXY: '1'
+    ports: !reset []
+    restart: unless-stopped
+  db:
+    restart: unless-stopped
+  proxy:
+    image: caddy:2
+    environment:
+      DOMAIN: ${DOMAIN}
+    ports:
+      - 80:80
+      - 443:443
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+    depends_on:
+      - web
+    restart: unless-stopped
+volumes:
+  caddy_data:

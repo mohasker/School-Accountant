@@ -1,0 +1,9 @@
+# HTTPS reverse proxy for a public domain. Caddy obtains and renews the certificate automatically.
+{$DOMAIN} {
+	encode gzip
+	header {
+		Strict-Transport-Security "max-age=31536000"
+		-Server
+	}
+	reverse_proxy web:3000
+}

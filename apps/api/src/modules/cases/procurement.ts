@@ -1,0 +1,458 @@
+import { z } from 'zod';
+import { principalOn } from '../../core/principal';
+import type { Tx } from '../../common/db';
+import { inYear, isoDay, today } from '../../common/dates';
+import { D, amount, round } from '../../common/money';
+import { date, fail, id, money, parse, plain, quantity, text } from '../../common/validation';
+import { ACCOUNT, APPROVE, REVIEW, scope } from '../../core/identity';
+import { posting, ZERO } from '../../core/ledger';
+import { loadCalendar, loadPolicy, type Policy } from '../../core/policy';
+import { audit, formatNumber, nextNumber, openYear } from '../../core/transaction';
+import { orderLetter, quoteStudyReport } from '../../print/procurement';
+import type { WriteCtx } from '../context';
+import { requireState, type FullCase } from './common';
+
+const prices = z.array(z.object({ itemId: id, price: money })).min(1);
+
+export async function createCase({ s, school, t, body }: WriteCtx) {
+  const m = scope(s, school, ACCOUNT);
+  const p = parse(
+    z
+      .object({
+        yearId: id,
+        subject: text,
+        origin: z.enum(['SCHOOL', 'MINISTRY']),
+        ministryReference: z.string().trim().max(150).optional(),
+        items: z
+          .array(z.object({ name: text, unit: text, qty: quantity, budgetId: id }))
+          .min(1)
+          .max(100),
+      })
+      .strict(),
+    body,
+  );
+  const y = await openYear(t, school, p.yearId);
+  inYear(y, today());
+  if (p.origin === 'MINISTRY' && !p.ministryReference) fail('مرجع التكليف الوزاري مطلوب');
+  if (
+    p.ministryReference &&
+    (await t.case.count({ where: { schoolId: school, yearId: p.yearId, ministryReference: p.ministryReference } }))
+  )
+    fail('التكليف الوزاري مسجل');
+  for (const item of p.items)
+    if (!(await t.budget.findUnique({ where: { id: item.budgetId, schoolId: school, yearId: p.yearId } }))) fail('بند موازنة غير مسموح');
+  return t.case.create({
+    data: {
+      schoolId: school,
+      yearId: p.yearId,
+      number: formatNumber('TR', await nextNumber(t, school, p.yearId, 'TR')),
+      subject: p.subject,
+      origin: p.origin,
+      ministryReference: p.ministryReference || null,
+      createdBy: s.user.id,
+      accountantName: s.user.name,
+      principalName: m.school.principal,
+      items: { create: p.items.map((item, position) => ({ ...item, position })) },
+    },
+  });
+}
+
+/** Validates one unit price per item and returns the rounded order total. */
+function priceLines(c: FullCase, lines: { itemId: string; price: string }[]) {
+  if (lines.length !== c.items.length || new Set(lines.map((x) => x.itemId)).size !== c.items.length) fail('يلزم سعر لكل بند دون تكرار');
+  let total = new D(0);
+  const values = lines.map((line) => {
+    const item = c.items.find((i) => i.id === line.itemId);
+    if (!item) fail('بند غير صحيح');
+    if (new D(line.price).lte(0)) fail('السعر موجب');
+    const value = round(item.qty.mul(line.price));
+    total = total.plus(value);
+    return { item, price: line.price, value };
+  });
+  return { total, values };
+}
+
+export async function addQuote({ s, school, t, body, c }: WriteCtx & { c: FullCase }) {
+  scope(s, school, ACCOUNT);
+  requireState(c, ['DRAFT']);
+  if (c.origin !== 'SCHOOL') fail('التكليف الوزاري لا يحتاج عروض أسعار');
+  const p = parse(
+    z
+      .object({
+        supplierId: id.optional(),
+        supplierName: z.string().trim().min(2).max(200).optional(),
+        reference: z.string().trim().max(150).default(''),
+        quoteDate: date.optional(),
+        // The quote report needs only the company and its quote value; unit prices are optional.
+        total: money.optional(),
+        prices: prices.optional(),
+        compliant: z.boolean().default(true),
+        note: z.string().max(1000).default(''),
+      })
+      .strict(),
+    body,
+  );
+  const supplierId = await supplierFor(t, school, p.supplierId, p.supplierName);
+  if (c.quotes.some((q) => q.supplierId === supplierId)) fail('يوجد عرض مسجل لهذه الشركة؛ احذفه أولاً لتعديله');
+  if (!p.prices && !p.total) fail('قيمة عرض السعر مطلوبة');
+  const total = p.prices ? priceLines(c, p.prices).total : round(new D(p.total!));
+  if (total.lte(0)) fail('قيمة العرض موجبة');
+  if (!p.compliant && !p.note.trim()) fail('سبب استبعاد العرض مطلوب');
+  return t.quote.create({
+    data: {
+      schoolId: school,
+      yearId: c.yearId,
+      caseId: c.id,
+      supplierId,
+      reference: p.reference,
+      quoteDate: p.quoteDate ? new Date(p.quoteDate) : null,
+      prices: p.prices ?? [],
+      total,
+      compliant: p.compliant,
+      note: p.note,
+    },
+  });
+}
+
+/**
+ * Item prices on the assignment letter: from the awarded quote's unit prices, or — for a quote
+ * entered as a total — the whole value on a single item, or the item values given at award time
+ * (they must add up to the quote value).
+ */
+async function awardItems(
+  t: Tx,
+  c: FullCase,
+  q: { prices: unknown; total: InstanceType<typeof D> },
+  values?: { itemId: string; value: string }[],
+) {
+  const lines = (q.prices ?? []) as { itemId: string; price: string }[];
+  if (lines.length) {
+    for (const line of lines) {
+      const item = c.items.find((i) => i.id === line.itemId)!;
+      await t.item.update({ where: { id: item.id }, data: { unitPrice: line.price, value: round(item.qty.mul(line.price)) } });
+    }
+    return;
+  }
+  const split =
+    c.items.length === 1
+      ? [{ item: c.items[0], value: q.total }]
+      : c.items.map((item) => {
+          const v = values?.find((x) => x.itemId === item.id);
+          if (!v) fail('حدد قيمة كل صنف للشركة المختارة (مجموعها = قيمة العرض)');
+          return { item, value: round(new D(v.value)) };
+        });
+  const total = split.reduce((a, x) => a.plus(x.value), new D(0));
+  if (!total.eq(q.total)) fail(`مجموع قيم الأصناف (${amount(total)}) لا يساوي قيمة العرض (${amount(q.total)})`);
+  for (const { item, value } of split)
+    await t.item.update({ where: { id: item.id }, data: { unitPrice: value.div(item.qty).toDecimalPlaces(4), value } });
+}
+
+/**
+ * A quote names an existing supplier, or a company typed by name: it is found by name in the school's
+ * list or added to it (the commercial registration can be completed later in the supplier list).
+ */
+export async function supplierFor(t: Tx, school: string, supplierId?: string, name?: string) {
+  if (supplierId) {
+    const s = await t.supplier.findUnique({ where: { id: supplierId, schoolId: school } });
+    if (!s) fail('المورد غير موجود');
+    if (!s.active) await t.supplier.update({ where: { id: s.id }, data: { active: true, version: { increment: 1 } } });
+    return s.id;
+  }
+  const clean = name?.replace(/\s+/g, ' ').trim();
+  if (!clean) fail('اسم الشركة مطلوب');
+  const found = await t.supplier.findFirst({ where: { schoolId: school, name: { equals: clean, mode: 'insensitive' } } });
+  if (found) return found.id;
+  return (await t.supplier.create({ data: { schoolId: school, name: clean } })).id;
+}
+
+export async function removeQuote({ s, school, t, body, c }: WriteCtx & { c: FullCase }) {
+  scope(s, school, ACCOUNT);
+  requireState(c, ['DRAFT']);
+  const p = parse(z.object({ quoteId: id }).strict(), body);
+  if (!c.quotes.some((q) => q.id === p.quoteId)) fail('العرض غير موجود');
+  await t.quote.delete({ where: { id: p.quoteId } });
+  return { id: c.id };
+}
+
+/**
+ * Purchase method from the awarded value (policy in force today):
+ *  - above the tender limit: ministry procurement department, not processed by the school;
+ *  - up to the single-quote limit: one quote is enough;
+ *  - above it: at least `minQuotes` quotes, unless the supplier is the exclusive source (with a reason).
+ */
+export function purchaseMethod(policy: Policy, total: InstanceType<typeof D>, quoteCount: number, exclusiveReason?: string) {
+  if (total.gt(policy.tenderLimit))
+    fail(`القيمة تتجاوز ${amount(policy.tenderLimit)} ريال؛ الشراء بمناقصة من اختصاص إدارة المشتريات والمناقصات بالوزارة`);
+  if (total.lte(policy.singleQuoteLimit)) return 'SINGLE_QUOTE';
+  if (exclusiveReason?.trim()) return 'EXCLUSIVE';
+  if (quoteCount < policy.minQuotes)
+    fail(
+      `المشتريات التي تزيد عن ${amount(policy.singleQuoteLimit)} ريال تتطلب ${policy.minQuotes} عروض أسعار على الأقل، إلا إذا كان المورد محتكراً للصنف (اذكر السبب)`,
+    );
+  return 'THREE_QUOTES';
+}
+
+/**
+ * Quote comparison report: the lowest compliant quote is awarded (a single company is awarded
+ * directly), the report is frozen with its date and the file is ready for the assignment letter.
+ */
+export async function evaluate({ s, school, t, body, c }: WriteCtx & { c: FullCase }) {
+  scope(s, school, ACCOUNT);
+  requireState(c, ['DRAFT']);
+  if (c.origin !== 'SCHOOL') fail('استخدم مسار التكليف الوزاري');
+  const p = parse(
+    z
+      .object({
+        quoteId: id.optional(),
+        reason: z.string().trim().max(500).optional(),
+        exclusiveReason: z.string().trim().max(500).optional(),
+        date: date.optional(),
+        /** Value of each item for the awarded company when its quote was entered as a total. */
+        values: z.array(z.object({ itemId: id, value: money })).optional(),
+      })
+      .strict(),
+    body,
+  );
+  const valid = c.quotes.filter((q) => q.compliant).sort((a, b) => a.total.comparedTo(b.total));
+  if (!valid.length) fail('أضف عرض سعر مطابقاً واحداً على الأقل');
+  const q = p.quoteId ? valid.find((x) => x.id === p.quoteId) : valid[0];
+  if (!q) fail('العرض المختار غير صالح');
+  const lowest = q.total.eq(valid[0].total);
+  const reason = p.reason || (valid.length === 1 ? 'العرض الوحيد المطابق للمواصفات' : 'الأقل سعراً والمطابق للمواصفات والشروط');
+  if (!lowest && !p.reason) fail('اختيار عرض غير الأقل سعراً يتطلب ذكر المبرر');
+  const on = p.date ?? today();
+  if (on > today()) fail('تاريخ مستقبلي');
+  inYear(c.year, on);
+  // The report follows the quotations it studies.
+  const lastQuote = c.quotes
+    .map((x) => (x.quoteDate ? isoDay(x.quoteDate) : ''))
+    .sort()
+    .at(-1);
+  if (lastQuote && on < lastQuote) fail('تاريخ تقرير العروض قبل تاريخ أحد عروض الأسعار؛ صحّح أحد التاريخين');
+  const policy = await loadPolicy(t, s.user.tenantId, on);
+  const method = purchaseMethod(policy, q.total, c.quotes.length, p.exclusiveReason);
+  if (method === 'EXCLUSIVE' && c.quotes.length > 1) fail('حالة المورد المحتكر تكون بعرض سعر واحد');
+  await awardItems(t, c, q, p.values);
+  const evaluationNumber = c.evaluationNumber ?? formatNumber('EV', await nextNumber(t, school, c.yearId, 'EV'));
+  const awarded = {
+    ...c,
+    selectedQuoteId: q.id,
+    awardReason: reason,
+    method,
+    exclusiveReason: method === 'EXCLUSIVE' ? p.exclusiveReason! : null,
+    evaluationNumber,
+  };
+  return t.case.update({
+    where: { id: c.id },
+    data: {
+      state: 'APPROVED',
+      selectedQuoteId: q.id,
+      supplierId: q.supplierId,
+      total: q.total,
+      awardReason: reason,
+      method,
+      exclusiveReason: awarded.exclusiveReason,
+      evaluationNumber,
+      reportDate: new Date(on),
+      evaluationBy: s.user.id,
+      evaluationHtml: await renderQuoteReport(t, awarded, s.user.tenantId, on),
+      version: { increment: 1 },
+    },
+  });
+}
+
+export async function directOrder({ s, school, t, body, c }: WriteCtx & { c: FullCase }) {
+  scope(s, school, ACCOUNT);
+  requireState(c, ['DRAFT']);
+  if (c.origin !== 'MINISTRY') fail('ليس تكليفاً وزارياً');
+  const p = parse(
+    z
+      .object({
+        supplierId: id.optional(),
+        supplierName: z.string().trim().min(2).max(200).optional(),
+        reason: text,
+        prices: prices.optional(),
+        total: money.optional(),
+        values: z.array(z.object({ itemId: id, value: money })).optional(),
+      })
+      .strict(),
+    body,
+  );
+  const supplierId = await supplierFor(t, school, p.supplierId, p.supplierName);
+  if (!p.prices && !p.total) fail('قيمة التكليف مطلوبة');
+  const total = p.prices ? priceLines(c, p.prices).total : round(new D(p.total!));
+  await awardItems(t, c, { prices: p.prices ?? [], total }, p.values);
+  return t.case.update({
+    where: { id: c.id },
+    data: { supplierId, total, awardReason: p.reason, method: 'MINISTRY', state: 'APPROVED', version: { increment: 1 } },
+  });
+}
+
+/** Quote study report from the current case data (used for the preview and frozen at approval). */
+export async function renderQuoteReport(t: Tx, c: FullCase, tenantId: string, on = today()) {
+  const policy = await loadPolicy(t, tenantId, on);
+  return quoteStudyReport({
+    ref: c.evaluationNumber ?? c.number,
+    date: on,
+    school: c.school.name,
+    principal: await principalOn(t, c.schoolId, on, c.principalName),
+    accountant: c.school.purchasingOfficer || c.accountantName,
+    subject: c.subject,
+    quotes: c.quotes.map((q) => ({
+      supplier: q.supplier.name,
+      total: q.total,
+      compliant: q.compliant,
+      note: q.note,
+      selected: q.id === c.selectedQuoteId,
+    })),
+    method: c.method ?? 'THREE_QUOTES',
+    exclusiveReason: c.exclusiveReason,
+    awardReason: c.awardReason,
+    singleQuoteLimit: policy.singleQuoteLimit,
+  });
+}
+
+/** Files evaluated before the single-step quote report (state EVALUATED) are confirmed here. */
+export async function approve({ s, school, t, c }: WriteCtx & { c: FullCase }) {
+  scope(s, school, APPROVE);
+  requireState(c, ['EVALUATED']);
+  return t.case.update({
+    where: { id: c.id },
+    data: {
+      state: 'APPROVED',
+      evaluationBy: s.user.id,
+      evaluationHtml: c.origin === 'SCHOOL' ? await renderQuoteReport(t, c, s.user.tenantId) : null,
+      version: { increment: 1 },
+    },
+  });
+}
+
+/** Reopens the quote report for correction before the assignment letter is issued. */
+export async function returnCase({ s, school, t, body, c }: WriteCtx & { c: FullCase }) {
+  scope(s, school, REVIEW);
+  requireState(c, ['EVALUATED', 'APPROVED']);
+  const p = parse(z.object({ reason: text }).strict(), body);
+  await audit(t, s, school, 'RETURN_REASON', c.id, p);
+  return t.case.update({
+    where: { id: c.id },
+    data: { state: 'DRAFT', evaluationHtml: null, reportDate: null, version: { increment: 1 } },
+  });
+}
+
+/**
+ * Assignment-letter number, per school and year in issue order: SCHOOLCODE/YEAR/NNN (e.g. ABAF/2026/007) —
+ * the school's prefix, the year of the letter and a three-digit running number, as in outgoing-mail registers.
+ */
+async function orderNumberFor(t: Tx, c: FullCase, on: string, manual?: string) {
+  const taken = async (n: string) => (await t.case.count({ where: { schoolId: c.schoolId, orderNumber: n } })) > 0;
+  if (manual) {
+    if (await taken(manual)) fail('رقم أمر الشراء مستخدم في المدرسة');
+    return manual;
+  }
+  const base = `${c.school.orderPrefix || c.school.code || 'PO'}/${on.slice(0, 4)}/`;
+  const used = await t.case.findMany({ where: { schoolId: c.schoolId, orderNumber: { startsWith: base } }, select: { orderNumber: true } });
+  const last = Math.max(0, ...used.map((u) => Number(u.orderNumber!.slice(base.length)) || 0));
+  for (let n = last + 1; n < last + 100; n++) {
+    const candidate = base + String(n).padStart(3, '0');
+    if (!(await taken(candidate))) return candidate;
+  }
+  fail('تعذر توليد رقم كتاب التكليف');
+}
+
+const pct = (v: string) => new D(v).mul(100).toDecimalPlaces(2).toString();
+
+export async function issue({ s, school, t, body, c }: WriteCtx & { c: FullCase }) {
+  scope(s, school, ACCOUNT);
+  requireState(c, ['APPROVED']);
+  const p = parse(
+    z
+      .object({
+        trigger: date,
+        days: z.number().int().min(1).max(365),
+        policyConfirmed: z.literal(true),
+        orderNumber: z.string().trim().min(3).max(60).optional(),
+      })
+      .strict(),
+    body,
+  );
+  inYear(c.year, p.trigger);
+  if (p.trigger > today()) fail('تاريخ بدء مستقبلي غير مسموح');
+  // The papers must follow each other: an assignment is never dated before its quote report.
+  if (c.reportDate && p.trigger < isoDay(c.reportDate)) fail('تاريخ كتاب التكليف قبل تاريخ تقرير عروض الأسعار؛ صحّح أحد التاريخين');
+  const policy = await loadPolicy(t, s.user.tenantId, p.trigger);
+  const calendar = await loadCalendar(t, s.user.tenantId, policy.weekend);
+  for (const item of [...c.items].sort((a, b) => a.budgetId.localeCompare(b.budgetId)))
+    await posting(t, item.budgetId, item.value, ZERO, 'order:' + item.id, c.id, s.user.id);
+  const orderNumber = c.origin === 'MINISTRY' ? c.ministryReference! : await orderNumberFor(t, c, p.trigger, p.orderNumber);
+  const due = calendar.addWorkingDays(p.trigger, p.days);
+  const quote = c.quotes.find((q) => q.id === c.selectedQuoteId);
+  const html = orderLetter({
+    orderNumber,
+    date: p.trigger,
+    school: c.school.name,
+    principal: await principalOn(t, c.schoolId, p.trigger, c.principalName),
+    accountant: c.accountantName,
+    supplier: c.supplier?.name ?? '',
+    subject: c.subject,
+    quoteRef: quote?.reference,
+    quoteDate: quote?.quoteDate,
+    ministryReference: c.origin === 'MINISTRY' ? c.ministryReference : null,
+    items: c.items,
+    total: c.total,
+    startWithinDays: policy.startWithinDays,
+    deliveryDays: p.days,
+    dueDate: due,
+    finePct: pct(policy.fineRatePerDay),
+    capPct: pct(policy.fineCap),
+  });
+  return t.case.update({
+    where: { id: c.id },
+    data: {
+      state: 'ORDERED',
+      issueDate: new Date(p.trigger),
+      dueDate: new Date(due),
+      deliveryDays: p.days,
+      orderNumber,
+      orderHtml: html,
+      supplierSnapshot: plain(c.supplier),
+      policy: plain({ fineRatePerDay: policy.fineRatePerDay, fineCap: policy.fineCap, weekend: policy.weekend, basis: 'WORKING_DAYS' }),
+      issuedBy: s.user.id,
+      version: { increment: 1 },
+    },
+  });
+}
+
+/** Fine parameters frozen on the order when it was issued. */
+export function orderPolicy(c: FullCase) {
+  const p = (c.policy ?? {}) as Partial<Policy>;
+  return { rate: p.fineRatePerDay ?? '0.01', cap: p.fineCap ?? '0.10', weekend: p.weekend ?? [5, 6] };
+}
+
+export async function extend({ s, school, t, body, c }: WriteCtx & { c: FullCase }) {
+  scope(s, school, APPROVE);
+  requireState(c, ['ORDERED', 'PARTIAL']);
+  const p = parse(z.object({ due: date, reason: text }).strict(), body);
+  if (c.certificates.length) fail('يلزم تعديل مالي مستقل بعد إصدار شهادة؛ التمديد المباشر محظور');
+  if (p.due <= isoDay(c.dueDate!)) fail('التاريخ ليس تمديداً');
+  const { rate, weekend } = orderPolicy(c);
+  const calendar = await loadCalendar(t, s.user.tenantId, weekend);
+  for (const d of c.deliveries)
+    for (const r of d.portions) {
+      const lateDays = calendar.workingDaysBetween(p.due, isoDay(d.date));
+      await t.portion.update({ where: { id: r.id }, data: { lateDays, rawFine: r.value.mul(rate).mul(lateDays) } });
+    }
+  await audit(t, s, school, 'EXTENSION', c.id, { old: c.dueDate, new: p.due, reason: p.reason });
+  return t.case.update({ where: { id: c.id }, data: { dueDate: new Date(p.due), version: { increment: 1 } } });
+}
+
+export async function cancel({ s, school, t, body, c }: WriteCtx & { c: FullCase }) {
+  scope(s, school, APPROVE);
+  requireState(c, ['DRAFT', 'EVALUATED', 'APPROVED', 'ORDERED']);
+  const p = parse(z.object({ reason: text }).strict(), body);
+  if (c.deliveries.length || c.certificates.length) fail('الإلغاء بعد الاستلام يحتاج مستند تصحيح؛ لا إلغاء صامت');
+  if (c.state === 'ORDERED')
+    for (const i of [...c.items].sort((a, b) => a.budgetId.localeCompare(b.budgetId)))
+      await posting(t, i.budgetId, i.value.neg(), ZERO, 'cancel:' + i.id, c.id, s.user.id);
+  await audit(t, s, school, 'CANCEL_REASON', c.id, p);
+  return t.case.update({ where: { id: c.id }, data: { state: 'CANCELLED', version: { increment: 1 } } });
+}
