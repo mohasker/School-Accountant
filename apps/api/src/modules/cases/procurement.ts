@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { principalOn } from '../../core/principal';
 import type { Tx } from '../../common/db';
 import { inYear, isoDay, today } from '../../common/dates';
 import { D, amount, round } from '../../common/money';
@@ -294,7 +295,7 @@ export async function renderQuoteReport(t: Tx, c: FullCase, tenantId: string, on
     ref: c.evaluationNumber ?? c.number,
     date: on,
     school: c.school.name,
-    principal: c.principalName,
+    principal: await principalOn(t, c.schoolId, on, c.principalName),
     accountant: c.school.purchasingOfficer || c.accountantName,
     subject: c.subject,
     quotes: c.quotes.map((q) => ({
@@ -389,7 +390,7 @@ export async function issue({ s, school, t, body, c }: WriteCtx & { c: FullCase 
     orderNumber,
     date: p.trigger,
     school: c.school.name,
-    principal: c.principalName,
+    principal: await principalOn(t, c.schoolId, p.trigger, c.principalName),
     accountant: c.accountantName,
     supplier: c.supplier?.name ?? '',
     subject: c.subject,

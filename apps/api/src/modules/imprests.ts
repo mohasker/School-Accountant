@@ -1,4 +1,5 @@
 import { NotFoundException } from '@nestjs/common';
+import { principalOn } from '../core/principal';
 import { z } from 'zod';
 import { db, type Tx } from '../common/db';
 import { inYear, today } from '../common/dates';
@@ -102,7 +103,7 @@ async function statementData(
     settlementType,
     school: schoolRow.name,
     year: a.year.label,
-    principal: names.principal || schoolRow.principal,
+    principal: names.principal || (await principalOn(t, school, names.date ?? today(), schoolRow.principal)),
     custodian: names.custodian || a.custodian,
     accountant: recorder?.name ?? s.user.name,
     imprestAmount: a.amount,

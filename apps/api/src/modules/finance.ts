@@ -1,4 +1,5 @@
 import { NotFoundException } from '@nestjs/common';
+import { principalOn } from '../core/principal';
 import ExcelJS from 'exceljs';
 import { db } from '../common/db';
 import { isoDay, today } from '../common/dates';
@@ -117,7 +118,8 @@ async function gather(s: ReadCtx['s'], school: string, query: Record<string, any
 
   return {
     school: year.school.name,
-    principal: year.school.principal,
+    // The principal at the end of the period (or today), so a report on an earlier year names who was in office.
+    principal: await principalOn(db, year.school.id, to < today() ? to : today(), year.school.principal),
     year: year.label,
     from,
     to,

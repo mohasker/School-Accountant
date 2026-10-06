@@ -187,7 +187,7 @@ async function prepareRegular(engine: PGlite) {
   await once('step:legacy-v1', async () => {
     for (const t of await db.tenant.findMany({ select: { id: true } })) await loadLegacyCertificates(db, t.id);
   });
-  await once('step:legacy-subject-v1', async () => {
+  await once('step:legacy-fix-v2', async () => {
     for (const t of await db.tenant.findMany({ select: { id: true } })) await fillLegacySubjects(db, t.id);
   });
 }

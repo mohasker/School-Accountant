@@ -224,21 +224,29 @@ export async function runScenario(api: string, origin: string, password: string)
       ],
       false,
     );
-  for (const name of [...new Set(h.certificates2026.map((c) => c.school))]) {
-    const sc = bySchool(name);
-    if (!sc) continue;
-    const setup = await call(`schools/${sc.id}/setup`);
-    for (const c of h.certificates2026.filter((x) => x.school === name))
-      await call(`schools/${sc.id}/direct-expenses`, 'POST', {
-        yearId: setup.years[0].id,
-        code: c.code,
-        date: c.date,
-        vendor: c.supplier,
-        reference: [c.reference, c.invoice && 'فاتورة ' + c.invoice].filter(Boolean).join(' — '),
-        description: c.subject,
-        amount: String(c.amount),
-        note: 'شهادة إنجاز سابقة من سجل الشهادات (البند حسب الموضوع؛ راجعه)',
-      });
+  // The certificates register of 2022–2026 entered in each school's own fiscal years (missing years are
+  // opened), through the same import the accountant runs from the budget screen.
+  const admin = await login('admin');
+  const asAdmin = async (path: string) => {
+    const r = await fetch(api + '/' + path, {
+      method: 'POST',
+      headers: {
+        Origin: origin,
+        Cookie: admin.cookie,
+        'X-CSRF-Token': admin.csrf,
+        'Content-Type': 'application/json',
+        'Idempotency-Key': randomUUID(),
+      },
+      body: '{}',
+    });
+    const data = await r.json();
+    if (!r.ok) throw Error(`POST ${path}: ${data.message ?? r.status}`);
+    return data;
+  };
+  const all = await fetch(api + '/auth/me', { headers: { Origin: origin, Cookie: admin.cookie } }).then((r) => r.json());
+  for (const sc of all.schools) {
+    const r = await asAdmin(`schools/${sc.id}/legacy-import`);
+    if (r.count) console.log(`Earlier certificates: ${sc.name} — ${r.count} (${r.total}); years opened ${r.opened.join(', ') || '—'}`);
   }
 }
 

@@ -40,6 +40,13 @@ export function Settings() {
     fields: [
       { name: 'name', label: 'اسم المدرسة', value: s.name },
       { name: 'principal', label: 'مدير / ة المدرسة', value: s.principal },
+      {
+        name: 'principalFrom',
+        label: 'عند تغيير المدير: اعتباراً من',
+        type: 'date',
+        required: false,
+        help: 'المستندات المؤرخة قبل هذا التاريخ تبقى باسم المدير السابق (الافتراضي اليوم)',
+      },
       { name: 'pettyCustodian', label: 'مسؤول / ة العهدة النثرية', value: s.pettyCustodian, required: false },
       { name: 'educationCustodian', label: 'مسؤول عهدة يوم التعليم', value: s.educationCustodian, required: false },
       { name: 'bookCustodian', label: 'مسؤول عهدة معرض الكتاب', value: s.bookCustodian, required: false },
@@ -116,6 +123,7 @@ export function Settings() {
           </tr>
         </Table>
       </Panel>
+      <PrincipalsPanel />
 
       <Panel
         title="الأعوام المالية"
@@ -476,6 +484,62 @@ function EasePanel() {
           </button>
         </div>
       </div>
+    </Panel>
+  );
+}
+
+/** The principals of the school by date: each document prints the principal on its own date. */
+function PrincipalsPanel() {
+  const w = useWorkspace();
+  const [d] = useLoad<Row>(() => w.api(w.root('principals')));
+  const add: Dialog = {
+    title: 'مدير جديد للمدرسة',
+    intro: (
+      <p>
+        المستندات المؤرخة من هذا التاريخ تحمل اسم المدير الجديد، وما قبله يبقى باسم المدير السابق. يمكن إدخال مدير سابق بتاريخ قديم لتصحيح
+        السجل.
+      </p>
+    ),
+    fields: [
+      { name: 'name', label: 'اسم المدير / ة' },
+      { name: 'from', label: 'اعتباراً من', type: 'date' },
+    ],
+    save: (v) => w.api(w.root('principals'), 'POST', { name: v.name, from: v.from }),
+  };
+  return (
+    <Panel
+      title="سجل مديري المدرسة"
+      actions={w.can('ACCOUNTANT') && <button onClick={() => w.open(add)}>＋ مدير جديد اعتباراً من تاريخ</button>}
+    >
+      {!d ? null : d.terms.length ? (
+        <Table heads={['اعتباراً من', 'المدير / ة', '']}>
+          {d.terms.map((t: Row, i: number) => (
+            <tr key={t.id}>
+              <td className="mono">{i === d.terms.length - 1 && day(t.fromDate) === '2000-01-01' ? 'قبل ذلك' : day(t.fromDate)}</td>
+              <td>
+                {t.name} {t.name === d.current && <span className="badge s-REGISTERED">الحالي</span>}
+              </td>
+              <td>
+                {w.can('ACCOUNTANT') && d.terms.length > 1 && (
+                  <button
+                    className="link danger"
+                    onClick={() =>
+                      confirm(`حذف ${t.name} من السجل؟`) && w.task(() => w.api(w.root('principals/' + t.id), 'DELETE'), 'حُذف من السجل')
+                    }
+                  >
+                    حذف
+                  </button>
+                )}
+              </td>
+            </tr>
+          ))}
+        </Table>
+      ) : (
+        <p>
+          المدير الحالي: <b>{d.current}</b>. عند تغيير المدير اضغط «مدير جديد اعتباراً من تاريخ» حتى تبقى المستندات السابقة باسم المدير
+          السابق.
+        </p>
+      )}
     </Panel>
   );
 }

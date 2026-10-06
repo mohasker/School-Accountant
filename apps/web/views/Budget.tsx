@@ -4,6 +4,7 @@ import type { Dialog } from '../components/FormDialog';
 import { DocButtons, Empty, Panel, Table } from '../components/ui';
 import { useLoad } from '../components/useLoad';
 import type { Row } from '../lib/api';
+import { openLegacyImport } from './LegacyImport';
 import { BUDGET_GROUPS, currency, dateNow, day, downloadFile, readBase64 } from '../lib/format';
 
 const PLAN_FIELDS: [string, string][] = [
@@ -213,6 +214,9 @@ export function Budget() {
               <button className="secondary" onClick={() => w.open(importDialog)}>
                 استيراد من Excel
               </button>
+              <button className="secondary" onClick={() => openLegacyImport(w)}>
+                الشهادات السابقة في سنواتها
+              </button>
               <button onClick={() => w.open(directDialog)}>＋ مصروف مباشر</button>
             </>
           )
@@ -233,7 +237,7 @@ export function Budget() {
                 <td>
                   <b>{currency(e.amount)}</b>
                 </td>
-                <td>{e.source === 'IMPORT' ? 'Excel' : 'يدوي'}</td>
+                <td>{e.source === 'IMPORT' ? 'Excel' : e.source === 'LEGACY' ? 'سجل سابق' : 'يدوي'}</td>
                 <td>
                   {direct.canDelete && (
                     <button

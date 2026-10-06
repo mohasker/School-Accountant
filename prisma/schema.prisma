@@ -96,6 +96,7 @@ model School {
   active             Boolean      @default(true)
   memberships        Membership[]
   years              FiscalYear[]
+  principals         PrincipalTerm[]
   suppliers          Supplier[]
   cases              Case[]
   orderPrefix        String       @default("")
@@ -800,4 +801,17 @@ model Approval {
 
   @@index([caseId])
   @@index([schoolId, status])
+}
+
+/// Who was the school principal from a date on: documents print the principal on their own date.
+model PrincipalTerm {
+  id        String   @id @default(uuid()) @db.Uuid
+  schoolId  String   @db.Uuid
+  school    School   @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  name      String
+  fromDate  DateTime @db.Date
+  createdBy String   @db.Uuid
+  createdAt DateTime @default(now())
+
+  @@unique([schoolId, fromDate])
 }

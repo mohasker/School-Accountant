@@ -9,7 +9,8 @@ import { readErpRecon, writeErpRecon } from './erp-recon';
 import { readFinancialReport } from './finance';
 import { readImprests, writeImprests } from './imprests';
 import { readAudit, readReportRuns, readTransactionsReport } from './reports';
-import { readSetup, writeSchool, writeUser, writeYear } from './school';
+import { readLegacyImport, writeLegacyImport } from './legacy-import';
+import { readPrincipals, readSetup, writePrincipals, writeSchool, writeUser, writeYear } from './school';
 import { addStandard, importSuppliers, writeSupplier } from './suppliers';
 import { supplierFromBank } from './bank';
 import { readCheckPrompt, readFileChecks } from './file-check';
@@ -18,6 +19,8 @@ import { readImprestPrompt } from './imprest-check';
 
 /** GET schools/:school/:resource[/:id[/:action]] */
 const READERS: Record<string, Reader> = {
+  principals: readPrincipals,
+  'legacy-import': readLegacyImport,
   setup: readSetup,
   dashboard: readDashboard,
   cases: readCases,
@@ -41,6 +44,8 @@ const READERS: Record<string, Reader> = {
 
 /** POST/PATCH/DELETE schools/:school/:resource[/:id[/:action]] — each runs in one idempotent transaction. */
 const WRITERS: Record<string, Writer> = {
+  principals: writePrincipals,
+  'legacy-import': writeLegacyImport,
   suppliers: writeSupplier,
   'supplier-import': importSuppliers,
   'supplier-standard': addStandard,

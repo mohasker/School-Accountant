@@ -2708,3 +2708,73 @@ test('BACKUPS: server note, administrator only, copy now, copy before a purge, s
     setLocalStore(null);
   }
 });
+
+test('PRINCIPALS: a new principal from a date; documents before it keep the previous principal', async () => {
+  const before = (await req(acc, route('principals'))).body;
+  const old = before.current;
+  assert.equal(before.terms.length, 0);
+  const changed = await req(acc, route('school'), 'PATCH', { principal: 'مدير تجريبي جديد', principalFrom: '2026-09-05' });
+  assert.ok(changed.status < 300, JSON.stringify(changed.body));
+  assert.equal(changed.body.principal, 'مدير تجريبي جديد');
+  const after = (await req(acc, route('principals'))).body;
+  assert.deepEqual(
+    after.terms.map((t: any) => [t.fromDate.slice(0, 10), t.name]),
+    [
+      ['2026-09-05', 'مدير تجريبي جديد'],
+      ['2000-01-01', old],
+    ],
+  );
+  // Report 30/08 and assignment 01/09 are before the change; the certificate of 10/09 is after it.
+  const row = await issue(await makeCase('3000.00'));
+  await ok(acc, `cases/${row.id}/finish`, { completionDate: '2026-09-10', invoice: 'PR-CHANGE', date: '2026-09-10' });
+  const full = await load(row.id);
+  const html = async (path: string) => {
+    const r = await req(acc, route(path));
+    assert.equal(r.status, 200, JSON.stringify(r.body).slice(0, 200));
+    return JSON.stringify(r.body);
+  };
+  const report = await html(`cases/${row.id}/report-print`),
+    order = await html(`cases/${row.id}/order-print`),
+    cert = await html(`certificates/${full.certificates[0].id}`);
+  assert.ok(report.includes(old) && !report.includes('مدير تجريبي جديد'), 'quote report: previous principal');
+  assert.ok(order.includes(old) && !order.includes('مدير تجريبي جديد'), 'assignment: previous principal');
+  assert.ok(cert.includes('مدير تجريبي جديد') && !cert.includes(old), 'certificate: new principal');
+  assert.equal((await req(acc, route('principals'), 'POST', { name: 'مدير', from: 'x' })).status, 400);
+  assert.equal(
+    (await req(await member('r13.auditor1', ['AUDITOR']), route('principals'), 'POST', { name: 'مدير', from: '2026-01-01' })).status,
+    403,
+  );
+  // Removing the new term brings the previous principal back as current; the last term cannot be removed.
+  const newest = after.terms[0].id;
+  assert.ok((await req(acc, route('principals/' + newest), 'DELETE')).status < 300);
+  const back = (await req(acc, route('principals'))).body;
+  assert.equal(back.current, old);
+  assert.equal((await req(acc, route('principals/' + back.terms[0].id), 'DELETE')).status, 400);
+  const audit = await db.audit.findMany({ where: { action: { startsWith: 'principal:' } } });
+  assert.ok(audit.length >= 2);
+});
+
+test('PAST YEARS: the certificates register entered in its own fiscal years, once', async () => {
+  const preview = (await req(acc, route('legacy-import'))).body;
+  const years = preview.years.map((y: any) => y.year);
+  assert.ok(years.includes('2024') && years.includes('2025'), JSON.stringify(preview));
+  const past = preview.years.filter((y: any) => y.year < '2026');
+  const r = await req(acc, route('legacy-import'), 'POST', {});
+  assert.ok(r.status < 300, JSON.stringify(r.body));
+  assert.ok(r.body.opened.includes('2024') && r.body.opened.includes('2025'), JSON.stringify(r.body.opened));
+  assert.ok(r.body.raised.length > 0, 'ended years: lines raised to what was spent');
+  assert.ok(
+    r.body.skipped.every((x: any) => x.reason.includes('الحالي') || x.reason.includes('مغلق')),
+    'only the current year (no room on its line) or a closed year may skip a certificate: ' + JSON.stringify(r.body.skipped.slice(0, 3)),
+  );
+  const setup = (await req(acc, route('setup'))).body;
+  for (const y of past) {
+    const fy = setup.years.find((x: any) => x.label === y.year);
+    assert.ok(fy, 'year ' + y.year + ' opened');
+    const lines = (await req(acc, route('setup?year=' + fy.id))).body.budgets.filter((b: any) => b.yearId === fy.id);
+    const spent = lines.reduce((v: number, b: any) => v + Number(b.spent), 0);
+    assert.equal(spent.toFixed(2), y.total.toFixed(2), 'year ' + y.year + ' spent equals its certificates');
+  }
+  assert.equal((await req(acc, route('legacy-import'), 'POST', {})).body.count, 0, 'repeating adds nothing');
+  assert.equal((await req(await member('r13.auditor2', ['AUDITOR']), route('legacy-import'), 'POST', {})).status, 403);
+});

@@ -111,7 +111,14 @@ export const DEMO_PETTY: [string, string, string, string, string, string, string
   .petty.invoices.filter((i) => i.date >= '2026-01-01')
   .map((i) => [i.vendor, i.invoice, i.date, i.description, i.code, i.amount, i.note]);
 
-type People = { accountant?: string; other?: string; admin?: string; schools?: Record<string, Record<string, string>> };
+type People = {
+  accountant?: string;
+  other?: string;
+  admin?: string;
+  schools?: Record<string, Record<string, string>>;
+  /** Later principals per school: [first day, name]; the school's «principal» is the earlier one. */
+  principalChanges?: Record<string, [string, string][]>;
+};
 let cached: People | undefined;
 export async function people(): Promise<People> {
   if (cached) return cached;

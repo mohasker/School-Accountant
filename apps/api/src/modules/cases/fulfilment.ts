@@ -1,4 +1,5 @@
 import { NotFoundException } from '@nestjs/common';
+import { principalOn } from '../../core/principal';
 import { z } from 'zod';
 import { hash } from '../../common/crypto';
 import { isoDay, today } from '../../common/dates';
@@ -229,7 +230,7 @@ export async function issueCertificate({ s, school, t, body, c }: Ctx) {
     date: on,
     addressee: await resolveAddressee(t, s.user.tenantId, p.addressee),
     school: c.school.name,
-    principal: c.principalName,
+    principal: await principalOn(t, c.schoolId, on, c.principalName),
     accountant: c.accountantName,
     supplier: supplier?.name ?? '',
     subject: c.subject,

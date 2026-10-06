@@ -36,6 +36,17 @@ async function main() {
       }),
     });
   }
+  // Schools whose principal changed: the first principal, then each later one from the day they started.
+  const today = new Date().toISOString().slice(0, 10);
+  for (const s of schools) {
+    const changes = withHistory() ? (who.principalChanges?.[s.key] ?? []) : [];
+    if (!changes.length) continue;
+    const terms: [string, string][] = [['2000-01-01', s.row.principal], ...changes];
+    for (const [from, name] of terms)
+      await db.principalTerm.create({ data: { schoolId: s.row.id, name, fromDate: new Date(from), createdBy: t.id } });
+    const current = terms.filter(([from]) => from <= today).at(-1)![1];
+    await db.school.update({ where: { id: s.row.id }, data: { principal: current } });
+  }
   const passwordHash = await argon2.hash(process.env.DEMO_PASSWORD, { type: argon2.argon2id });
   const mine = schools.filter((s) => !s.other).map((s) => s.row),
     theirs = schools.filter((s) => s.other).map((s) => s.row);

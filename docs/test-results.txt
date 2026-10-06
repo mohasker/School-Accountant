@@ -1,4 +1,4 @@
-npm test — 2026-10-06 (2026-10-06.1) — 74 passed, 0 failed
+npm test — 2026-10-06 (2026-10-06.2) — 76 passed, 0 failed
 
 ok 1 - PEN: exact partial delivery and single cumulative cap
 ok 2 - AUTH: school isolation on list, search, dashboard and mutation
@@ -74,6 +74,9 @@ ok 71 - IMPREST CHECK: every recorded invoice in the file with the same number, 
 ok 72 - SECOND-PERSON APPROVAL: a new IBAN waits for another user; a large certificate needs another user to approve and is issued by someone else
 ok 73 - YEAR PACKAGE: one ZIP with every file, statement and the registers, built in the background
 ok 74 - BACKUPS: server note, administrator only, copy now, copy before a purge, second folder, restore
+ok 75 - PRINCIPALS: a new principal from a date; documents before it keep the previous principal
+ok 76 - PAST YEARS: the certificates register entered in its own fiscal years, once
 
 npm run test:concurrency (PostgreSQL 16, 10 connections) — 6/6 PASS, 3 consecutive runs (2026-10-04)
-Backup and restore on the trial installation (npm run demo): copy now, note added, restore, note gone, data kept as «before restore», copy before purge, second folder — passed 2026-10-06
+Backup and restore on the trial installation — passed 2026-10-06
+Trial from the workbooks: 502 earlier certificates in fiscal years 2022–2026, 3 principal changes — loaded 2026-10-06

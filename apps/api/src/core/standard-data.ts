@@ -89,11 +89,14 @@ export async function loadLegacyCertificates(t: Tx | typeof db, tenantId: string
   return rows.length;
 }
 
-/** Installations that loaded the register before the subject column existed get the subjects once. */
+/** Installations that loaded the register earlier get the subjects and the recovered school names once. */
 export async function fillLegacySubjects(t: Tx | typeof db, tenantId: string) {
   const rows: LegacyRow[] = JSON.parse(readFileSync(resolve(process.cwd(), 'scripts/legacy-certificates.json'), 'utf8'));
   let n = 0;
   for (const r of rows.filter((x) => x.subject))
     n += (await t.legacyCertificate.updateMany({ where: { tenantId, seq: r.seq, subject: '' }, data: { subject: r.subject } })).count;
+  // Rows whose school was lost in the workbook (its lookup failed) and was recovered from the principal's name.
+  for (const r of rows.filter((x) => x.school))
+    n += (await t.legacyCertificate.updateMany({ where: { tenantId, seq: r.seq, schoolName: '' }, data: { schoolName: r.school } })).count;
   return n;
 }

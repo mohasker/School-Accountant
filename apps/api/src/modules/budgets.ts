@@ -1,6 +1,8 @@
 import { NotFoundException } from '@nestjs/common';
+import { principalOn } from '../core/principal';
 import { z } from 'zod';
 import { db } from '../common/db';
+import { isoDay, today } from '../common/dates';
 import { D } from '../common/money';
 import { fail, id, money, parse, text } from '../common/validation';
 import { APPROVE, scope } from '../core/identity';
@@ -27,7 +29,13 @@ export async function readBudgetEstimate({ school, query }: ReadCtx) {
     db.budget.findMany({ where: { schoolId: school, yearId }, orderBy: [{ sort: 'asc' }, { code: 'asc' }] }),
   ]);
   return {
-    html: budgetEstimate({ school: year.school.name, principal: year.school.principal, year: year.label, plan, lines }),
+    html: budgetEstimate({
+      school: year.school.name,
+      principal: await principalOn(db, school, isoDay(year.endDate) < today() ? isoDay(year.endDate) : today(), year.school.principal),
+      year: year.label,
+      plan,
+      lines,
+    }),
   };
 }
 
