@@ -21,6 +21,7 @@ import { linkCode, unlinkTelegram } from '../modules/telegram';
 import { checkInput, runFileCheck } from '../modules/file-check';
 import { runImprestCheck } from '../modules/imprest-check';
 import { startYearPackage, yearPackageStatus } from '../modules/year-package';
+import { backupBeforePurge, writeBackups } from '../modules/backups';
 
 const segments = (path: string | string[]) => (Array.isArray(path) ? path : path.split('/'));
 const idempotencyKey = (req: Request) => String(req.headers['idempotency-key'] ?? '');
@@ -231,6 +232,10 @@ export class WorkspaceController {
     if (req.method === 'GET') return maybePdf(query, await readTenant(s, resource, rid, action, query));
     // Archive uploads and the move to OneDrive talk to Microsoft, so they run outside the database transaction.
     if (resource === 'archive' && req.method === 'POST' && rid === 'migrate') return migrateArchive(s);
+    // Backups copy or replace the whole database, so they never run inside a transaction.
+    if (resource === 'backups' && req.method === 'POST') return writeBackups(s, rid, b ?? {});
+    // A purge is preceded by a copy (local installation), so a deletion by mistake can be undone.
+    if (resource === 'purge' && req.method === 'POST' && s.user.isTenantAdmin && b?.confirm === 'حذف') await backupBeforePurge();
     const prepared = resource === 'archive' && req.method === 'POST' && !rid ? await prepareArchive(s, b ?? {}) : undefined;
     try {
       const result: any = await transact(

@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { DEMO_PETTY } from './demo-data';
+import { DEMO_PETTY, history, withHistory } from './demo-data';
 
 /**
  * Fills a freshly seeded trial with realistic purchase files and imprests through the API, so every
@@ -56,7 +56,7 @@ export async function runScenario(api: string, origin: string, password: string)
         await call(root(`cases/${c.id}/quotes`), 'POST', {
           supplierName,
           reference,
-          quoteDate: f.report,
+          quoteDate: f.quoted ?? f.report,
           compliant: true,
           prices: c.items.map((i: any, n: number) => ({ itemId: i.id, price: prices[n] })),
         });
@@ -77,13 +77,13 @@ export async function runScenario(api: string, origin: string, password: string)
       type: 'PETTY',
       name: 'العهدة النثرية 2026',
       custodian: setup.school.pettyCustodian,
-      amount: '12000',
+      amount: history().petty.amount,
       reference: 'شيك رقم 100245',
     });
     // Invoices are entered once, on the settlement screen, together with the statement.
     await call(root(`imprests/${imprest.id}/settle`), 'POST', {
       type: 'REPLENISH',
-      date: '2026-02-25',
+      date: history().petty.statementDate,
       invoices: DEMO_PETTY.map(([vendor, invoice, date, description, code, amount, note]) => ({
         vendor,
         invoice,
@@ -124,10 +124,10 @@ export async function runScenario(api: string, origin: string, password: string)
     first.id,
     [
       {
-        subject: 'توريد أقلام سبورة تفاعلية',
-        items: [['قلم سبورة تفاعلية', 'عدد', '10', '510401']],
+        subject: 'توريد حوامل وكابلات للسبورات التفاعلية',
+        items: [['حامل سبورة تفاعلية مع الكابلات', 'عدد', '10', '510401']],
         quotes: [
-          ['المؤيد للخدمات التجارية ذ. م. م.', ['250'], '21Q/ACSQ/ANK/MBAB/31174'],
+          ['المؤيد للخدمات التجارية ذ. م. م.', ['250'], 'MA-2026-118'],
           ['قطر لخدمات الكمبيوتر W.L.L.', ['275'], 'QCS-2026-311'],
           ['SMARTQAT TRADING', ['290'], 'SQ-7781'],
         ],
@@ -202,6 +202,44 @@ export async function runScenario(api: string, origin: string, password: string)
       ],
       false,
     );
+
+  // From the approved workbooks: the assignment still open in the assignment workbook (one quote of
+  // 2,500 QAR, so the system asks for three quotes or a sole-source reason before the report is issued),
+  // and the certificates of 2026 issued before the system, entered as earlier expenses on the lines.
+  if (!withHistory()) return;
+  const h = history();
+  const bySchool = (name: string) => me.schools.find((x: any) => x.name === name);
+  const open = bySchool(h.current.school);
+  if (open)
+    await fill(
+      open.id,
+      [
+        {
+          subject: h.current.subject,
+          items: [[h.current.item, h.current.unit, String(h.current.qty), h.current.code]],
+          quotes: [[h.current.supplier, [h.current.price], h.current.quoteRef]],
+          quoted: h.current.quoteDate,
+          report: h.current.reportDate,
+        },
+      ],
+      false,
+    );
+  for (const name of [...new Set(h.certificates2026.map((c) => c.school))]) {
+    const sc = bySchool(name);
+    if (!sc) continue;
+    const setup = await call(`schools/${sc.id}/setup`);
+    for (const c of h.certificates2026.filter((x) => x.school === name))
+      await call(`schools/${sc.id}/direct-expenses`, 'POST', {
+        yearId: setup.years[0].id,
+        code: c.code,
+        date: c.date,
+        vendor: c.supplier,
+        reference: [c.reference, c.invoice && 'فاتورة ' + c.invoice].filter(Boolean).join(' — '),
+        description: c.subject,
+        amount: String(c.amount),
+        note: 'شهادة إنجاز سابقة من سجل الشهادات (البند حسب الموضوع؛ راجعه)',
+      });
+  }
 }
 
 type Scenario = {
@@ -209,6 +247,8 @@ type Scenario = {
   items: [string, string, string, string][];
   quotes: [string, string[], string][];
   report: string;
+  /** Date of the quotes when earlier than the report. */
+  quoted?: string;
   order?: [string, number] | 'report';
   done?: [string, string, string?];
 };

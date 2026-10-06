@@ -208,7 +208,9 @@ export async function readLegacy(s: Identity, query: Record<string, any>) {
       : {}),
     ...(q
       ? {
-          OR: ['supplier', 'orderNo', 'invoice', 'schoolName', 'note'].map((f) => ({ [f]: { contains: q, mode: 'insensitive' as const } })),
+          OR: ['supplier', 'subject', 'orderNo', 'invoice', 'schoolName', 'note'].map((f) => ({
+            [f]: { contains: q, mode: 'insensitive' as const },
+          })),
         }
       : {}),
   };
@@ -238,6 +240,7 @@ export async function readLegacy(s: Identity, query: Record<string, any>) {
       'التاريخ',
       'المدرسة',
       'المورد',
+      'الموضوع',
       'رقم التكليف',
       'الفاتورة',
       'قيمة التكليف',
@@ -255,6 +258,7 @@ export async function readLegacy(s: Identity, query: Record<string, any>) {
         r.date,
         r.schoolName,
         r.supplier,
+        r.subject,
         r.orderNo,
         r.invoice,
         Number(r.orderValue),

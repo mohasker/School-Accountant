@@ -217,6 +217,7 @@ model LegacyCertificate {
   date         DateTime @db.Date
   schoolName   String   @default("")
   supplier     String
+  subject      String   @default("")
   orderNo      String   @default("")
   invoice      String   @default("")
   orderValue   Decimal  @default(0) @db.Decimal(18, 2)

@@ -6,6 +6,7 @@ import type { Dialog } from '../components/FormDialog';
 import { Badge, DocButtons, Empty, Panel, Stat, Table } from '../components/ui';
 import { useLoad } from '../components/useLoad';
 import { SchoolsOverview } from './SchoolsOverview';
+import { Backups } from './Backups';
 import type { Row } from '../lib/api';
 import { currency, day, downloadFile, ROLE_CHOICES, ROLE_NAMES } from '../lib/format';
 
@@ -168,7 +169,12 @@ export function AdminConsole() {
   };
   const purgeDialog = (title: string, text: string, body: Row): Dialog => ({
     title,
-    intro: <p className="warn">{text} لا يمكن التراجع بعد التنفيذ.</p>,
+    intro: (
+      <>
+        <p className="warn">{text}</p>
+        <p>تُؤخذ نسخة احتياطية تلقائياً قبل المسح؛ للتراجع: «النسخ الاحتياطية» ← «استعادة هذه النسخة» (قبل المسح).</p>
+      </>
+    ),
     fields: [{ name: 'confirm', label: 'اكتب كلمة «حذف» للتأكيد' }],
     submit: 'حذف نهائي',
     save: async (v) => {
@@ -345,6 +351,7 @@ export function AdminConsole() {
       <FollowUp onOpen={(a) => setProfile(a)} />
       <AccountantsTotals />
       <LoginLog />
+      <Backups />
       <Panel title="مسح البيانات">
         <p>للتجربة أو لتصحيح الأخطاء. تبقى الحسابات والإجازات والسياسة المالية ودليل البنود.</p>
         <div className="actions">

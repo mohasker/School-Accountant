@@ -38,6 +38,7 @@ type LegacyRow = {
   net: number;
   note: string;
   school: string;
+  subject?: string;
 };
 
 /** The certificates of 2022–2026 from the approved workbook: reference only, never posted to any ledger. */
@@ -54,6 +55,7 @@ export async function loadLegacyCertificates(t: Tx | typeof db, tenantId: string
       date: new Date(r.date),
       schoolName: r.school,
       supplier: r.supplier,
+      subject: r.subject ?? '',
       orderNo: r.orderNo,
       invoice: r.invoice,
       orderValue: r.orderValue,
@@ -85,4 +87,13 @@ export async function loadLegacyCertificates(t: Tx | typeof db, tenantId: string
     },
   });
   return rows.length;
+}
+
+/** Installations that loaded the register before the subject column existed get the subjects once. */
+export async function fillLegacySubjects(t: Tx | typeof db, tenantId: string) {
+  const rows: LegacyRow[] = JSON.parse(readFileSync(resolve(process.cwd(), 'scripts/legacy-certificates.json'), 'utf8'));
+  let n = 0;
+  for (const r of rows.filter((x) => x.subject))
+    n += (await t.legacyCertificate.updateMany({ where: { tenantId, seq: r.seq, subject: '' }, data: { subject: r.subject } })).count;
+  return n;
 }

@@ -3,7 +3,7 @@ import { ensureSupplierCards, loadLegacyCertificates } from '../apps/api/src/cor
 import * as argon2 from 'argon2';
 import { db } from '../apps/api/src/common/db';
 import { BUDGET_CATALOG } from './catalog';
-import { DEMO_BUDGET, DEMO_HOLIDAYS, DEMO_NOTES, DEMO_SCHOOLS, people } from './demo-data';
+import { DEMO_BUDGET, DEMO_HOLIDAYS, DEMO_NOTES, DEMO_SCHOOLS, history, people, priorSpend, withHistory } from './demo-data';
 
 /**
  * Trial data on an empty database only (never run against real data): the schools and suppliers of
@@ -53,6 +53,9 @@ async function main() {
 
   await db.budgetCatalog.createMany({ data: BUDGET_CATALOG.map((c) => ({ ...c, tenantId: t.id })) });
   for (const { row } of schools) {
+    // Trial amount per line, plus what the school already spent on it in 2026 (certificates before the system).
+    const prior = priorSpend(row.name);
+    const approved = (code: string) => String(Number(DEMO_BUDGET[code] ?? 0) + Math.ceil((prior[code] ?? 0) / 1000) * 1000);
     const y = await db.fiscalYear.create({
       data: { schoolId: row.id, label: '2026', startDate: new Date('2026-01-01'), endDate: new Date('2026-12-31') },
     });
@@ -67,16 +70,19 @@ async function main() {
           assetCode: c.assetCode ?? '',
           groupKey: c.groupKey,
           sort: i,
-          approved: DEMO_BUDGET[c.code] ?? '0',
-          schoolAmount: DEMO_BUDGET[c.code] ?? '0',
+          approved: approved(c.code),
+          schoolAmount: approved(c.code),
         },
       });
     await db.supplier.createMany({ data: STANDARD_SUPPLIERS.map((name) => ({ schoolId: row.id, name })) });
   }
 
+  const days = new Map<string, string>();
   for (const [from, to, name] of DEMO_HOLIDAYS)
-    for (let d = new Date(from); d <= new Date(to); d = new Date(d.getTime() + 86400000))
-      await db.holiday.create({ data: { tenantId: t.id, date: d, name, createdBy: t.id } });
+    for (let d = new Date(from); d <= new Date(to); d = new Date(d.getTime() + 86400000)) days.set(d.toISOString().slice(0, 10), name);
+  // The holidays sheet of the certificate workbook (spring break and the national days).
+  if (withHistory()) for (const [day, name] of history().holidays) if (!days.has(day)) days.set(day, name);
+  for (const [day, name] of days) await db.holiday.create({ data: { tenantId: t.id, date: new Date(day), name, createdBy: t.id } });
   // The supplier bank (one card per company) and the reference register of earlier certificates.
   await ensureSupplierCards(db, t.id);
   console.log('Legacy certificates for reference: ' + (await loadLegacyCertificates(db, t.id)));

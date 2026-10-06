@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs';
+
 /**
  * Trial data taken from the approved workbooks: school names, the suppliers list and sample petty-cash
  * invoices. People's names are not stored in the repository: they are read from the optional local
@@ -11,7 +13,72 @@ export const DEMO_SCHOOLS = [
   { key: 'ARAF', name: 'عبد الرحمن بن عوف الإعدادية للبنين', prefix: 'ARAF' },
   { key: 'MANA', name: 'محمد بن عبد العزيز المانع الثانوية للبنين', prefix: 'MANA' },
   { key: 'HLSD', name: 'حليمة السعدية الإبتدائية للبنات', prefix: 'HLSD', other: true },
+  // The two schools of the assignment workbook not in the others (records from the workbooks: see history()).
+  ...(withHistory()
+    ? [
+        { key: 'ANDL', name: 'الأندلس الإبتدائية للبنات', prefix: 'ANDL', other: true },
+        { key: 'RFDA', name: 'رفيدة بنت كعب الإعدادية للبنات', prefix: 'RFDA', other: true },
+      ]
+    : []),
 ];
+
+/** The automated tests seed without the workbook records (DEMO_HISTORY=false) so their dates and amounts stay fixed. */
+export function withHistory() {
+  return process.env.DEMO_HISTORY !== 'false';
+}
+
+/**
+ * Records taken from the approved workbooks (scripts/history-data.json): the certificates issued in 2026
+ * (entered in the trial as earlier expenses on the budget lines), the full petty-cash statement, the
+ * assignment still open in the assignment workbook, and the holidays sheet.
+ */
+export type History = {
+  certificates2026: {
+    date: string;
+    school: string;
+    supplier: string;
+    reference: string;
+    invoice: string;
+    amount: number;
+    subject: string;
+    code: string;
+  }[];
+  petty: {
+    school: string;
+    amount: string;
+    statementDate: string;
+    invoices: { vendor: string; invoice: string; date: string; description: string; code: string; amount: string; note: string }[];
+  };
+  current: {
+    school: string;
+    subject: string;
+    reportDate: string;
+    quoteDate: string;
+    quoteRef: string;
+    supplier: string;
+    item: string;
+    unit: string;
+    qty: number;
+    price: string;
+    code: string;
+  };
+  holidays: [string, string][];
+};
+let historyCache: History | undefined;
+export function history(): History {
+  if (!historyCache) {
+    historyCache = JSON.parse(readFileSync('scripts/history-data.json', 'utf8')) as History;
+  }
+  return historyCache;
+}
+
+/** Earlier 2026 spending per school and budget line, added to the trial amounts so the lines keep room. */
+export function priorSpend(school: string): Record<string, number> {
+  const out: Record<string, number> = {};
+  if (!withHistory()) return out;
+  for (const c of history().certificates2026.filter((x) => x.school === school)) out[c.code] = (out[c.code] ?? 0) + c.amount;
+  return out;
+}
 
 /** Approved amounts per budget line for the trial year. */
 export const DEMO_BUDGET: Record<string, string> = {
@@ -35,28 +102,14 @@ export const DEMO_HOLIDAYS: [string, string, string][] = [
   ['2027-02-09', '2027-02-09', 'اليوم الرياضي للدولة'],
 ];
 
-/** Petty-cash invoices from the ASKER statement of the first school (vendor, invoice, date, description, line, amount, note). */
-export const DEMO_PETTY: [string, string, string, string, string, string, string][] = [
-  ['محلات الجنوب التجارية', '58769', '2026-01-04', 'ضيافة - بوفيه المدرسة', '520801', '403', ''],
-  ['السعودية هايبر ماركت', '10003000330807', '2026-01-04', 'ضيافة - بوفيه المدرسة', '520801', '971.25', ''],
-  ['مصنع الخليج الغربي لانتاج الثلج و المياه', '2032007860', '2026-01-04', 'ضيافة - بوفيه المدرسة', '520801', '500', ''],
-  ['مطابخ البوادي للمندي', '3470', '2026-01-05', 'غداء الكنترول', '520801', '925', 'ليس لديهم فاتورة إلكترونية'],
-  ['قطوف للتمور', '67', '2026-01-06', 'ضيافة - بوفيه المدرسة', '520801', '250', 'ليس لديهم فاتورة إلكترونية'],
-  ['مجلس الدوحة للدعاية و الإعلان', '175', '2026-01-10', 'أوشحة - المجلس الطلابي', '540201', '840', 'ليس لديهم فاتورة إلكترونية'],
-  ['مطعم و مخباز الشيباني', '1223', '2026-01-12', 'ضيافة - مجلس أولياء الأمور', '520801', '400', 'ليس لديهم فاتورة إلكترونية'],
-  ['عش البلبل', '3214', '2026-01-18', 'ضيافة - تكريم الموظفين - إفطار', '520801', '980', 'ليس لديهم فاتورة إلكترونية'],
-  ['ميديا فيجن', '300410', '2026-01-18', 'مطبوعات أسهم مخارج الطوارئ', '520601', '840', 'ليس لديهم فاتورة إلكترونية'],
-  ['مملكة الطيور', '5625', '2026-01-21', 'لأنشطة قسم الأحياء - تشريح', '510401', '170', 'ليس لديهم فاتورة إلكترونية'],
-  ['الوسمي للتحف و الهدايا', '6', '2026-01-21', 'أوشحة - المجلس الطلابي', '540201', '420', 'ليس لديهم فاتورة إلكترونية'],
-  ['مطعم علي كيفك', '1071', '2026-02-02', 'أكل لمتسابقي اللغة الإنجليزية', '520801', '750', ''],
-  ['الدقة للطباعة', '26/1371', '2026-02-02', 'بنر لمسابقة اللغة الإنجليزية', '520601', '170', 'ليس لديهم فاتورة إلكترونية'],
-  ['الدقة للطباعة', '26/1406', '2026-02-03', 'لوحة فلين - البحث العلمي', '520601', '700', 'ليس لديهم فاتورة إلكترونية'],
-  ['محلات الجنوب التجارية', '59742', '2026-01-31', 'ضيافة - بوفيه المدرسة', '520801', '177', ''],
-  ['السعودية هايبر ماركت', '10003000379155', '2026-02-01', 'ضيافة - بوفيه المدرسة', '520801', '254.75', ''],
-  ['مطابخ الشعلة', '11640', '2026-02-02', 'عصير - متسابقي اللغة الإنجليزية', '520801', '174', 'ليس لديهم فاتورة إلكترونية'],
-  ['مناظرات قطر', '2026-264', '2026-02-05', 'مناظرات قطر', '510401', '400', ''],
-  ['اورغانيك الخضروات و الفواكه', '2135', '2026-02-05', 'ضيافة', '520801', '150', ''],
-];
+/**
+ * Petty-cash invoices of the approved statement (ASKER sheet) dated in the trial year: vendor, invoice,
+ * date, description, line, amount, note. The statement also lists invoices of November 2025, which the
+ * system refuses in a 2026 statement (an invoice must fall inside the fiscal year of the imprest).
+ */
+export const DEMO_PETTY: [string, string, string, string, string, string, string][] = history()
+  .petty.invoices.filter((i) => i.date >= '2026-01-01')
+  .map((i) => [i.vendor, i.invoice, i.date, i.description, i.code, i.amount, i.note]);
 
 type People = { accountant?: string; other?: string; admin?: string; schools?: Record<string, Record<string, string>> };
 let cached: People | undefined;

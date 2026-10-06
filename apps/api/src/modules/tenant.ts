@@ -19,6 +19,7 @@ import { tenantAddressees } from './cases/fulfilment';
 import { saveTelegramConfig, telegramStatus } from './telegram';
 import { checkSettings, saveCheckSettings } from './file-check';
 import { returnsReport } from './returns';
+import { readBackups } from './backups';
 
 /**
  * Tenant-wide settings under /api/admin/…. Every user may maintain the official holidays and add
@@ -99,6 +100,8 @@ export async function readTenant(
       return checkSettings(s);
     case 'returns-report':
       return returnsReport(s, query);
+    case 'backups':
+      return readBackups(s);
     case 'users':
       if (rid && action === 'report') return userReport(s, rid, query);
       if (rid && action === 'profile') return accountProfile(s, rid);

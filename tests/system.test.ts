@@ -119,7 +119,7 @@ before(
     server = new PGLiteSocketServer({ db: engine, port: 55433, host: '127.0.0.1', maxConnections: 20 });
     await server.start();
     await promisify(execFile)(process.execPath, ['--import', 'tsx', 'scripts/seed.ts'], {
-      env: { ...process.env, DEMO_PASSWORD: password },
+      env: { ...process.env, DEMO_PASSWORD: password, DEMO_HISTORY: 'false' },
       timeout: 60000,
     });
     const api = await import('../apps/api/src/main');
@@ -2643,4 +2643,68 @@ test('YEAR PACKAGE: one ZIP with every file, statement and the registers, built 
   const zip = await JSZip.loadAsync(Buffer.from(st.base64, 'base64'));
   const names = Object.keys(zip.files);
   assert.ok(names.includes('السجلات.xlsx') && names.includes('اقرأني.txt'), names.join(', '));
+});
+
+test('BACKUPS: server note, administrator only, copy now, copy before a purge, second folder, restore', async () => {
+  const { setLocalStore } = await import('../apps/api/src/core/local-store');
+  const { createStore } = await import('../scripts/local-backups');
+  const { mkdtempSync, mkdirSync, writeFileSync, existsSync, readdirSync: list } = await import('node:fs');
+  const { tmpdir } = await import('node:os');
+  const { join } = await import('node:path');
+  assert.deepEqual((await req(admin, 'admin/backups')).body, { local: false }, 'a server keeps its nightly pg_dump');
+  assert.equal((await req(acc, 'admin/backups')).status, 403);
+  assert.equal((await req(admin, 'admin/backups/now', 'POST', {})).status, 400);
+
+  const dir = mkdtempSync(join(tmpdir(), 'moesas-bk-'));
+  const dataDir = join(dir, 'moesas'),
+    root = join(dir, 'backups'),
+    external = join(dir, 'usb');
+  mkdirSync(dataDir);
+  mkdirSync(external);
+  writeFileSync(join(dataDir, 'PG_VERSION'), '17');
+  let swapped = false;
+  setLocalStore(
+    createStore({
+      dataDir,
+      root,
+      engine: () => engine,
+      restart: async (whileClosed) => {
+        await whileClosed();
+        swapped = true;
+      },
+      restored: async () => {},
+    }),
+  );
+  try {
+    assert.equal((await req(acc, 'admin/backups/now', 'POST', {})).status, 403);
+    assert.equal((await req(admin, 'admin/backups/external', 'POST', { dir: 'not/absolute' })).status, 400);
+    assert.equal((await req(admin, 'admin/backups/external', 'POST', { dir: external })).status, 200);
+    const now = await req(admin, 'admin/backups/now', 'POST', {});
+    assert.equal(now.status, 200, JSON.stringify(now.body));
+    assert.equal(now.body.kind, 'manual');
+    assert.ok(now.body.bytes > 1000);
+    assert.ok(existsSync(join(external, 'MOESAS-backups', now.body.name)), 'the second folder receives the copy');
+
+    // A purge from the console is preceded by its own copy.
+    assert.equal((await req(admin, 'admin/purge', 'POST', { scope: 'case', id: randomUUID(), confirm: 'حذف' })).status, 404);
+    const listed = (await req(admin, 'admin/backups')).body;
+    assert.equal(listed.local, true);
+    assert.deepEqual(listed.backups.map((b: any) => b.kind).sort(), ['manual', 'purge']);
+
+    assert.equal((await req(admin, 'admin/backups/restore', 'POST', { name: now.body.name, confirm: 'نعم' })).status, 400);
+    assert.equal((await req(admin, 'admin/backups/restore', 'POST', { name: '../../etc', confirm: 'استعادة' })).status, 400);
+    const r = await req(admin, 'admin/backups/restore', 'POST', { name: now.body.name, confirm: 'استعادة' });
+    assert.equal(r.status, 200, JSON.stringify(r.body));
+    for (let i = 0; i < 50 && !swapped; i++) await new Promise((x) => setTimeout(x, 100));
+    assert.ok(swapped, 'the restore ran while everything was closed');
+    assert.ok(existsSync(join(dataDir, 'PG_VERSION')), 'the data folder is the restored copy');
+    assert.ok(
+      list(root).some((n) => n.endsWith('-restore')),
+      'the data before the restore is kept as a copy',
+    );
+    const audit = await db.audit.findMany({ where: { action: { startsWith: 'backup:' } } });
+    assert.ok(['backup:manual', 'backup:restore-requested', 'backup:external'].every((a) => audit.some((x: any) => x.action === a)));
+  } finally {
+    setLocalStore(null);
+  }
 });

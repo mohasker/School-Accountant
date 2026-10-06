@@ -1,4 +1,4 @@
-npm test — 2026-10-04 (2026-10-04.2) — 73 passed, 0 failed
+npm test — 2026-10-06 (2026-10-06.1) — 74 passed, 0 failed
 
 ok 1 - PEN: exact partial delivery and single cumulative cap
 ok 2 - AUTH: school isolation on list, search, dashboard and mutation
@@ -73,5 +73,7 @@ ok 70 - BUDGET ALERTS and DAILY DIGEST: lines at 80% / 95% or heading past 100% 
 ok 71 - IMPREST CHECK: every recorded invoice in the file with the same number, supplier, date and amount; extra, over-limit and future invoices
 ok 72 - SECOND-PERSON APPROVAL: a new IBAN waits for another user; a large certificate needs another user to approve and is issued by someone else
 ok 73 - YEAR PACKAGE: one ZIP with every file, statement and the registers, built in the background
+ok 74 - BACKUPS: server note, administrator only, copy now, copy before a purge, second folder, restore
 
-npm run test:concurrency (PostgreSQL 16, 10 connections) — 6/6 PASS, 3 consecutive runs
+npm run test:concurrency (PostgreSQL 16, 10 connections) — 6/6 PASS, 3 consecutive runs (2026-10-04)
+Backup and restore on the trial installation (npm run demo): copy now, note added, restore, note gone, data kept as «before restore», copy before purge, second folder — passed 2026-10-06

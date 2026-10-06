@@ -1,10 +1,11 @@
 import { PGlite } from '@electric-sql/pglite';
 import { PGLiteSocketServer } from '@electric-sql/pglite-socket';
-import { cpSync, existsSync, mkdirSync, readdirSync, readFileSync, rmSync } from 'node:fs';
+import { existsSync, mkdirSync, readdirSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { spawn, execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import { createHash } from 'node:crypto';
+import { createStore, dailyBackup } from './local-backups';
 
 /**
  * Runs MOESAS on this computer with an embedded PostgreSQL (PGlite) kept in a data folder.
@@ -25,27 +26,15 @@ export async function runLocal(demo: boolean) {
     ? `https://${process.env.CODESPACE_NAME}-3000.${process.env.GITHUB_CODESPACES_PORT_FORWARDING_DOMAIN}`
     : process.env.WEB_ORIGIN || 'http://localhost:3000';
   const dataDir = process.env.PGLITE_DATA || (demo ? '.data/demo' : '.data/moesas');
-  if (!demo) dailyBackup(dataDir);
-  mkdirSync(dataDir, { recursive: true });
-  const engine = await PGlite.create(dataDir);
-  await engine.exec('CREATE TABLE IF NOT EXISTS local_migrations (name text PRIMARY KEY, hash text NOT NULL)');
-  for (const name of readdirSync('prisma/migrations')
-    .filter((n) => existsSync('prisma/migrations/' + n + '/migration.sql'))
-    .sort()) {
-    const sql = readFileSync('prisma/migrations/' + name + '/migration.sql', 'utf8'),
-      hash = createHash('sha256').update(sql).digest('hex');
-    const found = await engine.query<{ hash: string }>('SELECT hash FROM local_migrations WHERE name=$1', [name]);
-    if (found.rows.length) {
-      if (found.rows[0].hash !== hash) throw Error('Migration changed after application. Use a new migration.');
-      continue;
-    }
-    await engine.transaction(async (t) => {
-      await t.exec(sql);
-      await t.query('INSERT INTO local_migrations VALUES ($1,$2)', [name, hash]);
-    });
-  }
-  const socket = new PGLiteSocketServer({ db: engine, host: '127.0.0.1', port: 55432, maxConnections: 20 });
-  await socket.start();
+  const backupRoot = resolve(dataDir, '..', demo ? 'demo-backups' : 'backups');
+  if (!demo) dailyBackup(dataDir, backupRoot);
+  let engine = await openEngine(dataDir);
+  const listen = async () => {
+    const server = new PGLiteSocketServer({ db: engine, host: '127.0.0.1', port: 55432, maxConnections: 20 });
+    await server.start();
+    return server;
+  };
+  let socket = await listen();
   const count = await engine.query<{ n: number }>('SELECT count(*)::int as n FROM "Tenant"');
   const fresh = count.rows[0].n === 0;
   if (fresh && !demo) {
@@ -69,8 +58,36 @@ export async function runLocal(demo: boolean) {
     await promisify(execFile)(process.execPath, ['--import', 'tsx', 'scripts/seed.ts'], { env: process.env });
   }
   const { start } = await import('../apps/api/src/main');
-  const api = await start();
+  let api = await start();
   if (!demo) await prepareRegular(engine);
+  const { setLocalStore } = await import('../apps/api/src/core/local-store');
+  setLocalStore(
+    createStore({
+      dataDir,
+      root: backupRoot,
+      engine: () => engine,
+      async restart(whileClosed) {
+        const { db } = await import('../apps/api/src/common/db');
+        await api.close();
+        await db.$disconnect();
+        await socket.stop();
+        await engine.close();
+        try {
+          await whileClosed();
+        } finally {
+          engine = await openEngine(dataDir);
+          socket = await listen();
+          api = await start();
+          if (!demo) await prepareRegular(engine);
+        }
+      },
+      async restored({ from, kept, actor }) {
+        const { db } = await import('../apps/api/src/common/db');
+        for (const t of await db.tenant.findMany({ select: { id: true } }))
+          await db.audit.create({ data: { tenantId: t.id, actor, action: 'backup:restored', entity: t.id, detail: { from, kept } } });
+      },
+    }),
+  );
   if (fresh && demo && process.env.DEMO_SCENARIO !== 'false') {
     console.log('Preparing the trial files (quote reports, assignments, certificates, imprests)…');
     const { runScenario } = await import('./demo-scenario');
@@ -138,7 +155,7 @@ async function prepareRegular(engine: PGlite) {
   const { db } = await import('../apps/api/src/common/db');
   const { passwordHash } = await import('../apps/api/src/core/identity');
   const { addStandardSuppliers } = await import('../apps/api/src/core/suppliers-list');
-  const { ensureSupplierCards, loadLegacyCertificates } = await import('../apps/api/src/core/standard-data');
+  const { ensureSupplierCards, fillLegacySubjects, loadLegacyCertificates } = await import('../apps/api/src/core/standard-data');
   const once = async (name: string, step: () => Promise<void>) => {
     if ((await engine.query('SELECT 1 FROM local_migrations WHERE name=$1', [name])).rows.length) return;
     await step();
@@ -170,21 +187,30 @@ async function prepareRegular(engine: PGlite) {
   await once('step:legacy-v1', async () => {
     for (const t of await db.tenant.findMany({ select: { id: true } })) await loadLegacyCertificates(db, t.id);
   });
+  await once('step:legacy-subject-v1', async () => {
+    for (const t of await db.tenant.findMany({ select: { id: true } })) await fillLegacySubjects(db, t.id);
+  });
 }
 
-/** One copy of the data folder per day, taken before the database opens; the 14 newest are kept. */
-function dailyBackup(dataDir: string) {
-  if (!existsSync(dataDir) || !readdirSync(dataDir).length) return;
-  const root = resolve(dataDir, '..', 'backups');
-  const target = resolve(root, `moesas-${new Date().toISOString().slice(0, 10)}`);
-  if (existsSync(target)) return;
-  mkdirSync(root, { recursive: true });
-  cpSync(dataDir, target, { recursive: true });
-  const old = readdirSync(root)
-    .filter((n) => n.startsWith('moesas-'))
-    .sort()
-    .reverse()
-    .slice(14);
-  for (const n of old) rmSync(resolve(root, n), { recursive: true, force: true });
-  console.log('Daily backup: ' + target);
+/** Opens the data folder and applies the migrations it has not seen yet (also after a restore of an older copy). */
+async function openEngine(dataDir: string) {
+  mkdirSync(dataDir, { recursive: true });
+  const engine = await PGlite.create(dataDir);
+  await engine.exec('CREATE TABLE IF NOT EXISTS local_migrations (name text PRIMARY KEY, hash text NOT NULL)');
+  for (const name of readdirSync('prisma/migrations')
+    .filter((n) => existsSync('prisma/migrations/' + n + '/migration.sql'))
+    .sort()) {
+    const sql = readFileSync('prisma/migrations/' + name + '/migration.sql', 'utf8'),
+      hash = createHash('sha256').update(sql).digest('hex');
+    const found = await engine.query<{ hash: string }>('SELECT hash FROM local_migrations WHERE name=$1', [name]);
+    if (found.rows.length) {
+      if (found.rows[0].hash !== hash) throw Error('Migration changed after application. Use a new migration.');
+      continue;
+    }
+    await engine.transaction(async (t) => {
+      await t.exec(sql);
+      await t.query('INSERT INTO local_migrations VALUES ($1,$2)', [name, hash]);
+    });
+  }
+  return engine;
 }

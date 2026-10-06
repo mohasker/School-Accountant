@@ -364,7 +364,7 @@ export function LegacyCertificates() {
             }}
           >
             <input
-              placeholder="بحث: المورد / رقم التكليف / الفاتورة / ملاحظة"
+              placeholder="بحث: المورد / الموضوع / رقم التكليف / الفاتورة / ملاحظة"
               value={form.q}
               onChange={set('q')}
               style={{ minWidth: 260 }}
@@ -407,6 +407,7 @@ export function LegacyCertificates() {
                 'التاريخ',
                 'المدرسة',
                 'المورد',
+                'الموضوع',
                 'رقم التكليف',
                 'الفاتورة',
                 'قيمة التكليف',
@@ -423,6 +424,7 @@ export function LegacyCertificates() {
                   <td className="mono">{day(r.date)}</td>
                   <td>{r.schoolName}</td>
                   <td>{r.supplier}</td>
+                  <td>{r.subject || '—'}</td>
                   <td className="mono">{r.orderNo}</td>
                   <td className="mono">{r.invoice}</td>
                   <td className="mono">{currency(r.orderValue)}</td>
