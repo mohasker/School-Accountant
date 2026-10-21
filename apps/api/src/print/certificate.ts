@@ -87,7 +87,7 @@ ${signatures([
   { role: 'تم الاستلام والمراجعة بواسطة محاسب المدرسة', name: d.accountant },
   { role: 'مدير المدرسة', name: d.principal, extra: d.school },
 ])}`;
-  return printDocument({ title: 'شهادة إنجاز أعمال', ref: d.number, date: d.date, body, compact: true, showRef: false });
+  return printDocument({ title: 'شهادة إنجاز أعمال', ref: d.number, date: d.date, body, compact: true, showRef: false, official: true });
 }
 
 /** كتاب التغطية: طلب صرف مستحقات الشركة — template «Cover Let». */
@@ -107,5 +107,12 @@ ${CLOSING}
 ${signatures([{ role: 'مدير المدرسة', name: d.principal, extra: d.school }])}
 <p class="bold">المرفقات:</p>
 <ol>${items.map((a) => `<li>${esc(a.text)}</li>`).join('')}</ol>`;
-  return printDocument({ title: 'كتاب تغطية — صرف مستحقات', ref: d.number + '-COVER', date: d.coverDate, body, showRef: false });
+  return printDocument({
+    title: 'كتاب تغطية — صرف مستحقات',
+    ref: d.number + '-COVER',
+    date: d.coverDate,
+    body,
+    showRef: false,
+    official: true,
+  });
 }

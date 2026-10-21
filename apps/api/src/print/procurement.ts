@@ -50,7 +50,7 @@ ${signatures([
   { role: 'مسؤول المشتريات / محاسب المدرسة', name: d.accountant },
   { role: 'مدير المدرسة', name: d.principal },
 ])}`;
-  return printDocument({ title: 'تقرير دراسة عروض الأسعار', ref: d.ref, date: d.date, body });
+  return printDocument({ title: 'تقرير دراسة عروض الأسعار', ref: d.ref, date: d.date, body, official: true });
 }
 
 /** كتاب التكليف / أمر الشراء المحلي — template «Taklef». */
@@ -105,5 +105,5 @@ ${signatures([
   { role: 'محاسب المدرسة', name: d.accountant },
   { role: 'مدير المدرسة', name: d.principal, extra: d.school },
 ])}`;
-  return printDocument({ title: 'كتاب التكليف', ref: d.orderNumber, date: d.date, body });
+  return printDocument({ title: 'كتاب التكليف', ref: d.orderNumber, date: d.date, body, official: true });
 }

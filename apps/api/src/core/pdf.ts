@@ -76,7 +76,8 @@ export async function htmlToPdf(html: string) {
       format: 'A4',
       printBackground: true,
       preferCSSPageSize: true,
-      displayHeaderFooter: true,
+      // Official forms print exactly as approved: no page footer added by the system.
+      displayHeaderFooter: !html.includes('name="moesas-doc" content="official"'),
       headerTemplate: '<span></span>',
       footerTemplate: footer(title),
       margin: { top: '12mm', bottom: '15mm', left: '14mm', right: '14mm' },

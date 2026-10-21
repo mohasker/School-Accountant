@@ -80,7 +80,7 @@ ${rows}
 <table><tr><th>البند</th><th>رقم الحساب</th><th>المبلغ المنصرف</th></tr>
 ${[...byBudget.values()].map((b) => `<tr><td class="r">${esc(b.name)}</td><td>${esc(b.code)}</td><td>${money(b.total)}</td></tr>`).join('')}
 <tr class="total"><td colspan="2">الإجمالي</td><td class="bold">${money(total)}</td></tr></table>`;
-  return printDocument({ title, ref: `IMP-${d.number}`, date: d.date, body });
+  return printDocument({ title, ref: `IMP-${d.number}`, date: d.date, body, official: true });
 }
 
 /** كتاب طلب تسوية واستعاضة العهدة — template «COVER LTR». */
@@ -100,5 +100,5 @@ ${GREETING}
   }</ol>
 ${CLOSING}
 ${signatures([{ role: 'مدير المدرسة', name: d.principal, extra: d.school }])}`;
-  return printDocument({ title: 'كتاب تغطية تسوية العهدة', ref: `IMP-${d.number}-COVER`, date: d.date, body });
+  return printDocument({ title: 'كتاب تغطية تسوية العهدة', ref: `IMP-${d.number}-COVER`, date: d.date, body, official: true });
 }

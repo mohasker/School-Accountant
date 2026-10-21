@@ -74,5 +74,5 @@ ${groups}
     grandSchool.plus(grandKg),
   )}</td><td></td></tr></table>
 ${signatures([{ role: 'يعتمد: مدير المدرسة', name: d.principal }])}`;
-  return printDocument({ title: 'الموازنة التقديرية', ref: `BUDGET-${d.year}`, date: new Date(), body });
+  return printDocument({ title: 'الموازنة التقديرية', ref: `BUDGET-${d.year}`, date: new Date(), body, official: true });
 }

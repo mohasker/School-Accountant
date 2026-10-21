@@ -97,7 +97,6 @@ li{margin:.8mm 0}
 .rating td{font-size:10.5pt}
 .muted{color:#555;font-size:9.5pt}
 .keep{break-inside:avoid;page-break-inside:avoid}
-.watermark{position:fixed;top:45%;left:0;right:0;text-align:center;transform:rotate(-30deg);font-size:40pt;color:rgba(160,0,0,.08);pointer-events:none;z-index:0}
 .doc-end{margin-top:6mm;border-top:.5pt solid #bbb;padding-top:1mm;font-size:8.5pt;color:#777;display:flex;justify-content:space-between}
 @media screen{body{padding:10mm;background:#fff}}
 /* One-page forms (completion certificate): tighter rhythm so the whole form fits a single A4 page. */
@@ -142,14 +141,14 @@ export function printDocument(opts: {
   compact?: boolean;
   /** false: the reference stays in the system (footer line) and is not printed in the letterhead box. */
   showRef?: boolean;
+  /** An official document of the approved forms: no system line at the end and no page footer in the PDF. */
+  official?: boolean;
 }) {
-  const demo = process.env.DEMO_MODE === 'true';
-  return `<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8"><title>${esc(opts.title)} — ${esc(opts.ref)}</title><style>${STYLE}</style></head><body${opts.compact ? ' class="compact"' : ''}>
+  return `<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8">${opts.official ? '<meta name="moesas-doc" content="official">' : ''}<title>${esc(opts.title)} — ${esc(opts.ref)}</title><style>${STYLE}</style></head><body${opts.compact ? ' class="compact"' : ''}>
 <header class="letterhead"><img src="${LOGO_URL}" alt="وزارة التربية والتعليم والتعليم العالي"><table class="meta"><tr><th>التاريخ</th><td>${dateHtml(opts.date ?? new Date())}</td></tr>${opts.showRef === false ? '' : `<tr><th>المرجع</th><td>${num(opts.ref)}</td></tr>`}</table></header>
 <div class="rule"></div>
-${demo ? '<div class="watermark">نسخة تجريبية — بيانات اختبار</div>' : ''}
 ${opts.body}
-<div class="doc-end"><span>${esc(opts.title)}${opts.showRef === false ? '' : ` — ${num(opts.ref)}`}</span><span>أُعد إلكترونياً بتاريخ ${dateHtml(new Date())}</span></div>
+${opts.official ? '' : `<div class="doc-end"><span>${esc(opts.title)}${opts.showRef === false ? '' : ` — ${num(opts.ref)}`}</span><span>أُعد بتاريخ ${dateHtml(new Date())}</span></div>`}
 </body></html>`;
 }
 

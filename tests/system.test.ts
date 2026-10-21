@@ -2878,3 +2878,18 @@ test('DIRECTORY, NOTEPAD, GUIDANCE ENTRIES and ITEMIZED ORDER', async () => {
   assert.ok(letter.includes('قلم سبورة') && letter.includes('ممحاة سبورة'), 'each item on the letter');
   assert.ok(letter.includes('750.00') && letter.includes('120.00') && letter.includes('870.00'), 'line values and total');
 });
+
+test('OFFICIAL FORMS: no watermark and no system footer on the certificate, cover letter and assignment', async () => {
+  const row = await issue(await makeCase('2000.00'));
+  await ok(acc, `cases/${row.id}/finish`, { completionDate: '2026-09-10', invoice: 'OFF-1', date: '2026-09-10' });
+  const full = await load(row.id);
+  const cert = full.certificates[0];
+  for (const path of [`certificates/${cert.id}`, `certificates/${cert.id}/cover`, `cases/${row.id}/order-print`]) {
+    const html = JSON.stringify((await req(acc, route(path))).body);
+    assert.ok(
+      !html.includes('أُعد') && !html.includes('نسخة تجريبية') && !html.includes('class=\\"doc-end'),
+      path + ' is printed as approved',
+    );
+    assert.ok(html.includes('moesas-doc'), path + ' is marked official (no PDF page footer)');
+  }
+});
