@@ -33,6 +33,8 @@ import { Suppliers } from '../views/Suppliers';
 import { SupplierBank } from '../views/SupplierBank';
 import { ReturnsReport } from '../views/Returns';
 import { Supervision } from '../views/Supervision';
+import { Directory } from '../views/Directory';
+import { JournalGuide } from '../views/JournalGuide';
 
 /** The first screen after signing in: the administrator's console, the supervisor's screen, or the home screen. */
 const landing = (m: Row): View =>
@@ -52,6 +54,7 @@ const NAV: { view: View; icon: string; label: string; show?: (w: { can: Workspac
     label: 'لوحة المراقب المالي',
     show: ({ me }) => me.user.isTenantAdmin || me.schools.some((s: Row) => s.roles.includes('SUPERVISOR')),
   },
+  { view: 'directory', icon: '▤', label: 'دليل المدارس والتعيين', show: ({ me }) => me.user.isTenantAdmin },
   { view: 'dashboard', icon: '◫', label: 'الرئيسية' },
   { view: 'schools', icon: '▦', label: 'مدارسي — الموقف العام' },
   { view: 'cases', icon: '▤', label: 'المعاملات' },
@@ -67,6 +70,7 @@ const NAV: { view: View; icon: string; label: string; show?: (w: { can: Workspac
   { view: 'erp-recon', icon: '⇄', label: 'مطابقة تقرير ERP' },
   { view: 'archive', icon: '🗂', label: 'أرشيف المستندات' },
   { view: 'notes', icon: '✎', label: 'الملاحظات العامة' },
+  { view: 'journal-guide', icon: '⇋', label: 'القيود الاسترشادية' },
   { view: 'assistant', icon: '✦', label: 'المساعد الذكي' },
   { view: 'holidays', icon: '☾', label: 'الإجازات الرسمية' },
   { view: 'policy', icon: '§', label: 'السياسة المالية', show: ({ me }) => me.user.isTenantAdmin },
@@ -77,11 +81,11 @@ const NAV: { view: View; icon: string; label: string; show?: (w: { can: Workspac
 
 /** The side menu as headings; hovering a heading opens its screens, and the heading of the open screen stays expanded. */
 const GROUPS: { key: string; icon: string; label: string; views: View[] }[] = [
-  { key: 'home', icon: '◫', label: 'المتابعة', views: ['admin', 'supervision', 'dashboard', 'schools'] },
+  { key: 'home', icon: '◫', label: 'المتابعة', views: ['admin', 'directory', 'supervision', 'dashboard', 'schools'] },
   { key: 'purchases', icon: '▤', label: 'المشتريات', views: ['cases', 'quote-register', 'order-register', 'registry', 'returns'] },
   { key: 'finance', icon: '▥', label: 'العهد والموازنة', views: ['imprests', 'budget', 'erp-recon'] },
   { key: 'suppliers', icon: '◈', label: 'الموردون', views: ['suppliers', 'supplier-bank'] },
-  { key: 'reports', icon: '▧', label: 'التقارير والأرشيف', views: ['reports', 'archive', 'notes', 'assistant'] },
+  { key: 'reports', icon: '▧', label: 'التقارير والأرشيف', views: ['reports', 'journal-guide', 'archive', 'notes', 'assistant'] },
   { key: 'settings', icon: '⚙', label: 'الإعدادات والمساعدة', views: ['settings', 'holidays', 'policy', 'audit', 'help'] },
 ];
 
@@ -113,6 +117,8 @@ const TITLES: Record<View, string> = {
   audit: 'سجل التدقيق',
   admin: 'لوحة مدير النظام',
   supervision: 'لوحة المراقب المالي — المدارس تحت الإشراف حسب المحاسب',
+  directory: 'دليل مدارس الوزارة — تعيين المحاسب والمراقب المالي',
+  'journal-guide': 'القيود الاسترشادية',
 };
 
 export default function App() {
@@ -532,6 +538,10 @@ export default function App() {
               <AdminConsole />
             ) : view === 'supervision' ? (
               <Supervision />
+            ) : view === 'directory' ? (
+              <Directory />
+            ) : view === 'journal-guide' ? (
+              <JournalGuide />
             ) : view === 'schools' ? (
               <SchoolsOverview />
             ) : view === 'help' ? (

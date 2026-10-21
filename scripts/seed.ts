@@ -96,6 +96,9 @@ async function main() {
   // The holidays sheet of the certificate workbook (spring break and the national days).
   if (withHistory()) for (const [day, name] of history().holidays) if (!days.has(day)) days.set(day, name);
   for (const [day, name] of days) await db.holiday.create({ data: { tenantId: t.id, date: new Date(day), name, createdBy: t.id } });
+  // The ministry's list of schools (the trial schools are linked to their entries by name).
+  const { loadStandardDirectory } = await import('../apps/api/src/modules/directory');
+  console.log('Schools directory: ' + JSON.stringify(await loadStandardDirectory(db, t.id)));
   // The supplier bank (one card per company) and the reference register of earlier certificates.
   await ensureSupplierCards(db, t.id);
   console.log('Legacy certificates for reference: ' + (await loadLegacyCertificates(db, t.id)));

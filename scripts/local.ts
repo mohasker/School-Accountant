@@ -187,6 +187,11 @@ async function prepareRegular(engine: PGlite) {
   await once('step:legacy-v1', async () => {
     for (const t of await db.tenant.findMany({ select: { id: true } })) await loadLegacyCertificates(db, t.id);
   });
+  // The ministry's list of schools, for the administrator to assign accountants and supervisors.
+  await once('step:directory-v1', async () => {
+    const { loadStandardDirectory } = await import('../apps/api/src/modules/directory');
+    for (const t of await db.tenant.findMany({ select: { id: true } })) await loadStandardDirectory(db, t.id);
+  });
   await once('step:legacy-fix-v2', async () => {
     for (const t of await db.tenant.findMany({ select: { id: true } })) await fillLegacySubjects(db, t.id);
   });

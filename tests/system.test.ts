@@ -2810,3 +2810,71 @@ test('SUPERVISOR and ACTIVE SCHOOLS: a read-only supervisor sees its schools by 
   assert.ok((await req(acc, 'admin/my-schools', 'POST', { schoolId: school, active: true })).status < 300);
   assert.equal((await req(acc, 'overview/schools')).body.totals.schools, before);
 });
+
+test('DIRECTORY, NOTEPAD, GUIDANCE ENTRIES and ITEMIZED ORDER', async () => {
+  // The ministry list is loaded; the administrator assigns an accountant and a supervisor.
+  const dir = (await req(admin, 'admin/directory')).body;
+  assert.ok(dir.rows.length > 250, 'the schools list is loaded');
+  assert.equal((await req(acc, 'admin/directory')).status, 403);
+  const target = dir.rows.find((r: any) => !r.schoolId && r.status.includes('تعمل'));
+  const accU = await member('r15.accountant', ['AUDITOR']);
+  const users = (await req(admin, 'admin/directory')).body.users;
+  const newAcc = users.find((u: any) => u.username === 'r15.accountant');
+  const supU = users.find((u: any) => u.username === 'r14.supervisor') ?? newAcc;
+  const r = await req(admin, 'admin/directory/assign', 'POST', { ids: [target.id], accountantId: newAcc.id, supervisorId: supU.id });
+  assert.ok(r.status < 300, JSON.stringify(r.body));
+  assert.equal(r.body.opened, 1, 'the school is opened on its first assignment');
+  const after = (await req(admin, 'admin/directory')).body.rows.find((x: any) => x.id === target.id);
+  assert.ok(after.schoolId && after.accountantId === newAcc.id && after.supervisorId === supU.id);
+  const me = (await req(accU, 'auth/me')).body;
+  assert.ok(me.schools.some((s: any) => s.id === after.schoolId && s.roles.includes('ACCOUNTANT')));
+  // Handing the school to nobody keeps it with the previous accountant as inactive.
+  await req(admin, 'admin/directory/assign', 'POST', { ids: [target.id], accountantId: '' });
+  const again = (await req(accU, 'auth/me')).body.schools.find((s: any) => s.id === after.schoolId);
+  assert.equal(again.active, false);
+
+  // The notepad belongs to its owner.
+  const n = await req(acc, 'admin/my-notes', 'POST', { text: 'متابعة فاتورة المورد', color: 'pink' });
+  assert.ok(n.status < 300, JSON.stringify(n.body));
+  assert.equal((await req(accU, 'admin/my-notes/' + n.body.id, 'PATCH', { done: true })).status, 404);
+  assert.ok((await req(acc, 'admin/my-notes/' + n.body.id, 'PATCH', { done: true })).status < 300);
+  const notes = (await req(acc, 'admin/my-notes')).body;
+  assert.ok(notes.done.some((x: any) => x.id === n.body.id) && !notes.open.some((x: any) => x.id === n.body.id));
+
+  // Guidance entries: the standard set for everyone; only the administrator edits.
+  const guide = (await req(acc, 'admin/journal-guide')).body;
+  assert.ok(guide.some((g: any) => g.title.includes('إهلاك الأثاث')));
+  assert.equal((await req(acc, 'admin/journal-guide', 'POST', { title: 'x', category: 'y', lines: [] })).status, 403);
+  const one = { title: 'قيد تجربة', category: 'تسويات', lines: [{ side: 'D', account: 'حـ/ أ', amount: '1' }] };
+  assert.equal((await req(admin, 'admin/journal-guide', 'POST', one)).status, 400, 'an entry needs both sides');
+  assert.ok(
+    (await req(admin, 'admin/journal-guide', 'POST', { ...one, lines: [...one.lines, { side: 'C', account: 'حـ/ ب', amount: '1' }] }))
+      .status < 300,
+  );
+
+  // Several items with quantities and unit prices appear line by line on the assignment letter.
+  const c = await ok(acc, 'cases', {
+    yearId: year,
+    subject: 'توريد مستلزمات متعددة',
+    origin: 'SCHOOL',
+    items: [
+      { name: 'قلم سبورة', unit: 'قلم', qty: '25', budgetId: budget },
+      { name: 'ممحاة سبورة', unit: 'عدد', qty: '10', budgetId: budget },
+    ],
+  });
+  const full = await load(c.id);
+  await ok(acc, `cases/${c.id}/quotes`, {
+    supplierName: suppliers[0].name,
+    reference: 'Q-ITEMS',
+    quoteDate: '2026-08-20',
+    prices: [
+      { itemId: full.items[0].id, price: '30' },
+      { itemId: full.items[1].id, price: '12' },
+    ],
+  });
+  await ok(acc, `cases/${c.id}/evaluate`, { date: '2026-08-30', exclusiveReason: 'مورد معتمد وحيد للصنف في التجربة' });
+  await ok(acc, `cases/${c.id}/issue`, { trigger: '2026-09-01', days: 5, policyConfirmed: true });
+  const letter = (await req(acc, route(`cases/${c.id}/order-print`))).body.html as string;
+  assert.ok(letter.includes('قلم سبورة') && letter.includes('ممحاة سبورة'), 'each item on the letter');
+  assert.ok(letter.includes('750.00') && letter.includes('120.00') && letter.includes('870.00'), 'line values and total');
+});

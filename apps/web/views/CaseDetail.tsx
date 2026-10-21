@@ -52,9 +52,20 @@ const defaultCover = (c: Row) => {
   return c.method === 'THREE_QUOTES' ? [...base, 'quoteReport', 'quotes', 'crs'] : [...base, 'quoteReport'];
 };
 
-/** Repeating rows of the quote report: company name and quote value (quote number optional). */
-export function QuoteRows({ suppliers }: { suppliers: Row[] }) {
+const qty = (v: unknown) => Number(toNumberText(String(v ?? '')) || 0);
+
+/**
+ * Items of the file (name, unit, quantity) and, for each company, a unit price per item: the quote value,
+ * the quote report and the assignment letter all list the items line by line with quantity and price.
+ * On a new file the items are typed here; on an existing file they are fixed (`items`).
+ */
+export function QuoteRows({ suppliers, items: fixed }: { suppliers: Row[]; items?: Row[] }) {
+  const [items, setItems] = useState<Row[]>(fixed ?? [{ name: '', unit: 'عدد', qty: '1' }]);
   const [count, setCount] = useState(3);
+  const [prices, setPrices] = useState<Record<string, string>>({});
+  const editable = !fixed;
+  const totalOf = (q: number) => items.reduce((v, it, j) => v + qty(it.qty) * qty(prices[q + '_' + j]), 0);
+  const setItem = (j: number, k: string, v: string) => setItems((list) => list.map((x, n) => (n === j ? { ...x, [k]: v } : x)));
   return (
     <>
       <datalist id="companies">
@@ -62,27 +73,146 @@ export function QuoteRows({ suppliers }: { suppliers: Row[] }) {
           <option key={s.id} value={s.name} />
         ))}
       </datalist>
-      <div className="quote-rows">
-        <div className="quote-row head">
-          <span>م</span>
-          <span>اسم الشركة</span>
-          <span>قيمة عرض السعر (ر.ق)</span>
-          <span>رقم العرض (اختياري)</span>
-        </div>
-        {Array.from({ length: count }, (_, i) => (
-          <div className="quote-row" key={i}>
-            <span className="n">{i + 1}</span>
-            <input name={'q_name_' + i} list="companies" autoComplete="off" placeholder="اسم الشركة" required={i === 0} />
-            <NumberInput name={'q_total_' + i} required={i === 0} />
-            <input name={'q_ref_' + i} placeholder="—" />
-          </div>
-        ))}
+      <h4 className="rows-title">الأصناف</h4>
+      <table className="items-grid">
+        <thead>
+          <tr>
+            <th>م</th>
+            <th>الصنف / البيان</th>
+            <th>الوحدة</th>
+            <th>الكمية</th>
+            {editable && <th />}
+          </tr>
+        </thead>
+        <tbody>
+          {items.map((it, j) => (
+            <tr key={j}>
+              <td className="n">{j + 1}</td>
+              <td>
+                {editable ? (
+                  <input
+                    name={'it_name_' + j}
+                    value={it.name}
+                    onChange={(e) => setItem(j, 'name', e.target.value)}
+                    placeholder="مثل: قلم سبورة تفاعلية"
+                    required={j === 0}
+                  />
+                ) : (
+                  it.name
+                )}
+              </td>
+              <td>
+                {editable ? <input name={'it_unit_' + j} value={it.unit} onChange={(e) => setItem(j, 'unit', e.target.value)} /> : it.unit}
+              </td>
+              <td>
+                {editable ? (
+                  <input name={'it_qty_' + j} inputMode="decimal" value={it.qty} onChange={(e) => setItem(j, 'qty', e.target.value)} />
+                ) : (
+                  Number(it.qty)
+                )}
+              </td>
+              {editable && (
+                <td>
+                  {items.length > 1 && (
+                    <button type="button" className="link danger" onClick={() => setItems((list) => list.filter((_, n) => n !== j))}>
+                      حذف
+                    </button>
+                  )}
+                </td>
+              )}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      {editable && (
+        <button type="button" className="secondary" onClick={() => setItems((list) => [...list, { name: '', unit: 'عدد', qty: '1' }])}>
+          ＋ صنف آخر
+        </button>
+      )}
+      <h4 className="rows-title">عروض الأسعار — سعر الوحدة لكل صنف</h4>
+      <div className="quote-matrix">
+        <table className="items-grid">
+          <thead>
+            <tr>
+              <th>م</th>
+              <th>اسم الشركة</th>
+              <th>رقم العرض</th>
+              {items.map((it, j) => (
+                <th key={j} title={it.name}>
+                  سعر {items.length > 1 ? `(${j + 1}) ` : ''}
+                  {it.name ? it.name.slice(0, 18) : 'الصنف'}
+                </th>
+              ))}
+              <th>قيمة العرض</th>
+            </tr>
+          </thead>
+          <tbody>
+            {Array.from({ length: count }, (_, i) => (
+              <tr key={i}>
+                <td className="n">{i + 1}</td>
+                <td>
+                  <input name={'q_name_' + i} list="companies" autoComplete="off" placeholder="اسم الشركة" required={i === 0} />
+                </td>
+                <td>
+                  <input name={'q_ref_' + i} placeholder="—" />
+                </td>
+                {items.map((_, j) => (
+                  <td key={j}>
+                    <input
+                      name={`q_price_${i}_${j}`}
+                      inputMode="decimal"
+                      placeholder="0.00"
+                      value={prices[i + '_' + j] ?? ''}
+                      onChange={(e) => setPrices((p) => ({ ...p, [i + '_' + j]: e.target.value }))}
+                    />
+                  </td>
+                ))}
+                <td className="mono strong">{totalOf(i) ? currency(totalOf(i)) : '—'}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
       </div>
       <button type="button" className="secondary" onClick={() => setCount((n) => n + 1)}>
         ＋ شركة أخرى
       </button>
     </>
   );
+}
+
+/** Items typed in QuoteRows (new file), skipping empty rows. */
+export function readItems(fd: FormData) {
+  const items: { name: string; unit: string; qty: string }[] = [];
+  for (let j = 0; fd.has('it_name_' + j); j++) {
+    const name = String(fd.get('it_name_' + j) || '').trim(),
+      q = toNumberText(String(fd.get('it_qty_' + j) || ''));
+    if (!name) continue;
+    if (!q || Number(q) <= 0) throw Error(`الصنف ${j + 1}: أدخل الكمية`);
+    items.push({ name, unit: String(fd.get('it_unit_' + j) || 'عدد').trim() || 'عدد', qty: q });
+  }
+  if (!items.length) throw Error('أدخل صنفاً واحداً على الأقل');
+  return items;
+}
+
+/** Quotes typed in QuoteRows: company, reference and one unit price per item (the item ids of the file, in order). */
+export function readQuotes(fd: FormData, itemIds: string[], typedRows?: number[]) {
+  const quotes: { supplierName: string; reference: string; prices: { itemId: string; price: string }[] }[] = [];
+  // Column j of the form is the j-th typed item row (empty item rows are skipped on save).
+  const cols = typedRows ?? itemIds.map((_, n) => n);
+  for (let i = 0; fd.has('q_name_' + i); i++) {
+    const name = String(fd.get('q_name_' + i) || '').trim();
+    const raw = cols.map((j) => toNumberText(String(fd.get(`q_price_${i}_${j}`) || '')));
+    if (!name && raw.every((v) => !v)) continue;
+    if (!name) throw Error(`العرض ${i + 1}: اكتب اسم الشركة`);
+    if (raw.some((v) => !v || Number(v) <= 0)) throw Error(`العرض ${i + 1} (${name}): أدخل سعر الوحدة لكل صنف`);
+    quotes.push({
+      supplierName: name,
+      reference: String(fd.get('q_ref_' + i) || ''),
+      prices: raw.map((price, n) => ({ itemId: itemIds[n], price })),
+    });
+  }
+  if (!quotes.length) throw Error('أدخل شركة واحدة على الأقل وأسعارها');
+  return quotes;
 }
 
 /** The dialogs of a purchase file; used on the file page and from the quick actions of the transactions list. */
@@ -159,20 +289,18 @@ export function caseDialogs(w: Workspace, c: Row) {
         wide: true,
         intro: (
           <p>
-            أدخل اسم كل شركة وقيمة عرضها فقط. يُكلَّف الأقل سعراً، أو الشركة الوحيدة. حتى {currency(policy.singleQuoteLimit)} ر.ق يكفي عرض
-            واحد، وما يزيد يتطلب {policy.minQuotes} عروض إلا للمورد المحتكر.
+            أدخل اسم كل شركة وسعر الوحدة لكل صنف؛ تُحسب قيمة العرض تلقائياً. يُكلَّف الأقل سعراً، أو الشركة الوحيدة. حتى{' '}
+            {currency(policy.singleQuoteLimit)} ر.ق يكفي عرض واحد، وما يزيد يتطلب {policy.minQuotes} عروض إلا للمورد المحتكر.
           </p>
         ),
-        body: <QuoteRows suppliers={w.setup.suppliers || []} />,
+        body: <QuoteRows suppliers={w.setup.suppliers || []} items={c.items} />,
         submit: 'حفظ العروض',
         save: async (_v, fd) => {
-          for (let i = 0; fd.has('q_name_' + i); i++) {
-            const name = String(fd.get('q_name_' + i) || '').trim(),
-              total = toNumberText(String(fd.get('q_total_' + i) || '').trim());
-            if (!name && !total) continue;
-            if (!name || !total) throw Error(`الصف ${i + 1}: أدخل اسم الشركة وقيمة العرض معاً`);
-            await act('quotes', { supplierName: name, total, reference: String(fd.get('q_ref_' + i) || ''), quoteDate: dateNow() });
-          }
+          for (const q of readQuotes(
+            fd,
+            c.items.map((i: Row) => i.id),
+          ))
+            await act('quotes', { ...q, quoteDate: dateNow() });
         },
       };
 

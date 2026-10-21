@@ -78,6 +78,8 @@ async function deleteSchool(t: Tx, schoolId: string) {
   await t.supplier.deleteMany({ where: { schoolId } });
   await t.membership.deleteMany({ where: { schoolId } });
   await t.audit.deleteMany({ where: { schoolId } });
+  await t.schoolDirectory.updateMany({ where: { schoolId }, data: { schoolId: null } });
+  await t.userNote.deleteMany({ where: { schoolId } });
   await t.school.delete({ where: { id: schoolId } });
 }
 

@@ -11,6 +11,8 @@ export type View =
   | 'supplier-bank'
   | 'returns'
   | 'supervision'
+  | 'directory'
+  | 'journal-guide'
   | 'budget'
   | 'imprests'
   | 'reports'

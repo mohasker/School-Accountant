@@ -2,7 +2,7 @@
 import type { Workspace } from './context';
 import type { Dialog } from './FormDialog';
 import { toNumberText } from './NumberInput';
-import { caseDialogs, QuoteRows } from '../views/CaseDetail';
+import { caseDialogs, QuoteRows, readItems, readQuotes } from '../views/CaseDetail';
 import type { Row } from '../lib/api';
 import { currency, dateNow, IMPREST_TYPES } from '../lib/format';
 
@@ -18,8 +18,9 @@ export function newCaseDialog(w: Workspace): Dialog {
     wide: true,
     intro: (
       <p>
-        اكتب موضوع المعاملة وبند الموازنة، ثم اسم كل شركة وقيمة عرضها. يُكلَّف الأقل سعراً أو الشركة الوحيدة، ويصدر التقرير وتنتقل مباشرة
-        إلى كتاب التكليف. حتى {currency(p.singleQuoteLimit)} ر.ق يكفي عرض واحد، وما يزيد يتطلب {p.minQuotes} عروض إلا للمورد المحتكر.
+        اكتب موضوع المعاملة وبند الموازنة، ثم <b>الأصناف بكمياتها</b>، ثم لكل شركة <b>سعر الوحدة لكل صنف</b> (تُحسب القيمة تلقائياً). تظهر
+        الأصناف صنفاً صنفاً في التقرير وكتاب التكليف. يُكلَّف الأقل سعراً أو الشركة الوحيدة، وتنتقل مباشرة إلى كتاب التكليف. حتى{' '}
+        {currency(p.singleQuoteLimit)} ر.ق يكفي عرض واحد، وما يزيد يتطلب {p.minQuotes} عروض إلا للمورد المحتكر.
       </p>
     ),
     fields: [
@@ -46,15 +47,11 @@ export function newCaseDialog(w: Workspace): Dialog {
     body: <QuoteRows suppliers={w.setup.suppliers || []} />,
     submit: 'إصدار التقرير ← إعداد التكليف',
     save: async (v, fd) => {
-      const quotes = [];
-      for (let i = 0; fd.has('q_name_' + i); i++) {
-        const name = String(fd.get('q_name_' + i) || '').trim(),
-          total = toNumberText(String(fd.get('q_total_' + i) || ''));
-        if (!name && !total) continue;
-        if (!name || !total) throw Error(`الصف ${i + 1}: أدخل اسم الشركة وقيمة العرض معاً`);
-        quotes.push({ supplierName: name, total, reference: String(fd.get('q_ref_' + i) || ''), quoteDate: v.date });
-      }
-      if (!quotes.length) throw Error('أدخل شركة واحدة على الأقل وقيمة عرضها');
+      const items = readItems(fd);
+      // Columns of the price grid follow the typed item rows; empty item rows are left out.
+      const typed: number[] = [];
+      for (let j = 0; fd.has('it_name_' + j); j++) if (String(fd.get('it_name_' + j) || '').trim()) typed.push(j);
+      readQuotes(fd, typed.map(String), typed);
       const ministry = v.origin === 'MINISTRY';
       if (ministry && !v.ministryReference) throw Error('أدخل مرجع التكليف الوزاري');
       const row = await w.api(w.root('cases'), 'POST', {
@@ -62,15 +59,18 @@ export function newCaseDialog(w: Workspace): Dialog {
         origin: v.origin,
         ...(ministry ? { ministryReference: v.ministryReference } : {}),
         yearId: w.year,
-        items: [{ name: v.subject, unit: 'عدد', qty: '1', budgetId: v.budgetId }],
+        items: items.map((it) => ({ ...it, budgetId: v.budgetId })),
       });
+      const created = await w.api(w.root('cases/' + row.id));
+      const ids = [...created.items].sort((a: Row, b: Row) => a.position - b.position).map((i: Row) => i.id);
+      const quotes = readQuotes(fd, ids, typed);
       const act = (action: string, body: Row) => w.api(w.root(`cases/${row.id}/${action}`), 'POST', body);
       w.go('case', row.id);
       try {
         if (ministry)
-          await act('direct-order', { supplierName: quotes[0].supplierName, total: quotes[0].total, reason: v.ministryReference });
+          await act('direct-order', { supplierName: quotes[0].supplierName, prices: quotes[0].prices, reason: v.ministryReference });
         else {
-          for (const q of quotes) await act('quotes', q);
+          for (const q of quotes) await act('quotes', { ...q, quoteDate: v.date });
           await act('evaluate', { date: v.date, ...(v.exclusiveReason ? { exclusiveReason: v.exclusiveReason } : {}) });
         }
         w.open(caseDialogs(w, await w.api(w.root('cases/' + row.id))).order);

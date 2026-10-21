@@ -9,6 +9,7 @@ import { useLoad } from '../components/useLoad';
 import type { Row } from '../lib/api';
 import { currency, dateNow, day, ERP_URL, percent } from '../lib/format';
 import { CaseTable } from './Cases';
+import { MyNotes } from './MyNotes';
 
 /** Home screen for the chosen school and fiscal year: budget, documents issued in a period, charts. */
 export function Dashboard() {
@@ -68,222 +69,231 @@ export function Dashboard() {
     greet,
   );
   return (
-    <>
-      <section className="dash-head">
-        <div className="dash-greet">
-          <h2>أهلاً بعودتك يا {w.me.user.name}</h2>
-          <p>
-            <b>{weekday}</b>
-            {hijri && <> {hijri}</>} — <b className="mono">{gregorian}</b> م
-            {w.setup.school?.erpCode && (
-              <>
-                {' '}
-                · كود ERP: <b className="mono">{w.setup.school.erpCode}</b>
-              </>
-            )}
-          </p>
-        </div>
-        <button
-          type="button"
-          className={'incomplete-chip' + (d.incomplete.count ? '' : ' clear')}
-          onClick={() => document.getElementById('incomplete')?.scrollIntoView({ behavior: 'smooth' })}
-          title={d.incomplete.count ? 'اضغط لعرضها واستكمالها' : ''}
-        >
-          <strong>{d.incomplete.count}</strong>
-          <span>
-            <b>{d.incomplete.count ? 'معاملات غير مكتملة' : 'لا توجد معاملات غير مكتملة'}</b>
-            <small>
-              {d.incomplete.count
-                ? `بقيمة ${currency(d.incomplete.value)} ر.ق — بدون شهادة إنجاز ↓`
-                : 'كل المعاملات صدرت لها الشهادة والتغطية'}
-            </small>
-          </span>
-        </button>
-      </section>
-      <section className="quick-links compact" aria-label="روابط سريعة">
-        {links.map((l) =>
-          l.href ? (
-            <a key={l.title} className="quick-link erp" href={l.href} target="_blank" rel="noreferrer" title={l.hint}>
-              <i>{l.icon}</i>
-              <b>{l.title}</b>
-            </a>
-          ) : (
-            <button key={l.title} type="button" className={'quick-link' + (l.primary ? ' primary' : '')} onClick={l.onClick} title={l.hint}>
-              <i>{l.icon}</i>
-              <b>{l.title}</b>
-            </button>
-          ),
-        )}
-      </section>
-
-      <section className="panel period">
-        <div>
-          <h2>الفترة</h2>
-          <p>
-            {day(d.period.from)} — {day(d.period.to)} · العام المالي {year?.label}
-          </p>
-        </div>
-        <div className="period-controls">
-          <button className="secondary" onClick={() => preset('', '')}>
-            العام كاملاً
-          </button>
+    <div className="dash-layout">
+      <div className="dash-main">
+        <section className="dash-head">
+          <div className="dash-greet">
+            <h2>أهلاً بعودتك يا {w.me.user.name}</h2>
+            <p>
+              <b>{weekday}</b>
+              {hijri && <> {hijri}</>} — <b className="mono">{gregorian}</b> م
+              {w.setup.school?.erpCode && (
+                <>
+                  {' '}
+                  · كود ERP: <b className="mono">{w.setup.school.erpCode}</b>
+                </>
+              )}
+            </p>
+          </div>
           <button
-            className="secondary"
-            onClick={() =>
-              preset(
-                `${now.slice(0, 4)}-${String(q * 3 + 1).padStart(2, '0')}-01`,
-                monthEnd(`${now.slice(0, 4)}-${String(q * 3 + 3).padStart(2, '0')}`),
-              )
-            }
+            type="button"
+            className={'incomplete-chip' + (d.incomplete.count ? '' : ' clear')}
+            onClick={() => document.getElementById('incomplete')?.scrollIntoView({ behavior: 'smooth' })}
+            title={d.incomplete.count ? 'اضغط لعرضها واستكمالها' : ''}
           >
-            الربع الحالي
+            <strong>{d.incomplete.count}</strong>
+            <span>
+              <b>{d.incomplete.count ? 'معاملات غير مكتملة' : 'لا توجد معاملات غير مكتملة'}</b>
+              <small>
+                {d.incomplete.count
+                  ? `بقيمة ${currency(d.incomplete.value)} ر.ق — بدون شهادة إنجاز ↓`
+                  : 'كل المعاملات صدرت لها الشهادة والتغطية'}
+              </small>
+            </span>
           </button>
-          <button className="secondary" onClick={() => preset(month + '-01', monthEnd(month))}>
-            الشهر الحالي
-          </button>
-          <label>
-            من
-            <DateInput value={draft.from || d.period.from} onChange={(v) => setDraft({ ...draft, from: v })} ariaLabel="من" />
-          </label>
-          <label>
-            إلى
-            <DateInput value={draft.to || d.period.to} onChange={(v) => setDraft({ ...draft, to: v })} ariaLabel="إلى" />
-          </label>
-          <button onClick={() => setRange(draft)}>عرض</button>
-        </div>
-      </section>
+        </section>
+        <section className="quick-links compact" aria-label="روابط سريعة">
+          {links.map((l) =>
+            l.href ? (
+              <a key={l.title} className="quick-link erp" href={l.href} target="_blank" rel="noreferrer" title={l.hint}>
+                <i>{l.icon}</i>
+                <b>{l.title}</b>
+              </a>
+            ) : (
+              <button
+                key={l.title}
+                type="button"
+                className={'quick-link' + (l.primary ? ' primary' : '')}
+                onClick={l.onClick}
+                title={l.hint}
+              >
+                <i>{l.icon}</i>
+                <b>{l.title}</b>
+              </button>
+            ),
+          )}
+        </section>
 
-      {d.alerts?.repeatSuppliers?.rows?.length > 0 && (
-        <section className="panel alerts repeat">
-          <h2>ملاحظة: موردون تكرر الشراء منهم أكثر من مرتين خلال العام الميلادي {d.alerts.repeatSuppliers.year}</h2>
-          <p>
-            تُحسب التكليفات (من إصدار تقرير العروض) والمصروفات المباشرة وفواتير العهد. للتذكير بتوسيع دعوات عروض الأسعار وتنويع الموردين؛
-            القائمة تفرغ تلقائياً عندما لا يوجد تكرار.
-          </p>
-          <Table heads={['المورد', 'مرات الشراء', 'تكليفات', 'مصروفات مباشرة', 'فواتير عهد', 'إجمالي القيمة']}>
-            {d.alerts.repeatSuppliers.rows.map((r: Row) => (
-              <tr key={r.name}>
-                <td>
-                  <b>{r.name}</b>
-                </td>
-                <td>
-                  <b>{r.count}</b>
-                </td>
-                <td>{r.orders}</td>
-                <td>{r.direct}</td>
-                <td>{r.invoices}</td>
-                <td>{currency(r.value)} ر.ق</td>
-              </tr>
+        <section className="panel period">
+          <div>
+            <h2>الفترة</h2>
+            <p>
+              {day(d.period.from)} — {day(d.period.to)} · العام المالي {year?.label}
+            </p>
+          </div>
+          <div className="period-controls">
+            <button className="secondary" onClick={() => preset('', '')}>
+              العام كاملاً
+            </button>
+            <button
+              className="secondary"
+              onClick={() =>
+                preset(
+                  `${now.slice(0, 4)}-${String(q * 3 + 1).padStart(2, '0')}-01`,
+                  monthEnd(`${now.slice(0, 4)}-${String(q * 3 + 3).padStart(2, '0')}`),
+                )
+              }
+            >
+              الربع الحالي
+            </button>
+            <button className="secondary" onClick={() => preset(month + '-01', monthEnd(month))}>
+              الشهر الحالي
+            </button>
+            <label>
+              من
+              <DateInput value={draft.from || d.period.from} onChange={(v) => setDraft({ ...draft, from: v })} ariaLabel="من" />
+            </label>
+            <label>
+              إلى
+              <DateInput value={draft.to || d.period.to} onChange={(v) => setDraft({ ...draft, to: v })} ariaLabel="إلى" />
+            </label>
+            <button onClick={() => setRange(draft)}>عرض</button>
+          </div>
+        </section>
+
+        {d.alerts?.repeatSuppliers?.rows?.length > 0 && (
+          <section className="panel alerts repeat">
+            <h2>ملاحظة: موردون تكرر الشراء منهم أكثر من مرتين خلال العام الميلادي {d.alerts.repeatSuppliers.year}</h2>
+            <p>
+              تُحسب التكليفات (من إصدار تقرير العروض) والمصروفات المباشرة وفواتير العهد. للتذكير بتوسيع دعوات عروض الأسعار وتنويع الموردين؛
+              القائمة تفرغ تلقائياً عندما لا يوجد تكرار.
+            </p>
+            <Table heads={['المورد', 'مرات الشراء', 'تكليفات', 'مصروفات مباشرة', 'فواتير عهد', 'إجمالي القيمة']}>
+              {d.alerts.repeatSuppliers.rows.map((r: Row) => (
+                <tr key={r.name}>
+                  <td>
+                    <b>{r.name}</b>
+                  </td>
+                  <td>
+                    <b>{r.count}</b>
+                  </td>
+                  <td>{r.orders}</td>
+                  <td>{r.direct}</td>
+                  <td>{r.invoices}</td>
+                  <td>{currency(r.value)} ر.ق</td>
+                </tr>
+              ))}
+            </Table>
+          </section>
+        )}
+
+        {(d.alerts?.replenish?.length > 0 || d.alerts?.lateOrders?.length > 0) && (
+          <section className="panel alerts">
+            <h2>تنبيهات تحتاج إجراء</h2>
+            {d.alerts.replenish.map((a: Row) => (
+              <div key={a.id} className="alert">
+                <b>{a.name}</b> بلغ المنصرف غير المسوى {currency(a.unsettled)} ر.ق ({percent(a.ratio)} من قيمة العهدة) — يمكن طلب الاستعاضة.
+                <button className="link" onClick={() => w.go('imprests')}>
+                  فتح العهد ←
+                </button>
+              </div>
             ))}
-          </Table>
-        </section>
-      )}
+            {d.alerts.lateOrders.map((c: Row) => (
+              <div key={c.id} className="alert late">
+                <b>{c.number}</b> {c.subject} — {c.supplier?.name} — تجاوز موعد التنفيذ {day(c.dueDate)}.
+                <button className="link" onClick={() => w.go('case', c.id)}>
+                  فتح المعاملة ←
+                </button>
+              </div>
+            ))}
+          </section>
+        )}
 
-      {(d.alerts?.replenish?.length > 0 || d.alerts?.lateOrders?.length > 0) && (
-        <section className="panel alerts">
-          <h2>تنبيهات تحتاج إجراء</h2>
-          {d.alerts.replenish.map((a: Row) => (
-            <div key={a.id} className="alert">
-              <b>{a.name}</b> بلغ المنصرف غير المسوى {currency(a.unsettled)} ر.ق ({percent(a.ratio)} من قيمة العهدة) — يمكن طلب الاستعاضة.
-              <button className="link" onClick={() => w.go('imprests')}>
-                فتح العهد ←
-              </button>
-            </div>
-          ))}
-          {d.alerts.lateOrders.map((c: Row) => (
-            <div key={c.id} className="alert late">
-              <b>{c.number}</b> {c.subject} — {c.supplier?.name} — تجاوز موعد التنفيذ {day(c.dueDate)}.
-              <button className="link" onClick={() => w.go('case', c.id)}>
-                فتح المعاملة ←
-              </button>
-            </div>
-          ))}
-        </section>
-      )}
-
-      <h2 className="section-title">الموازنة والأرصدة</h2>
-      <div className="budget-head">
-        <Panel title="نسبة تنفيذ الموازنة">
-          <ExecutionGauge approved={Number(b.approved)} spent={Number(b.spent)} committed={Number(b.committed)} elapsed={elapsed} />
-        </Panel>
-        <div className="cards two">
-          <Stat label="الموازنة المعتمدة" value={currency(b.approved)} hint="ر.ق — كشف الموازنة ←" onClick={() => w.go('budget')} />
-          <Stat label="المصروف" value={currency(b.spent)} hint={`${percent(Number(b.spent) / (Number(b.approved) || 1))} من المعتمد`} />
-          <Stat label="الارتباطات (تكليفات قائمة)" value={currency(b.committed)} hint="ر.ق" />
-          <Stat label="الرصيد المتاح" value={currency(b.available)} hint="ر.ق" />
+        <h2 className="section-title">الموازنة والأرصدة</h2>
+        <div className="budget-head">
+          <Panel title="نسبة تنفيذ الموازنة">
+            <ExecutionGauge approved={Number(b.approved)} spent={Number(b.spent)} committed={Number(b.committed)} elapsed={elapsed} />
+          </Panel>
+          <div className="cards two">
+            <Stat label="الموازنة المعتمدة" value={currency(b.approved)} hint="ر.ق — كشف الموازنة ←" onClick={() => w.go('budget')} />
+            <Stat label="المصروف" value={currency(b.spent)} hint={`${percent(Number(b.spent) / (Number(b.approved) || 1))} من المعتمد`} />
+            <Stat label="الارتباطات (تكليفات قائمة)" value={currency(b.committed)} hint="ر.ق" />
+            <Stat label="الرصيد المتاح" value={currency(b.available)} hint="ر.ق" />
+          </div>
         </div>
-      </div>
 
-      <h2 className="section-title">المستندات الصادرة خلال الفترة</h2>
-      <div className="cards six">
-        <Stat
-          label="تقارير عروض الأسعار"
-          value={doc.reports.count}
-          hint={currency(doc.reports.value) + ' ر.ق'}
-          onClick={() => w.go('quote-register')}
-        />
-        <Stat
-          label="التكليفات"
-          value={doc.orders.count}
-          hint={currency(doc.orders.value) + ' ر.ق'}
-          onClick={() => w.go('order-register')}
-        />
-        <Stat
-          label="شهادات الإنجاز"
-          value={doc.certificates.count}
-          hint={`صافي ${currency(doc.certificates.value)} · غرامات ${currency(doc.certificates.fines)}`}
-          onClick={() => w.go('registry')}
-        />
-        <Stat label="كتب التغطية" value={doc.certificates.covers} hint="تصدر مع الشهادة" onClick={() => w.go('registry')} />
-        <Stat label="مصروفات مباشرة" value={doc.direct.count} hint={currency(doc.direct.value) + ' ر.ق'} onClick={() => w.go('budget')} />
-        <Stat
-          label="كشوف تسوية العهد"
-          value={doc.imprests.settlements}
-          hint={`${doc.imprests.invoices} فاتورة · ${currency(doc.imprests.spent)} ر.ق · ${doc.imprests.open} عهدة مفتوحة`}
-          onClick={() => w.go('imprests')}
-        />
-      </div>
-
-      <div className="grid2">
-        <Panel title="القيم الشهرية (ر.ق)">
-          <MonthlyBars
-            rows={d.monthly}
-            series={[
-              { key: 'orders', label: 'التكليفات' },
-              { key: 'certificates', label: 'شهادات الإنجاز (صافي)' },
-              { key: 'imprests', label: 'مصروفات العهد' },
-              { key: 'direct', label: 'مصروفات مباشرة', color: '#b08d57' },
-            ]}
+        <h2 className="section-title">المستندات الصادرة خلال الفترة</h2>
+        <div className="cards six">
+          <Stat
+            label="تقارير عروض الأسعار"
+            value={doc.reports.count}
+            hint={currency(doc.reports.value) + ' ر.ق'}
+            onClick={() => w.go('quote-register')}
           />
-        </Panel>
-        <Panel title="الموازنة حسب المجموعات (ر.ق)">
-          <GroupBars groups={b.groups} />
-        </Panel>
-      </div>
+          <Stat
+            label="التكليفات"
+            value={doc.orders.count}
+            hint={currency(doc.orders.value) + ' ر.ق'}
+            onClick={() => w.go('order-register')}
+          />
+          <Stat
+            label="شهادات الإنجاز"
+            value={doc.certificates.count}
+            hint={`صافي ${currency(doc.certificates.value)} · غرامات ${currency(doc.certificates.fines)}`}
+            onClick={() => w.go('registry')}
+          />
+          <Stat label="كتب التغطية" value={doc.certificates.covers} hint="تصدر مع الشهادة" onClick={() => w.go('registry')} />
+          <Stat label="مصروفات مباشرة" value={doc.direct.count} hint={currency(doc.direct.value) + ' ر.ق'} onClick={() => w.go('budget')} />
+          <Stat
+            label="كشوف تسوية العهد"
+            value={doc.imprests.settlements}
+            hint={`${doc.imprests.invoices} فاتورة · ${currency(doc.imprests.spent)} ر.ق · ${doc.imprests.open} عهدة مفتوحة`}
+            onClick={() => w.go('imprests')}
+          />
+        </div>
 
-      <Panel
-        title="أرصدة بنود الموازنة"
-        actions={
-          <button className="link" onClick={() => w.go('budget')}>
-            كشف الموازنة ←
-          </button>
-        }
-      >
-        {b.lines.length ? <BudgetBars compact lines={b.lines} /> : <p>لم تُعتمد مبالغ للبنود بعد؛ أدخلها من شاشة الموازنة.</p>}
-      </Panel>
+        <div className="grid2">
+          <Panel title="القيم الشهرية (ر.ق)">
+            <MonthlyBars
+              rows={d.monthly}
+              series={[
+                { key: 'orders', label: 'التكليفات' },
+                { key: 'certificates', label: 'شهادات الإنجاز (صافي)' },
+                { key: 'imprests', label: 'مصروفات العهد' },
+                { key: 'direct', label: 'مصروفات مباشرة', color: '#b08d57' },
+              ]}
+            />
+          </Panel>
+          <Panel title="الموازنة حسب المجموعات (ر.ق)">
+            <GroupBars groups={b.groups} />
+          </Panel>
+        </div>
 
-      <div id="incomplete">
         <Panel
-          title={`المعاملات غير المكتملة (${d.incomplete.count})`}
+          title="أرصدة بنود الموازنة"
           actions={
-            <button className="link" onClick={() => w.go('cases')}>
-              كل المعاملات ←
+            <button className="link" onClick={() => w.go('budget')}>
+              كشف الموازنة ←
             </button>
           }
         >
-          {d.incomplete.rows.length ? <CaseTable rows={d.incomplete.rows} /> : <p>لا توجد معاملات بانتظار استكمال.</p>}
+          {b.lines.length ? <BudgetBars compact lines={b.lines} /> : <p>لم تُعتمد مبالغ للبنود بعد؛ أدخلها من شاشة الموازنة.</p>}
         </Panel>
+
+        <div id="incomplete">
+          <Panel
+            title={`المعاملات غير المكتملة (${d.incomplete.count})`}
+            actions={
+              <button className="link" onClick={() => w.go('cases')}>
+                كل المعاملات ←
+              </button>
+            }
+          >
+            {d.incomplete.rows.length ? <CaseTable rows={d.incomplete.rows} /> : <p>لا توجد معاملات بانتظار استكمال.</p>}
+          </Panel>
+        </div>
       </div>
-    </>
+      <MyNotes />
+    </div>
   );
 }

@@ -1,4 +1,4 @@
-npm test — 2026-10-21 (0.0.0) — 77 passed, 0 failed
+npm test — 2026-10-22 (0.1.0) — 78 passed, 0 failed
 
 ok 1 - PEN: exact partial delivery and single cumulative cap
 ok 2 - AUTH: school isolation on list, search, dashboard and mutation
@@ -77,7 +77,7 @@ ok 74 - BACKUPS: server note, administrator only, copy now, copy before a purge,
 ok 75 - PRINCIPALS: a new principal from a date; documents before it keep the previous principal
 ok 76 - PAST YEARS: the certificates register entered in its own fiscal years, once
 ok 77 - SUPERVISOR and ACTIVE SCHOOLS: a read-only supervisor sees its schools by accountant; inactive schools leave the totals
+ok 78 - DIRECTORY, NOTEPAD, GUIDANCE ENTRIES and ITEMIZED ORDER
 
 npm run test:concurrency (PostgreSQL 16, 10 connections) — 6/6 PASS, 3 consecutive runs (2026-10-04)
-Backup and restore on the trial installation — passed 2026-10-06
-Trial: 502 earlier certificates in 2022–2026, principal changes, supervisor screen, grouped menu — checked in the browser 2026-10-21
+Browser check 2026-10-22: notepad, itemized new file, schools directory, guidance entries

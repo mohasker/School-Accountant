@@ -817,3 +817,53 @@ model PrincipalTerm {
 
   @@unique([schoolId, fromDate])
 }
+
+/// The ministry's list of schools (from the schools workbook): the administrator assigns each school its
+/// accountant and financial supervisor from here; the school record is opened on first assignment.
+model SchoolDirectory {
+  id       String  @id @default(uuid()) @db.Uuid
+  tenantId String  @db.Uuid
+  sn       Int
+  nameAr   String
+  nameEn   String  @default("")
+  status   String  @default("")
+  building String  @default("")
+  stage    String  @default("")
+  gender   String  @default("")
+  district String  @default("")
+  schoolId String? @db.Uuid
+
+  @@unique([tenantId, sn])
+  @@index([tenantId, schoolId])
+}
+
+/// The accountant's own notepad beside the home screen: reminders and things to follow up.
+model UserNote {
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String   @db.Uuid
+  schoolId  String?  @db.Uuid
+  text      String
+  color     String   @default("yellow")
+  done      Boolean  @default(false)
+  pinned    Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId, done])
+}
+
+/// Guidance journal entries (depreciation, imprest replenishment, …): reference only, never posted.
+model JournalGuide {
+  id        String   @id @default(uuid()) @db.Uuid
+  tenantId  String   @db.Uuid
+  title     String
+  category  String
+  usage     String   @default("")
+  lines     Json
+  note      String   @default("")
+  sort      Int      @default(0)
+  updatedBy String?  @db.Uuid
+  updatedAt DateTime @updatedAt
+
+  @@index([tenantId, category])
+}

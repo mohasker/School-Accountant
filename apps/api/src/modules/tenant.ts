@@ -21,6 +21,8 @@ import { checkSettings, saveCheckSettings } from './file-check';
 import { returnsReport } from './returns';
 import { readBackups } from './backups';
 import { setMySchool, setSupervised, supervision, supervisors } from './supervision';
+import { assignDirectory, importDirectory, readDirectory } from './directory';
+import { readGuide, readMyNotes, writeGuide, writeMyNotes } from './notepad';
 
 /**
  * Tenant-wide settings under /api/admin/…. Every user may maintain the official holidays and add
@@ -107,6 +109,12 @@ export async function readTenant(
       return supervision(s, query);
     case 'supervisors':
       return supervisors(s);
+    case 'directory':
+      return readDirectory(s);
+    case 'my-notes':
+      return readMyNotes(s);
+    case 'journal-guide':
+      return readGuide(s);
     case 'users':
       if (rid && action === 'report') return userReport(s, rid, query);
       if (rid && action === 'profile') return accountProfile(s, rid);
@@ -139,7 +147,7 @@ export async function writeTenant(
   prepared?: PreparedArchive,
 ) {
   const tenantId = s.user.tenantId;
-  if (!['holidays', 'schools', 'archive', 'notes', 'supplier-bank', 'my-schools'].includes(resource)) requireTenantAdmin(s);
+  if (!['holidays', 'schools', 'archive', 'notes', 'supplier-bank', 'my-schools', 'my-notes'].includes(resource)) requireTenantAdmin(s);
   // Holidays and schools change fine calculations and documents: an account whose only role anywhere is the
   // read-only auditor may not touch them. A new account with no school yet may add its first one.
   const auditorOnly = s.user.memberships.length > 0 && !s.user.memberships.some((m) => m.roles.some((r) => WORK.includes(r)));
@@ -241,34 +249,10 @@ export async function writeTenant(
         if (!s.user.isTenantAdmin && (!schoolIds(s).includes(row.id) || p.active !== undefined)) requireTenantAdmin(s);
         return t.school.update({ where: { id: row.id }, data: { ...p, code: p.code || row.code } });
       }
-      const code = p.code || `SCH-${String((await t.school.count({ where: { tenantId } })) + 1).padStart(3, '0')}`;
-      if (await t.school.findFirst({ where: { tenantId, code } })) fail('رمز المدرسة مستخدم');
-      const created = await t.school.create({ data: { ...p, code, active: p.active ?? true, tenantId, createdBy: s.user.id } });
-      // The user who adds a school works in it right away; the current fiscal year is opened for it.
-      await t.membership.create({
-        data: { tenantId, schoolId: created.id, userId: s.user.id, roles: s.user.isTenantAdmin ? ['ACCOUNTANT', 'ADMIN'] : ['ACCOUNTANT'] },
+      return openSchool(t, tenantId, s.user.id, p, {
+        userId: s.user.id,
+        roles: s.user.isTenantAdmin ? ['ACCOUNTANT', 'ADMIN'] : ['ACCOUNTANT'],
       });
-      const year = new Date().getFullYear();
-      await t.fiscalYear.create({
-        data: { schoolId: created.id, label: String(year), startDate: new Date(`${year}-01-01`), endDate: new Date(`${year}-12-31`) },
-      });
-      const catalog = await t.budgetCatalog.findMany({ where: { tenantId, active: true }, orderBy: [{ sort: 'asc' }, { code: 'asc' }] });
-      const y = await t.fiscalYear.findFirstOrThrow({ where: { schoolId: created.id } });
-      await t.budget.createMany({
-        data: catalog.map((c, i) => ({
-          schoolId: created.id,
-          yearId: y.id,
-          code: c.code,
-          name: c.nameAr,
-          nameEn: c.nameEn,
-          assetCode: c.assetCode,
-          groupKey: c.groupKey,
-          sort: i,
-          approved: 0,
-        })),
-      });
-      await addStandardSuppliers(t, created.id);
-      return created;
     }
     case 'supplier-bank':
       if (rid === 'standard') {
@@ -322,6 +306,14 @@ export async function writeTenant(
       return manageUser(s, t, rid, action, body);
     case 'my-schools':
       return setMySchool(s, t, body);
+    case 'my-notes':
+      return writeMyNotes(s, t, rid, method, body);
+    case 'journal-guide':
+      return writeGuide(s, t, rid, method, body);
+    case 'directory':
+      if (rid === 'assign') return assignDirectory(s, t, body);
+      if (rid === 'import') return importDirectory(s, t, body);
+      throw new NotFoundException();
     case 'memberships': {
       const p = parse(
         z
@@ -359,4 +351,43 @@ export async function writeTenant(
     }
   }
   throw new NotFoundException();
+}
+
+/**
+ * A new school: its record, the current fiscal year with the official budget lines, the standard
+ * suppliers, and (when given) the first member working in it.
+ */
+export async function openSchool(
+  t: Tx,
+  tenantId: string,
+  actor: string,
+  data: { code?: string; name: string; principal: string } & Record<string, unknown>,
+  member?: { userId: string; roles: string[] },
+) {
+  const code = data.code || `SCH-${String((await t.school.count({ where: { tenantId } })) + 1).padStart(3, '0')}`;
+  if (await t.school.findFirst({ where: { tenantId, code } })) fail('رمز المدرسة مستخدم');
+  const created = await t.school.create({
+    data: { ...(data as any), code, active: (data as any).active ?? true, tenantId, createdBy: actor },
+  });
+  if (member) await t.membership.create({ data: { tenantId, schoolId: created.id, userId: member.userId, roles: member.roles } });
+  const year = new Date().getFullYear();
+  const y = await t.fiscalYear.create({
+    data: { schoolId: created.id, label: String(year), startDate: new Date(`${year}-01-01`), endDate: new Date(`${year}-12-31`) },
+  });
+  const catalog = await t.budgetCatalog.findMany({ where: { tenantId, active: true }, orderBy: [{ sort: 'asc' }, { code: 'asc' }] });
+  await t.budget.createMany({
+    data: catalog.map((c, i) => ({
+      schoolId: created.id,
+      yearId: y.id,
+      code: c.code,
+      name: c.nameAr,
+      nameEn: c.nameEn,
+      assetCode: c.assetCode,
+      groupKey: c.groupKey,
+      sort: i,
+      approved: 0,
+    })),
+  });
+  await addStandardSuppliers(t, created.id);
+  return created;
 }
