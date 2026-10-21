@@ -1,6 +1,6 @@
 {
   "name": "school-accounting",
-  "version": "0.2.0",
+  "version": "0.0.0",
   "private": true,
   "engines": {
     "node": ">=22.12"
@@ -15,16 +15,24 @@
     "test": "node --import tsx --test --test-concurrency=1 tests/*.test.ts",
     "db:local": "node --import tsx scripts/pglite.ts",
     "demo": "node --import tsx scripts/demo.ts",
+    "local": "node --import tsx scripts/start.ts",
     "start:api": "node dist/main.js",
     "start:web": "next start apps/web --hostname 0.0.0.0",
-    "typecheck": "tsc -p apps/api/tsconfig.json --noEmit"
+    "typecheck": "tsc -p apps/api/tsconfig.json --noEmit",
+    "bootstrap": "node --import tsx scripts/bootstrap.ts",
+    "walkthrough": "node --import tsx scripts/ui-walkthrough.ts",
+    "format": "prettier --write \"apps/**/*.{ts,tsx,css}\" \"scripts/**/*.ts\" \"tests/**/*.ts\"",
+    "test:concurrency": "node --import tsx scripts/concurrency-test.ts"
   },
   "overrides": {
     "effect": "^3.20.0",
     "deepmerge-ts": "^8.0.0",
-    "exceljs": {"uuid": "^11.1.1"}
+    "exceljs": {
+      "uuid": "^11.1.1"
+    }
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.129.0",
     "@nestjs/common": "^11.1.0",
     "@nestjs/core": "^11.1.0",
     "@nestjs/platform-express": "^11.1.0",
@@ -34,8 +42,13 @@
     "cookie-parser": "^1.4.7",
     "exceljs": "^4.4.0",
     "helmet": "^8.1.0",
+    "jszip": "^3.10.2",
     "next": "^16.0.0",
+    "nodemailer": "^10.0.13",
+    "pdf-lib": "^1.17.1",
+    "pdfjs-dist": "^6.3.289",
     "pg": "^8.23.0",
+    "playwright-core": "^1.63.0",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
     "reflect-metadata": "^0.2.2",
@@ -49,11 +62,13 @@
     "@types/cookie-parser": "^1.4.9",
     "@types/express": "^5.0.0",
     "@types/node": "^24.0.0",
+    "@types/nodemailer": "^8.0.2",
     "@types/react": "^19.2.0",
     "@types/react-dom": "^19.2.0",
-    "playwright-core": "^1.63.0",
+    "prettier": "^3.8.1",
     "prisma": "6.19.0",
     "tsx": "^4.20.0",
     "typescript": "^5.9.0"
-  }
+  },
+  "description": "مَدار V0 — المساعد المحاسبي للمدارس"
 }
