@@ -54,6 +54,8 @@ async function main() {
     ['admin', who.admin ?? 'مدير النظام', ['ACCOUNTANT', 'ADMIN'], [...mine, ...theirs], true],
     ['accountant', who.accountant ?? 'المحاسب', ['ACCOUNTANT'], mine, false],
     ['other', who.other ?? 'محاسب مدرسة أخرى', ['ACCOUNTANT'], theirs, false],
+    // The ministry's financial supervisor of all the trial schools (read-only), with the workbook records.
+    ...(withHistory() ? ([['supervisor', 'المراقب المالي (تجربة)', ['SUPERVISOR'], [...mine, ...theirs], false]] as const) : []),
   ] as const;
   for (const [username, name, roles, list, isTenantAdmin] of accounts) {
     const user = await db.user.create({ data: { tenantId: t.id, username, name, passwordHash, isTenantAdmin } });
@@ -99,7 +101,7 @@ async function main() {
   console.log('Legacy certificates for reference: ' + (await loadLegacyCertificates(db, t.id)));
   const adminUser = await db.user.findUniqueOrThrow({ where: { username: 'admin' } });
   await db.note.createMany({ data: DEMO_NOTES.map((n) => ({ ...n, tenantId: t.id, updatedBy: adminUser.id })) });
-  console.log('Trial accounts: admin (system administrator), accountant, other. Password is the supplied DEMO_PASSWORD.');
+  console.log('Trial accounts: admin (system administrator), accountant, other, supervisor. Password is the supplied DEMO_PASSWORD.');
 }
 
 main().finally(() => db.$disconnect());

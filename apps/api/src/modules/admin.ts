@@ -20,6 +20,7 @@ const ROLE_NAMES: Record<string, string> = {
   APPROVER: 'معتمد',
   ERP: 'مسجل ERP',
   AUDITOR: 'مدقق',
+  SUPERVISOR: 'المراقب المالي',
   ADMIN: 'مسؤول المدرسة',
 };
 
@@ -46,7 +47,7 @@ export async function adminOverview(s: Identity) {
         isTenantAdmin: true,
         lastLoginAt: true,
         email: true,
-        memberships: { select: { schoolId: true, roles: true } },
+        memberships: { select: { schoolId: true, roles: true, active: true } },
       },
       orderBy: { name: 'asc' },
     }),
@@ -95,7 +96,7 @@ export async function adminOverview(s: Identity) {
       settledAmount: num(settlements.find((x) => x.actor === u.id)?._sum.amount ?? 0),
       directCount: direct.find((x) => x.createdBy === u.id)?._count ?? 0,
       directAmount: num(direct.find((x) => x.createdBy === u.id)?._sum.amount ?? 0),
-      schoolCount: u.isTenantAdmin ? schools.length : u.memberships.length,
+      schoolCount: u.isTenantAdmin ? schools.length : u.memberships.filter((m) => m.active).length,
       schoolsAdded: schools.filter((x) => x.createdBy === u.id).length,
       totalCases: mine.reduce((n, c) => n + c._count, 0),
       logins: logins.find((l) => l.userId === u.id)?._count ?? 0,
@@ -117,7 +118,7 @@ export async function adminOverview(s: Identity) {
       owner: nameOf(sc.createdBy),
       located: sc.lat != null,
       accountants: users
-        .filter((u) => !u.isTenantAdmin && u.memberships.some((m) => m.schoolId === sc.id))
+        .filter((u) => !u.isTenantAdmin && u.memberships.some((m) => m.schoolId === sc.id && m.active && m.roles.includes('ACCOUNTANT')))
         .map((u) => u.name)
         .join('، '),
       users: users.filter((u) => u.memberships.some((m) => m.schoolId === sc.id)).length,

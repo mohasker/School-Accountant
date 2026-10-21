@@ -64,7 +64,10 @@ async function printed(page: Page, html: string, name: string) {
 async function nav(page: Page, label: string) {
   // Accountants start with the simple menu: open the full one when the screen is not in it.
   if (!(await page.locator(`aside nav button:has-text("${label}")`).count())) await page.click('aside .menu-mode');
-  await page.click(`aside nav button:has-text("${label}")`);
+  // Screens sit under headings: open the heading first when the screen is not shown.
+  const item = page.locator(`aside nav .nav-items button:has-text("${label}")`).first();
+  if ((await item.count()) && !(await item.isVisible())) await page.locator('aside .nav-group', { has: item }).locator('.nav-head').click();
+  await page.locator(`aside nav button:has-text("${label}")`).filter({ visible: true }).first().click();
   await page.waitForTimeout(700);
 }
 

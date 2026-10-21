@@ -69,21 +69,38 @@ export function Dashboard() {
   );
   return (
     <>
-      <section className="welcome">
-        <div>
+      <section className="dash-head">
+        <div className="dash-greet">
           <h2>أهلاً بعودتك يا {w.me.user.name}</h2>
           <p>
-            اليوم: <b>{weekday}</b>
-            {hijri && <> {hijri}</>} — الموافق: <b className="mono">{gregorian}</b> م
+            <b>{weekday}</b>
+            {hijri && <> {hijri}</>} — <b className="mono">{gregorian}</b> م
+            {w.setup.school?.erpCode && (
+              <>
+                {' '}
+                · كود ERP: <b className="mono">{w.setup.school.erpCode}</b>
+              </>
+            )}
           </p>
         </div>
-        {w.setup.school?.erpCode && (
-          <div className="welcome-erp">
-            كود المدرسة على ERP: <b className="mono">{w.setup.school.erpCode}</b>
-          </div>
-        )}
+        <button
+          type="button"
+          className={'incomplete-chip' + (d.incomplete.count ? '' : ' clear')}
+          onClick={() => document.getElementById('incomplete')?.scrollIntoView({ behavior: 'smooth' })}
+          title={d.incomplete.count ? 'اضغط لعرضها واستكمالها' : ''}
+        >
+          <strong>{d.incomplete.count}</strong>
+          <span>
+            <b>{d.incomplete.count ? 'معاملات غير مكتملة' : 'لا توجد معاملات غير مكتملة'}</b>
+            <small>
+              {d.incomplete.count
+                ? `بقيمة ${currency(d.incomplete.value)} ر.ق — بدون شهادة إنجاز ↓`
+                : 'كل المعاملات صدرت لها الشهادة والتغطية'}
+            </small>
+          </span>
+        </button>
       </section>
-      <section className="quick-links" aria-label="روابط سريعة">
+      <section className="quick-links compact" aria-label="روابط سريعة">
         {links.map((l) =>
           l.href ? (
             <a key={l.title} className="quick-link erp" href={l.href} target="_blank" rel="noreferrer" title={l.hint}>
@@ -98,22 +115,6 @@ export function Dashboard() {
           ),
         )}
       </section>
-
-      <button
-        type="button"
-        className={'incomplete-banner' + (d.incomplete.count ? '' : ' clear')}
-        onClick={() => document.getElementById('incomplete')?.scrollIntoView({ behavior: 'smooth' })}
-      >
-        <strong>{d.incomplete.count}</strong>
-        <span>
-          <b>{d.incomplete.count ? 'معاملات غير مكتملة' : 'لا توجد معاملات غير مكتملة'}</b>
-          <small>
-            {d.incomplete.count
-              ? `بقيمة ${currency(d.incomplete.value)} ر.ق — لم تصدر لها شهادة الإنجاز بعد. اضغط لعرضها واستكمالها ↓`
-              : 'كل المعاملات صدرت لها شهادة الإنجاز وكتاب التغطية.'}
-          </small>
-        </span>
-      </button>
 
       <section className="panel period">
         <div>

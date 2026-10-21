@@ -22,7 +22,8 @@ const days = (from: Date) => Math.max(0, Math.floor((Date.now() - from.getTime()
  * recorded in ERP. Schools with nothing pending are only counted.
  */
 export async function welcome(s: Identity) {
-  const schools = s.user.memberships.filter((m) => m.school.active).map((m) => m.school);
+  // Only the schools the accountant marked as active count in the reminder.
+  const schools = s.user.memberships.filter((m) => m.school.active && (m as any).active !== false).map((m) => m.school);
   const rows = await pendingBySchool(s.user.tenantId, schools);
   const busy = rows.filter((r) => r.attention > 0).sort((a, b) => b.late - a.late || b.attention - a.attention);
   return {

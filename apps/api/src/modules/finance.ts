@@ -25,7 +25,7 @@ async function gather(s: ReadCtx['s'], school: string, query: Record<string, any
   const from = DAY.test(String(query.from ?? '')) ? String(query.from) : isoDay(year.startDate);
   const to = DAY.test(String(query.to ?? '')) ? String(query.to) : isoDay(year.endDate);
   const where = { schoolId: school, yearId: year.id };
-  const [budgets, cases, imprests] = await Promise.all([
+  const [budgets, cases, imprests, directs] = await Promise.all([
     db.budget.findMany({ where, orderBy: [{ sort: 'asc' }, { code: 'asc' }] }),
     db.case.findMany({
       where,
@@ -44,6 +44,7 @@ async function gather(s: ReadCtx['s'], school: string, query: Record<string, any
       },
     }),
     db.imprest.findMany({ where, include: { expenses: true, settlements: { select: { amount: true } } }, orderBy: { createdAt: 'asc' } }),
+    db.directExpense.findMany({ where, select: { date: true, amount: true } }),
   ]);
 
   const start = Date.parse(isoDay(year.startDate)),
@@ -104,6 +105,7 @@ async function gather(s: ReadCtx['s'], school: string, query: Record<string, any
     orders: orders.filter((c) => isoDay(c.issueDate!).startsWith(m)).reduce((v, c) => v + n(c.total), 0),
     certificates: certs.filter((x) => certDate(x).startsWith(m)).reduce((v, x) => v + n(x.net), 0),
     imprests: expenses.filter((e) => isoDay(e.date).startsWith(m)).reduce((v, e) => v + n(e.amount), 0),
+    direct: directs.filter((e) => inPeriod(e.date, from, to) && isoDay(e.date).startsWith(m)).reduce((v, e) => v + n(e.amount), 0),
   }));
 
   const bySupplier = new Map<string, { name: string; value: number; count: number }>();
@@ -238,9 +240,9 @@ async function workbook(d: FinanceData) {
   lines.columns.forEach((c) => (c.width = 20));
 
   const monthly = wb.addWorksheet('شهري', { views: [{ rightToLeft: true }] });
-  head(monthly, ['الشهر', 'التكليفات', 'شهادات الإنجاز (صافي)', 'مصروفات العهد']);
+  head(monthly, ['الشهر', 'التكليفات', 'شهادات الإنجاز (صافي)', 'مصروفات العهد', 'مصروفات مباشرة وسابقة']);
   d.monthly.forEach((m) =>
-    monthly.addRow([m.month, m.orders, m.certificates, m.imprests]).eachCell((c, i) => i > 1 && (c.numFmt = moneyFmt)),
+    monthly.addRow([m.month, m.orders, m.certificates, m.imprests, m.direct]).eachCell((c, i) => i > 1 && (c.numFmt = moneyFmt)),
   );
   monthly.columns.forEach((c) => (c.width = 22));
 

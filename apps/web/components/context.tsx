@@ -10,6 +10,7 @@ export type View =
   | 'suppliers'
   | 'supplier-bank'
   | 'returns'
+  | 'supervision'
   | 'budget'
   | 'imprests'
   | 'reports'

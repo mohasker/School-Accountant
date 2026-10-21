@@ -2778,3 +2778,35 @@ test('PAST YEARS: the certificates register entered in its own fiscal years, onc
   assert.equal((await req(acc, route('legacy-import'), 'POST', {})).body.count, 0, 'repeating adds nothing');
   assert.equal((await req(await member('r13.auditor2', ['AUDITOR']), route('legacy-import'), 'POST', {})).status, 403);
 });
+
+test('SUPERVISOR and ACTIVE SCHOOLS: a read-only supervisor sees its schools by accountant; inactive schools leave the totals', async () => {
+  const sup = await member('r14.supervisor', ['SUPERVISOR']);
+  const view = await req(sup, 'admin/supervision');
+  assert.equal(view.status, 200, JSON.stringify(view.body));
+  assert.equal(view.body.totals.schools, 1);
+  assert.ok(view.body.accountants.length >= 1 && view.body.accountants[0].schools[0].id === school);
+  // Read-only: no financial writes, but the files can be read.
+  assert.equal((await req(sup, route('cases'), 'POST', { yearId: year, subject: 'x', origin: 'SCHOOL', items: [] })).status, 403);
+  assert.equal((await req(sup, route('cases?year=' + year))).status, 200);
+  // Not a supervisor → refused; the administrator assigns schools and previews the screen.
+  assert.equal((await req(acc, 'admin/supervision')).status, 403);
+  const users = (await req(admin, 'admin/supervisors')).body;
+  const me = users.find((u: any) => u.username === 'r14.supervisor');
+  assert.deepEqual(me.schools, [school]);
+  const all = (await req(admin, 'admin/schools')).body.map((x: any) => x.id);
+  const set = await req(admin, `admin/users/${me.id}/supervise`, 'POST', { schoolIds: all });
+  assert.ok(set.status < 300, JSON.stringify(set.body));
+  const preview = (await req(admin, 'admin/supervision?user=' + me.id)).body;
+  assert.equal(preview.totals.schools, all.length);
+  assert.equal((await req(acc, `admin/users/${me.id}/supervise`, 'POST', { schoolIds: [] })).status, 403);
+
+  // The accountant marks a school inactive: it stays reachable but leaves the overview totals.
+  const before = (await req(acc, 'overview/schools')).body.totals.schools;
+  assert.ok((await req(acc, 'admin/my-schools', 'POST', { schoolId: school, active: false })).status < 300);
+  assert.equal((await req(acc, 'overview/schools')).body.totals.schools, before - 1);
+  assert.equal((await req(acc, route('cases?year=' + year))).status, 200, 'an inactive school stays reachable');
+  const mine = (await req(acc, 'auth/me')).body.schools.find((x: any) => x.id === school);
+  assert.equal(mine.active, false);
+  assert.ok((await req(acc, 'admin/my-schools', 'POST', { schoolId: school, active: true })).status < 300);
+  assert.equal((await req(acc, 'overview/schools')).body.totals.schools, before);
+});

@@ -7,6 +7,7 @@ import { Badge, DocButtons, Empty, Panel, Stat, Table } from '../components/ui';
 import { useLoad } from '../components/useLoad';
 import { SchoolsOverview } from './SchoolsOverview';
 import { Backups } from './Backups';
+import { SupervisorsPanel } from './Supervisors';
 import type { Row } from '../lib/api';
 import { currency, day, downloadFile, ROLE_CHOICES, ROLE_NAMES } from '../lib/format';
 
@@ -350,6 +351,7 @@ export function AdminConsole() {
       </Panel>
       <FollowUp onOpen={(a) => setProfile(a)} />
       <AccountantsTotals />
+      <SupervisorsPanel />
       <LoginLog />
       <Backups />
       <Panel title="مسح البيانات">

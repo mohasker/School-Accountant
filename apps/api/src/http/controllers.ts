@@ -76,7 +76,7 @@ export class AuthController {
       },
       schools: s.user.memberships
         .filter((m) => m.school.active)
-        .map((m) => ({ id: m.schoolId, name: m.school.name, roles: m.roles }))
+        .map((m) => ({ id: m.schoolId, name: m.school.name, roles: m.roles, active: (m as any).active !== false }))
         .sort((a, b) => a.name.localeCompare(b.name, 'ar')),
       demo: process.env.DEMO_MODE === 'true',
     };

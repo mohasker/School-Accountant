@@ -55,13 +55,14 @@ export const IMPREST_TYPES: Row = {
 };
 
 /** Roles offered when assigning a user to a school: the accountant does every step; the auditor only reads. */
-export const ROLE_CHOICES = ['ACCOUNTANT', 'AUDITOR'];
+export const ROLE_CHOICES = ['ACCOUNTANT', 'AUDITOR', 'SUPERVISOR'];
 export const ROLE_NAMES: Row = {
   ACCOUNTANT: 'محاسب (كل الأعمال)',
   REVIEWER: 'مراجع',
   APPROVER: 'معتمد',
   ERP: 'مسجل ERP',
   AUDITOR: 'اطلاع فقط',
+  SUPERVISOR: 'المراقب المالي (اطلاع)',
   ADMIN: 'مسؤول المدرسة',
 };
 

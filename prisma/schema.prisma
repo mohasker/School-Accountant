@@ -120,6 +120,8 @@ model Membership {
   userId   String   @db.Uuid
   schoolId String   @db.Uuid
   roles    String[]
+  /// Counted in the accountant's totals (a school handed over stays reachable but is left out).
+  active   Boolean  @default(true)
   user     User     @relation(fields: [userId, tenantId], references: [id, tenantId])
   school   School   @relation(fields: [schoolId, tenantId], references: [id, tenantId])
 

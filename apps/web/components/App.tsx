@@ -10,7 +10,7 @@ import { Welcome } from './Welcome';
 import { Tour, TOURS } from './Tour';
 import { applyFontSize, FONT_SIZES, loadFontSize, loadSimpleMenu, saveFontSize, saveSimpleMenu, type FontSize } from '../lib/prefs';
 import { Logo } from './ui';
-import { APP_NAME, APP_TITLE, COPYRIGHT } from '../lib/brand';
+import { APP_NAME, APP_TITLE, APP_VERSION, COPYRIGHT } from '../lib/brand';
 import { AdminConsole } from '../views/AdminConsole';
 import { SchoolsOverview } from '../views/SchoolsOverview';
 import { Help } from '../views/Help';
@@ -32,9 +32,26 @@ import { FirstSchool, Settings } from '../views/Settings';
 import { Suppliers } from '../views/Suppliers';
 import { SupplierBank } from '../views/SupplierBank';
 import { ReturnsReport } from '../views/Returns';
+import { Supervision } from '../views/Supervision';
+
+/** The first screen after signing in: the administrator's console, the supervisor's screen, or the home screen. */
+const landing = (m: Row): View =>
+  m.user.isTenantAdmin
+    ? 'admin'
+    : m.schools.length && m.schools.every((s: Row) => s.roles.every((r: string) => ['SUPERVISOR', 'AUDITOR'].includes(r)))
+      ? m.schools.some((s: Row) => s.roles.includes('SUPERVISOR'))
+        ? 'supervision'
+        : 'dashboard'
+      : 'dashboard';
 
 const NAV: { view: View; icon: string; label: string; show?: (w: { can: Workspace['can']; me: Row }) => boolean }[] = [
   { view: 'admin', icon: '♛', label: 'لوحة مدير النظام', show: ({ me }) => me.user.isTenantAdmin },
+  {
+    view: 'supervision',
+    icon: '◉',
+    label: 'لوحة المراقب المالي',
+    show: ({ me }) => me.user.isTenantAdmin || me.schools.some((s: Row) => s.roles.includes('SUPERVISOR')),
+  },
   { view: 'dashboard', icon: '◫', label: 'الرئيسية' },
   { view: 'schools', icon: '▦', label: 'مدارسي — الموقف العام' },
   { view: 'cases', icon: '▤', label: 'المعاملات' },
@@ -58,8 +75,18 @@ const NAV: { view: View; icon: string; label: string; show?: (w: { can: Workspac
   { view: 'audit', icon: '↺', label: 'سجل التدقيق', show: ({ me }) => me.user.isTenantAdmin },
 ];
 
+/** The side menu as headings; hovering a heading opens its screens, and the heading of the open screen stays expanded. */
+const GROUPS: { key: string; icon: string; label: string; views: View[] }[] = [
+  { key: 'home', icon: '◫', label: 'المتابعة', views: ['admin', 'supervision', 'dashboard', 'schools'] },
+  { key: 'purchases', icon: '▤', label: 'المشتريات', views: ['cases', 'quote-register', 'order-register', 'registry', 'returns'] },
+  { key: 'finance', icon: '▥', label: 'العهد والموازنة', views: ['imprests', 'budget', 'erp-recon'] },
+  { key: 'suppliers', icon: '◈', label: 'الموردون', views: ['suppliers', 'supplier-bank'] },
+  { key: 'reports', icon: '▧', label: 'التقارير والأرشيف', views: ['reports', 'archive', 'notes', 'assistant'] },
+  { key: 'settings', icon: '⚙', label: 'الإعدادات والمساعدة', views: ['settings', 'holidays', 'policy', 'audit', 'help'] },
+];
+
 /** The simple menu keeps the four daily screens (the administrator keeps his console too). */
-const SIMPLE_VIEWS: View[] = ['admin', 'dashboard', 'schools', 'cases', 'imprests', 'budget', 'help'];
+const SIMPLE_VIEWS: View[] = ['admin', 'supervision', 'dashboard', 'schools', 'cases', 'imprests', 'budget', 'help'];
 
 const TITLES: Record<View, string> = {
   dashboard: 'الرئيسية',
@@ -85,6 +112,7 @@ const TITLES: Record<View, string> = {
   settings: 'الإعدادات',
   audit: 'سجل التدقيق',
   admin: 'لوحة مدير النظام',
+  supervision: 'لوحة المراقب المالي — المدارس تحت الإشراف حسب المحاسب',
 };
 
 export default function App() {
@@ -105,7 +133,8 @@ export default function App() {
     [welcomeOpen, setWelcomeOpen] = useState(false),
     [simpleMenu, setSimpleMenu] = useState(false),
     [fontSize, setFontSize] = useState<FontSize>('normal'),
-    [tourReplay, setTourReplay] = useState(0);
+    [tourReplay, setTourReplay] = useState(0),
+    [openGroup, setOpenGroup] = useState('');
   // A file chosen in the reminder of another school opens once that school has loaded.
   const pendingCase = React.useRef<{ school: string; id: string } | null>(null);
 
@@ -140,8 +169,8 @@ export default function App() {
     request('auth/me')
       .then((m) => {
         setMe(m);
-        setSchool(m.schools[0]?.id || '');
-        if (m.user.isTenantAdmin) setView('admin');
+        setSchool((m.schools.find((s: Row) => s.active !== false) ?? m.schools[0])?.id || '');
+        if (landing(m) !== 'dashboard') setView(landing(m));
       })
       .catch(() => {})
       .finally(() => setLoading(false));
@@ -295,7 +324,15 @@ export default function App() {
 
   if (loading) return <main className="center">جارٍ تحميل مساحة العمل…</main>;
   if (!me || !workspace)
-    return <Login onLogin={(m) => (setMe(m), setSchool(m.schools[0]?.id || ''), setView(m.user.isTenantAdmin ? 'admin' : 'dashboard'))} />;
+    return (
+      <Login
+        onLogin={(m) => (
+          setMe(m),
+          setSchool((m.schools.find((s: Row) => s.active !== false) ?? m.schools[0])?.id || ''),
+          setView(landing(m))
+        )}
+      />
+    );
 
   // Changing the password signs every session out; the user then signs in again with the new one.
   if (me.user.mustChangePassword) return <FirstPassword csrf={me.csrf} onDone={() => (setMe(null), setNotice(''))} />;
@@ -305,27 +342,50 @@ export default function App() {
     <WorkspaceContext.Provider value={workspace}>
       <div className="app">
         <aside>
-          <div className="brand-card">
-            <div className="brand-row">
-              <Logo variant="mark" />
-              <div>
-                <b>{APP_NAME}</b>
-                <small>{APP_TITLE}</small>
-              </div>
+          <div className="brand-compact">
+            <Logo variant="mark" />
+            <div>
+              <b>{APP_NAME}</b>
+              <small>{APP_TITLE}</small>
             </div>
-            <Logo />
+            <Logo variant="emblem" />
           </div>
           <nav data-tour="nav">
-            {NAV.filter((n) => (!n.show || n.show({ can, me })) && (!simpleMenu || SIMPLE_VIEWS.includes(n.view))).map((n) => (
-              <button
-                key={n.view}
-                className={view === n.view || (n.view === 'cases' && view === 'case') ? 'active' : ''}
-                onClick={() => workspace.go(n.view)}
-              >
-                <span>{n.icon}</span>
-                {n.label}
-              </button>
-            ))}
+            {GROUPS.map((g) => {
+              const items = NAV.filter(
+                (n) => g.views.includes(n.view) && (!n.show || n.show({ can, me })) && (!simpleMenu || SIMPLE_VIEWS.includes(n.view)),
+              );
+              if (!items.length) return null;
+              const here = items.some((n) => view === n.view || (n.view === 'cases' && view === 'case'));
+              const expanded = here || openGroup === g.key;
+              return (
+                <div key={g.key} className={'nav-group' + (here ? ' here' : '') + (expanded ? ' expanded' : '')}>
+                  <button
+                    className="nav-head"
+                    aria-expanded={expanded}
+                    onClick={() => (items.length === 1 ? workspace.go(items[0].view) : setOpenGroup(openGroup === g.key ? '' : g.key))}
+                  >
+                    <span>{g.icon}</span>
+                    {g.label}
+                    {items.length > 1 && <i>{expanded ? '▾' : '◂'}</i>}
+                  </button>
+                  {items.length > 1 && (
+                    <div className="nav-items">
+                      <b>{g.label}</b>
+                      {items.map((n) => (
+                        <button
+                          key={n.view}
+                          className={view === n.view || (n.view === 'cases' && view === 'case') ? 'active' : ''}
+                          onClick={() => (setOpenGroup(''), workspace.go(n.view))}
+                        >
+                          {n.label}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
           </nav>
           <button
             className="menu-mode"
@@ -341,25 +401,25 @@ export default function App() {
             نظام ERP الوزارة
           </a>
           <div className="aside-bottom">
-            <span>V0</span>
+            <span>V{APP_VERSION}</span>
             <p>نظام مساعد شخصي لخدمة المحاسبين، وليس نظاماً حكومياً رسمياً.</p>
           </div>
         </aside>
         <div className="workspace">
           <header className="topbar">
             <div className="context" data-tour="school">
-              <label>
-                المدرسة
+              <label title="المدرسة">
                 <Select
                   label="المدرسة"
                   className="wide"
                   value={school}
-                  options={me.schools.map((s: Row) => ({ value: s.id, label: s.name }))}
+                  options={[...me.schools]
+                    .sort((a: Row, b: Row) => Number(b.active !== false) - Number(a.active !== false))
+                    .map((s: Row) => ({ value: s.id, label: s.name + (s.active === false ? ' — غير فعالة' : '') }))}
                   onChange={(v) => workspace.pickSchool(v)}
                 />
               </label>
-              <label>
-                العام المالي
+              <label title="العام المالي">
                 <Select
                   label="العام المالي"
                   value={year}
@@ -427,31 +487,30 @@ export default function App() {
           </header>
           <main>
             <div className="heading">
-              <div>
-                <p className="eyebrow">{setup.school?.name}</p>
-                <h1>{TITLES[view]}</h1>
+              <h1>{TITLES[view]}</h1>
+              <div className="heading-tools">
+                {setup.demo && <span className="demo-flag">بيئة تجريبية</span>}
+                {TOURS[view] && (
+                  <button className="secondary help-btn" title="شرح الشاشة خطوة بخطوة" onClick={() => setTourReplay((n) => n + 1)}>
+                    ؟ شرح الشاشة
+                  </button>
+                )}
+                {view !== 'assistant' && (
+                  <button
+                    className="secondary help-btn"
+                    title="يسأل المساعد الذكي عن هذه الشاشة"
+                    onClick={() =>
+                      workspace.go(
+                        'assistant',
+                        undefined,
+                        `أنا في شاشة «${TITLES[view]}». اشرح لي بخطوات بسيطة وقصيرة ماذا أفعل في هذه الشاشة، وما الخطوة التالية المناسبة لي الآن.`,
+                      )
+                    }
+                  >
+                    ✦ ساعدني
+                  </button>
+                )}
               </div>
-              {view !== 'assistant' && (
-                <button
-                  className="secondary help-btn"
-                  title="يسأل المساعد الذكي عن هذه الشاشة"
-                  onClick={() =>
-                    workspace.go(
-                      'assistant',
-                      undefined,
-                      `أنا في شاشة «${TITLES[view]}». اشرح لي بخطوات بسيطة وقصيرة ماذا أفعل في هذه الشاشة، وما الخطوة التالية المناسبة لي الآن.`,
-                    )
-                  }
-                >
-                  ✦ ساعدني
-                </button>
-              )}
-              {TOURS[view] && (
-                <button className="secondary help-btn" onClick={() => setTourReplay((n) => n + 1)}>
-                  ؟ شرح الشاشة
-                </button>
-              )}
-              {setup.demo && <span className="demo-flag">بيئة تجريبية</span>}
             </div>
             {error && (
               <div className="error" role="alert">
@@ -471,6 +530,8 @@ export default function App() {
             )}
             {view === 'admin' ? (
               <AdminConsole />
+            ) : view === 'supervision' ? (
+              <Supervision />
             ) : view === 'schools' ? (
               <SchoolsOverview />
             ) : view === 'help' ? (

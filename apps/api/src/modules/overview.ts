@@ -27,68 +27,16 @@ export async function schoolsOverview(s: Identity, query: Record<string, any>) {
     if (!u) throw new NotFoundException();
     user = { id: u.id, name: u.name };
     schools = await db.school.findMany({
-      where: { tenantId, OR: [{ id: { in: u.memberships.map((m) => m.schoolId) } }, { createdBy: u.id }] },
+      where: { tenantId, id: { in: u.memberships.filter((m) => m.active).map((m) => m.schoolId) } },
       orderBy: { name: 'asc' },
     });
-  } else schools = s.user.memberships.map((m) => m.school).sort((a, b) => a.name.localeCompare(b.name, 'ar'));
+  } else
+    schools = s.user.memberships
+      .filter((m) => (m as any).active !== false)
+      .map((m) => m.school)
+      .sort((a, b) => a.name.localeCompare(b.name, 'ar'));
   schools = schools.filter((x) => x.active);
-  const ids = schools.map((x) => x.id);
-  const now = today();
-  const [years, pending] = await Promise.all([
-    db.fiscalYear.findMany({ where: { schoolId: { in: ids } }, orderBy: { startDate: 'desc' } }),
-    pendingBySchool(tenantId, schools),
-  ]);
-  // The fiscal year shown: the open one containing today, else the latest open one, else the latest.
-  const yearOf = (school: string) => {
-    const own = years.filter((y) => y.schoolId === school);
-    const day = (d: Date) => d.toISOString().slice(0, 10);
-    return own.find((y) => !y.closed && day(y.startDate) <= now && day(y.endDate) >= now) ?? own.find((y) => !y.closed) ?? own[0] ?? null;
-  };
-  const chosen = schools.map((x) => ({ school: x, year: yearOf(x.id) }));
-  const budgets = await db.budget.findMany({
-    where: { OR: chosen.filter((c) => c.year).map((c) => ({ schoolId: c.school.id, yearId: c.year!.id })) },
-    orderBy: [{ sort: 'asc' }, { code: 'asc' }],
-  });
-  const rows = chosen.map(({ school, year }) => {
-    const lines = budgets.filter((b) => b.schoolId === school.id && b.yearId === year?.id);
-    const sum = (k: 'approved' | 'committed' | 'spent') => lines.reduce((v, b) => v.plus(b[k]), new D(0));
-    const approved = sum('approved'),
-      committed = sum('committed'),
-      spent = sum('spent');
-    const available = approved.minus(committed).minus(spent);
-    const p = pending.find((x) => x.id === school.id)!;
-    const warnings: { level: 'danger' | 'warn' | 'info'; text: string }[] = [];
-    if (!year) warnings.push({ level: 'info', text: 'لا يوجد عام مالي' });
-    else if (approved.eq(0)) warnings.push({ level: 'info', text: 'لم تُدخل مبالغ الموازنة المعتمدة بعد' });
-    for (const b of lines.filter((b) => b.approved.gt(0))) {
-      const left = b.approved.minus(b.committed).minus(b.spent);
-      if (left.lte(0)) warnings.push({ level: 'danger', text: `نفد رصيد البند ${b.code} — ${b.name}` });
-      else if (left.div(b.approved).lt(LOW))
-        warnings.push({ level: 'warn', text: `قارب رصيد البند ${b.code} — ${b.name} على النفاد (المتبقي ${num(left)} ر.ق)` });
-    }
-    if (p.late) warnings.push({ level: 'danger', text: `${p.late} تكليف تجاوز موعد التنفيذ` });
-    for (const r of p.replenish) warnings.push({ level: 'warn', text: `${r.name} بلغت حد الاستعاضة` });
-    for (const a of p.awaiting) warnings.push({ level: 'info', text: `${a.name}: استعاضة ${a.amount} ر.ق لم يُؤكد استلامها` });
-    if (p.oldest > STALE_DAYS) warnings.push({ level: 'warn', text: `معاملة تنتظر منذ ${p.oldest} يوماً` });
-    return {
-      id: school.id,
-      name: school.name,
-      code: school.code,
-      erpCode: school.erpCode,
-      year: year ? { id: year.id, label: year.label, closed: year.closed } : null,
-      approved: num(approved),
-      committed: num(committed),
-      spent: num(spent),
-      available: num(available),
-      used: approved.gt(0) ? committed.plus(spent).div(approved).toNumber() : 0,
-      pending: p.pending,
-      stages: p.stages,
-      late: p.late,
-      erp: p.erp,
-      oldest: p.oldest,
-      warnings,
-    };
-  });
+  const rows = await positionRows(tenantId, schools);
   const total = (k: 'approved' | 'committed' | 'spent' | 'available') => num(rows.reduce((v, r) => v.plus(r[k]), new D(0)));
   return {
     user,
@@ -153,4 +101,69 @@ export async function followUp(s: Identity) {
     })
     .filter((u) => u.stale || u.late)
     .sort((a, b) => b.late - a.late || b.oldest - a.oldest);
+}
+
+/**
+ * The position of each school in its current fiscal year: budget approved / committed / spent, the
+ * pending files and the warnings. Shared by the accountant's overview and the supervision screen.
+ */
+export async function positionRows(tenantId: string, schools: { id: string; name: string; code: string; erpCode: string }[]) {
+  const ids = schools.map((x) => x.id);
+  const now = today();
+  const [years, pending] = await Promise.all([
+    db.fiscalYear.findMany({ where: { schoolId: { in: ids } }, orderBy: { startDate: 'desc' } }),
+    pendingBySchool(tenantId, schools),
+  ]);
+  // The fiscal year shown: the open one containing today, else the latest open one, else the latest.
+  const yearOf = (school: string) => {
+    const own = years.filter((y) => y.schoolId === school);
+    const day = (d: Date) => d.toISOString().slice(0, 10);
+    return own.find((y) => !y.closed && day(y.startDate) <= now && day(y.endDate) >= now) ?? own.find((y) => !y.closed) ?? own[0] ?? null;
+  };
+  const chosen = schools.map((x) => ({ school: x, year: yearOf(x.id) }));
+  const budgets = await db.budget.findMany({
+    where: { OR: chosen.filter((c) => c.year).map((c) => ({ schoolId: c.school.id, yearId: c.year!.id })) },
+    orderBy: [{ sort: 'asc' }, { code: 'asc' }],
+  });
+  const rows = chosen.map(({ school, year }) => {
+    const lines = budgets.filter((b) => b.schoolId === school.id && b.yearId === year?.id);
+    const sum = (k: 'approved' | 'committed' | 'spent') => lines.reduce((v, b) => v.plus(b[k]), new D(0));
+    const approved = sum('approved'),
+      committed = sum('committed'),
+      spent = sum('spent');
+    const available = approved.minus(committed).minus(spent);
+    const p = pending.find((x) => x.id === school.id)!;
+    const warnings: { level: 'danger' | 'warn' | 'info'; text: string }[] = [];
+    if (!year) warnings.push({ level: 'info', text: 'لا يوجد عام مالي' });
+    else if (approved.eq(0)) warnings.push({ level: 'info', text: 'لم تُدخل مبالغ الموازنة المعتمدة بعد' });
+    for (const b of lines.filter((b) => b.approved.gt(0))) {
+      const left = b.approved.minus(b.committed).minus(b.spent);
+      if (left.lte(0)) warnings.push({ level: 'danger', text: `نفد رصيد البند ${b.code} — ${b.name}` });
+      else if (left.div(b.approved).lt(LOW))
+        warnings.push({ level: 'warn', text: `قارب رصيد البند ${b.code} — ${b.name} على النفاد (المتبقي ${num(left)} ر.ق)` });
+    }
+    if (p.late) warnings.push({ level: 'danger', text: `${p.late} تكليف تجاوز موعد التنفيذ` });
+    for (const r of p.replenish) warnings.push({ level: 'warn', text: `${r.name} بلغت حد الاستعاضة` });
+    for (const a of p.awaiting) warnings.push({ level: 'info', text: `${a.name}: استعاضة ${a.amount} ر.ق لم يُؤكد استلامها` });
+    if (p.oldest > STALE_DAYS) warnings.push({ level: 'warn', text: `معاملة تنتظر منذ ${p.oldest} يوماً` });
+    return {
+      id: school.id,
+      name: school.name,
+      code: school.code,
+      erpCode: school.erpCode,
+      year: year ? { id: year.id, label: year.label, closed: year.closed } : null,
+      approved: num(approved),
+      committed: num(committed),
+      spent: num(spent),
+      available: num(available),
+      used: approved.gt(0) ? committed.plus(spent).div(approved).toNumber() : 0,
+      pending: p.pending,
+      stages: p.stages,
+      late: p.late,
+      erp: p.erp,
+      oldest: p.oldest,
+      warnings,
+    };
+  });
+  return rows;
 }

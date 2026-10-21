@@ -28,6 +28,7 @@ export function SchoolsOverview({ userId }: { userId?: string }) {
         />
         <Stat label="معاملات غير مكتملة / تنبيهات" value={`${t.pending} / ${t.warnings}`} />
       </div>
+      {own && <ActiveSchools />}
       {!d.schools.length ? (
         <Empty text={own ? 'لا توجد مدارس في حسابك بعد' : 'لا توجد مدارس لهذا المحاسب'} />
       ) : (
@@ -97,5 +98,42 @@ export function SchoolsOverview({ userId }: { userId?: string }) {
         </Panel>
       )}
     </>
+  );
+}
+
+/**
+ * The accountant ticks the schools they currently work in: the others stay reachable (history,
+ * reprints) but leave the totals of this screen, the reminders and the supervisor's screen.
+ */
+function ActiveSchools() {
+  const w = useWorkspace();
+  const mine = w.me.schools.filter((s: Row) => s.roles.includes('ACCOUNTANT'));
+  if (w.me.user.isTenantAdmin || mine.length < 2) return null;
+  const inactive = mine.filter((s: Row) => s.active === false).length;
+  return (
+    <details className="panel active-schools">
+      <summary>
+        المدارس الفعالة في حسابي: <b>{mine.length - inactive}</b> من {mine.length}
+        {inactive > 0 && <small> — {inactive} غير فعالة لا تدخل في الإجماليات</small>}
+      </summary>
+      <p>أزل العلامة عن المدرسة التي لم تعد تعمل عليها: تبقى بياناتها ومستنداتها متاحة، لكنها لا تدخل في إجماليات المدارس والتنبيهات.</p>
+      <div className="check-grid">
+        {mine.map((s: Row) => (
+          <label key={s.id} className="check">
+            <input
+              type="checkbox"
+              defaultChecked={s.active !== false}
+              onChange={(e) =>
+                w.task(async () => {
+                  await w.api('admin/my-schools', 'POST', { schoolId: s.id, active: e.currentTarget.checked });
+                  location.reload();
+                })
+              }
+            />
+            {s.name}
+          </label>
+        ))}
+      </div>
+    </details>
   );
 }

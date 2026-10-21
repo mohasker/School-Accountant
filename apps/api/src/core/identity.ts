@@ -5,11 +5,11 @@ import type { Request, Response } from 'express';
 import { db } from '../common/db';
 import { hash } from '../common/crypto';
 
-export const ROLES = ['ACCOUNTANT', 'REVIEWER', 'APPROVER', 'ERP', 'AUDITOR', 'ADMIN'] as const;
+export const ROLES = ['ACCOUNTANT', 'REVIEWER', 'APPROVER', 'ERP', 'AUDITOR', 'SUPERVISOR', 'ADMIN'] as const;
 /**
  * The accountant prepares and issues the whole file (quote report, assignment, completion certificate,
  * covering letter) and runs the imprests, so every working role may do every step in its schools.
- * AUDITOR alone is read-only.
+ * AUDITOR and SUPERVISOR (the ministry's financial supervisor of a group of schools) are read-only.
  */
 export const WORK = ['ACCOUNTANT', 'REVIEWER', 'APPROVER', 'ERP', 'ADMIN'];
 export const ACCOUNT = WORK,

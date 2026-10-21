@@ -2,15 +2,16 @@
 export type Theme = { key: string; name: string; primary: string; side: string };
 
 export const THEMES: Theme[] = [
-  { key: 'qatar', name: 'العنابي القطري', primary: '#861b3a', side: '#142836' },
+  { key: 'burgundy', name: 'العنابي (الافتراضي)', primary: '#861b3a', side: '#4a1025' },
+  { key: 'qatar', name: 'العنابي مع الكحلي', primary: '#861b3a', side: '#142836' },
   { key: 'navy', name: 'الأزرق الملكي', primary: '#1f4e8c', side: '#0f2238' },
   { key: 'emerald', name: 'الأخضر الزمردي', primary: '#0f766e', side: '#0b2a2a' },
-  { key: 'gold', name: 'الذهبي', primary: '#9a6b1f', side: '#2a2118' },
   { key: 'violet', name: 'البنفسجي', primary: '#6d28d9', side: '#1e1336' },
   { key: 'graphite', name: 'الرمادي الداكن', primary: '#374151', side: '#111827' },
 ];
 
-const STORE = 'moesas-theme';
+// v2: the burgundy side bar became the default; colours chosen before it start again from it.
+const STORE = 'moesas-theme-v2';
 
 function shade(hex: string, amount: number) {
   const n = parseInt(hex.slice(1), 16);

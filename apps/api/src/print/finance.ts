@@ -36,7 +36,8 @@ export type FinanceData = {
     incompleteValue: number;
     late: number;
   };
-  monthly: { month: string; orders: number; certificates: number; imprests: number }[];
+  /** Per month: assignments issued, certificates (net), imprest invoices, direct and earlier expenses. */
+  monthly: { month: string; orders: number; certificates: number; imprests: number; direct: number }[];
   suppliers: { name: string; value: number; count: number }[];
   imprests: { name: string; type: string; amount: number; spent: number; settled: number; balance: number; closed: boolean }[];
 };
@@ -148,6 +149,7 @@ function monthlyBars(rows: FinanceData['monthly']) {
     { key: 'orders' as const, color: C.spent },
     { key: 'certificates' as const, color: C.committed },
     { key: 'imprests' as const, color: C.approved },
+    { key: 'direct' as const, color: C.muted },
   ];
   const W = 680,
     H = 220,
@@ -157,14 +159,14 @@ function monthlyBars(rows: FinanceData['monthly']) {
   const max = Math.max(0, ...rows.flatMap((r) => series.map((s) => r[s.key])));
   const { top, ticks } = scale(max);
   const gw = (W - left - 6) / Math.max(rows.length, 1),
-    bw = Math.max(4, Math.min(16, (gw - 10) / 3 - 2));
+    bw = Math.max(3, Math.min(14, (gw - 10) / series.length - 2));
   const y = (v: number) => 10 + plotH - (v / top) * plotH;
   return `<svg class="fr-chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="القيم الشهرية">
 ${ticks.map((t) => `<line x1="${left}" x2="${W - 4}" y1="${y(t)}" y2="${y(t)}" stroke="${C.grid}"/><text x="${left - 6}" y="${y(t) + 4}" class="t" text-anchor="end">${short(t)}</text>`).join('')}
 ${rows
   .map((r, gi) => {
     const gx = left + gi * gw,
-      inner = 3 * (bw + 2) - 2;
+      inner = series.length * (bw + 2) - 2;
     return (
       series
         .map((s, si) => {
@@ -191,7 +193,8 @@ function cumulativeLine(rows: FinanceData['monthly'], approved: number, elapsedM
     right = 70,
     plotH = H - bottom - 10;
   let run = 0;
-  const cum = rows.map((r) => (run += r.certificates + r.imprests));
+  // Every actual expense: certificates, imprest invoices, direct and earlier expenses (the same base as the budget lines).
+  const cum = rows.map((r) => (run += r.certificates + r.imprests + r.direct));
   const pace = rows.map((_, i) => (approved * (i + 1)) / Math.max(rows.length, 1));
   const { top, ticks } = scale(Math.max(1, ...cum, ...pace));
   const step = (W - left - right) / Math.max(rows.length - 1, 1);
@@ -274,7 +277,11 @@ export function financeReport(d: FinanceData) {
     .join('');
   const supTotal = d.suppliers.reduce((v, s) => v + s.value, 0);
   const body = `<h1>التقرير المالي الشامل</h1>
-<p class="center fr-sub">${esc(d.school)} · مدير المدرسة: ${esc(d.principal)} · العام المالي ${num(d.year)} · الفترة من ${num(fmtDate(d.from))} إلى ${num(fmtDate(d.to))}</p>
+<table class="fr-meta"><tbody>
+<tr><th>المدرسة</th><td>${esc(d.school)}</td><th>العام المالي</th><td>${num(d.year)}</td></tr>
+<tr><th>مدير المدرسة</th><td>${esc(d.principal)}</td><th>الفترة</th><td>${num(fmtDate(d.from))} — ${num(fmtDate(d.to))}</td></tr>
+<tr><th>أعدّه</th><td>${esc(d.preparedBy)}</td><th>المنقضي من العام</th><td>${num(pct(d.elapsed))}</td></tr>
+</tbody></table>
 
 <h2>أولاً: المؤشرات الرئيسية</h2>
 <div class="fr-top">
@@ -323,9 +330,10 @@ export function financeReport(d: FinanceData) {
     { label: 'التكليفات', color: C.spent },
     { label: 'شهادات الإنجاز (صافي)', color: C.committed },
     { label: 'مصروفات العهد', color: C.approved },
+    { label: 'مصروفات مباشرة وسابقة', color: C.muted },
   ])}${monthlyBars(d.monthly)}</div>
 <div class="fr-figure keep"><h3>شكل (4): الصرف التراكمي مقابل المسار المستهدف للموازنة (ر.ق)</h3>${legend([
-    { label: 'الصرف التراكمي الفعلي (شهادات + فواتير العهد)', color: C.spent },
+    { label: 'الصرف التراكمي الفعلي (شهادات + فواتير العهد + مصروفات مباشرة وسابقة)', color: C.spent },
     { label: 'المسار المستهدف (توزيع خطي للمعتمد)', color: C.muted, line: true },
   ])}${cumulativeLine(d.monthly, approved, elapsedMonths < 0 ? d.monthly.length : elapsedMonths)}</div>
 
@@ -360,7 +368,14 @@ ${signatures([
   { role: 'مدير المدرسة', name: d.principal },
 ])}
 <style>
-.fr-sub{font-size:10pt;color:#444}
+.fr-meta{width:100%;border-collapse:collapse;margin:1mm 0 4mm;font-size:9.6pt}
+.fr-meta th{background:#5c0f27;color:#fff;font-weight:700;padding:1.4mm 2.4mm;width:24mm;text-align:right;border:.6pt solid #5c0f27}
+.fr-meta td{border:.6pt solid #d9c4cb;padding:1.4mm 2.4mm;background:#fdfafb}
+h2{background:linear-gradient(90deg,transparent,#f6edf0);border-right:1.6mm solid #861b3a;padding:1.4mm 3mm!important;border-radius:0 1mm 1mm 0;break-after:avoid}
+.fr-table,.fr-figure,.fr-kpis,.fr-top{break-inside:avoid}
+.fr-table thead th{background:#5c0f27!important;color:#fff!important}
+.fr-table tr.total td{background:#f3e7eb!important;font-weight:700;border-top:1pt solid #5c0f27}
+.num{font-variant-numeric:tabular-nums}
 h3{font-size:10.5pt;margin:0 0 1.5mm;color:#1b2e3a}
 .fr-top{display:grid;grid-template-columns:1fr 62mm;gap:4mm;align-items:center}
 .fr-kpis{display:grid;grid-template-columns:repeat(3,1fr);gap:2mm}

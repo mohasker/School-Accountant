@@ -20,6 +20,7 @@ import { saveTelegramConfig, telegramStatus } from './telegram';
 import { checkSettings, saveCheckSettings } from './file-check';
 import { returnsReport } from './returns';
 import { readBackups } from './backups';
+import { setMySchool, setSupervised, supervision, supervisors } from './supervision';
 
 /**
  * Tenant-wide settings under /api/admin/…. Every user may maintain the official holidays and add
@@ -102,6 +103,10 @@ export async function readTenant(
       return returnsReport(s, query);
     case 'backups':
       return readBackups(s);
+    case 'supervision':
+      return supervision(s, query);
+    case 'supervisors':
+      return supervisors(s);
     case 'users':
       if (rid && action === 'report') return userReport(s, rid, query);
       if (rid && action === 'profile') return accountProfile(s, rid);
@@ -134,7 +139,7 @@ export async function writeTenant(
   prepared?: PreparedArchive,
 ) {
   const tenantId = s.user.tenantId;
-  if (!['holidays', 'schools', 'archive', 'notes', 'supplier-bank'].includes(resource)) requireTenantAdmin(s);
+  if (!['holidays', 'schools', 'archive', 'notes', 'supplier-bank', 'my-schools'].includes(resource)) requireTenantAdmin(s);
   // Holidays and schools change fine calculations and documents: an account whose only role anywhere is the
   // read-only auditor may not touch them. A new account with no school yet may add its first one.
   const auditorOnly = s.user.memberships.length > 0 && !s.user.memberships.some((m) => m.roles.some((r) => WORK.includes(r)));
@@ -313,7 +318,10 @@ export async function writeTenant(
       return t.tenant.update({ where: { id: tenantId }, data: { helpVideos: p }, select: { helpVideos: true } });
     }
     case 'users':
+      if (rid && action === 'supervise') return setSupervised(s, t, rid, body);
       return manageUser(s, t, rid, action, body);
+    case 'my-schools':
+      return setMySchool(s, t, body);
     case 'memberships': {
       const p = parse(
         z
