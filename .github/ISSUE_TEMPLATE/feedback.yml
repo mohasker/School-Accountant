@@ -1,0 +1,46 @@
+name: ملاحظة من التجربة
+description: ملاحظة على الواجهة أو التقارير أو طريقة التنفيذ أثناء تجربة مَدار
+title: "[ملاحظة] "
+labels: ["ملاحظات التجربة"]
+body:
+  - type: dropdown
+    id: area
+    attributes:
+      label: المجال
+      options:
+        - الواجهة والشاشات
+        - التقارير والطباعة وPDF
+        - الحسابات والقواعد المالية (غرامة، عروض، عهد، موازنة)
+        - الصلاحيات ولوحة مدير النظام
+        - السرعة أو خطأ في التنفيذ
+    validations:
+      required: true
+  - type: input
+    id: screen
+    attributes:
+      label: الشاشة أو النموذج
+      placeholder: مثال — شهادة الإنجاز / شاشة العهد / كتاب التكليف
+    validations:
+      required: true
+  - type: dropdown
+    id: account
+    attributes:
+      label: الحساب المستخدم
+      options: [admin, accountant, approver, other, حساب آخر]
+  - type: textarea
+    id: what
+    attributes:
+      label: الملاحظة
+      description: ماذا حدث أو ما الذي يحتاج تعديلاً؟
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: المطلوب أو المتوقع
+      description: الصياغة أو الشكل أو النتيجة الصحيحة (يمكن الإشارة لملف Excel المعتمد)
+  - type: textarea
+    id: shots
+    attributes:
+      label: صور أو ملفات
+      description: اسحب لقطة الشاشة أو ملف PDF هنا

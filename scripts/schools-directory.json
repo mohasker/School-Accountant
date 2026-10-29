@@ -1,0 +1,3032 @@
+[
+{
+"sn": 1,
+"nameAr": "مدرسة سودة بنت زمعة الإعدادية للبنات",
+"nameEn": "Sawda bint Zam'a Preparatory school for Girls",
+"status": "Operational/تعمل",
+"building": "Public School/مدرسة حكومية",
+"stage": "اعدادي",
+"gender": "بنات/Girls",
+"district": "Al Wakra/الوكرة"
+},
+{
+"sn": 5,
+"nameAr": "مدرسة الوكير الابتدائية للبنات 1",
+"nameEn": "Al-Wukair Primary School for Girls 1",
+"status": "Operational/تعمل",
+"building": "Public School/مدرسة حكومية",
+"stage": "ابتدائي",
+"gender": "بنات/Girls",
+"district": "Al Wukair/الوكير"
+},
+{
+"sn": 6,
+"nameAr": "مدرسة جابر بن حيان الإبتدائية للبنين",
+"nameEn": "Jaber ibn Hayyan Primary School for Boys",
+"status": "Operational/تعمل",
+"building": "Public School/مدرسة حكومية",
+"stage": "ابتدائي (خامس و سادس)",
+"gender": "Boys/بنين",
+"district": "Al Wakra/الوكرة"
+},
+{
+"sn": 7,
+"nameAr": "مدرسة السلام الابتدائية للبنات",
+"nameEn": "Al-Salam Primary School for Girls",
+"status": "Operational/تعمل",
+"building": "Public School/مدرسة حكومية",
+"stage": "ابتدائي",
+"gender": "بنات/Girls",
+"district": "Al Wakra/الوكرة"
+},
+{
+"sn": 8,
+"nameAr": "مدرسة ابن الهيثم الابتدائية للبنين",
+"nameEn": "Ibn Al-Haytham Primary School for Boys",
+"status": "Operational/تعمل",
+"building": "Public School/مدرسة حكومية",
+"stage": "ابتدائي (خامس و سادس)",
+"gender": "Boys/بنين",
+"district": "Al Thumama/الثمامة"
+},
+{
+"sn": 9,
+"nameAr": "مدرسة أحمد بن راشد المريخي الابتدائية للبنين",
+"nameEn": "Ahmed Bin Rashid Al-Muraikhi Primary School for Boys",
+"status": "Operational/تعمل",
+"building": "Public School/مدرسة حكومية",
+"stage": "ابتدائي (خامس و سادس)",
+"gender": "Boys/بنين",
+"district": "Old Airport/المطار القديم"
+},
+{
+"sn": 10,
+"nameAr": "مدرسة مسيعيد الابتدائية الإعدادية الثانوية للبنات",
+"nameEn": "Mesaieed Primary, Preparatory and Secondary School for Girls",
+"status": "Operational/تعمل",
+"building": "Public School/مدرسة حكومية",
+"stage": "ابتدائي/اعدادي/ثانوي",
+"gender": "بنات/Girls",
+"district": "Mesaieed/ مسيعيد"
+},
+{
+"sn": 11,
+"nameAr": "مدرسة مسيعيد الابتدائية الإعدادية الثانوية للبنين",
+"nameEn": "Mesaieed Primary, Preparatory and Secondary School for Boys",
+"status": "Operational/تعمل",
+"building": "Public School/مدرسة حكومية",
+"stage": "ابتدائي/اعدادي/ثانوي",
+"gender": "Boys/بنين",
+"district": "Mesaieed/مسيعيد"
+},
+{
+"sn": 12,
+"nameAr": "مدرسة الوكرة الإعدادية للبنات",
+"nameEn": "Al-Wakrah Preparatory School for Girls",
+"status": "Operational/تعمل",
+"building": "Public School/مدرسة حكومية",
+"stage": "اعدادي",
+"gender": "بنات/Girls",
+"district": "Al Wakra/الوكرة"
+},
+{
+"sn": 13,
+"nameAr": "مدرسة ميمونة الابتدائية للبنات_B",
+"nameEn": "Maymunah Primary School for Girls",
+"status": "Operational/تعمل",
+"building": "Public School/مدرسة حكومية",
+"stage": "ابتدائي",
+"gender": "بنات/Girls",
+"district": "Old Airport/المطار القديم"
+},
+{
+"sn": 14,
+"nameAr": "مدرسة ميمونة الابتدائية للبنات_A (الروضة سابقا)",
+"nameEn": "Maymunah Primary School for Girls _A",
+"status": "Operational/تعمل",
+"building": "Public School/مدرسة حكومية",
+"stage": "ابتدائي",
+"gender": "بنات/Girls",
+"district": "Old Airport/المطار القديم"
+},
+{
+"sn": 15,
+"nameAr": "مدرسة الوكير الثانوية للبنات",
+"nameEn": "Al-Wukair Secondary School for Girls",
+"status": "Operational/تعمل",
+"building": "Public School/مدرسة حكومية",
+"stage": "ثانوي",
+"gender": "بنات/Girls",
+"district": "Al Wakra/الوكرة"
+},
+{
+"sn": 16,
+"nameAr": "مدرسة الوكرة الإبتدائية للبنات",
+"nameEn": "Al-Wakrah Primary School for Girls",
+"status": "Operational/تعمل",
+"building": "Public School/مدرسة حكومية",
+"stage": "ابتدائي",
+"gender": "بنات/Girls",
+"district": "Al Wakra/الوكرة"
+},
+{
+"sn": 17,
+"nameAr": "مدرسة الشروق النموذجية للبنين",
+"nameEn": "Al-Shuruq Model School for Boys",
+"status": "Operational/تعمل",
+"building": "Public School/مدرسة حكومية",
+"stage": "نموذجي",
+"gender": "Boys/بنين",
+"district": "Al Wakra/الوكرة"
+},
+{
+"sn": 18,
+"nameAr": "مدرسة الوكرة الثانوية للبنات",
+"nameEn": "Al-Wakrah Secondary School for Girls",
+"status": "Operational/تعمل",
+"building": "Public School/مدرسة حكومية",
+"stage": "ثانوي",
+"gender": "بنات/Girls",
+"district": "Al Wakra/الوكرة"
+},
+{
+"sn": 19,
+"nameAr": "مدرسة سعود بن عبدالرحمن النموذجية للبنين",
+"nameEn": "Saud Bin Abd al-Rahman Model School for Boys",
+"status": "Operational/تعمل",
+"building": "Public School/مدرسة حكومية",
+"stage": "نموذجي",
+"gender": "Boys/بنين",
+"district": "Al Wakra/الوكرة"
+},
+{
+"sn": 20,
+"nameAr": "مدرسة الوكرة الثانوية للبنين",
+"nameEn": "Al-Wakrah Secondary School for Boys",
+"status": "Operational/تعمل",
+"building": "Public School/مدرسة حكومية",
+"stage": "ثانوي",
+"gender": "Boys/بنين",
+"district": "Al Wakra/الوكرة"
+},
+{
+"sn": 21,
+"nameAr": "مدرسة عبدالرحمن بن جاسم الإعدادية للبنين",
+"nameEn": "Abd al-Rahman Bin Jassim Preparatory School for Boys",
+"status": "Operational/تعمل",
+"building": "Public School/مدرسة حكومية",
+"stage": "اعدادي",
+"gender": "Boys/بنين",
+"district": "Al Wakra/الوكرة"
+},
+{
+"sn": 22,
+"nameAr": "مدرسة الهداية لذوي الاحتياجات الخاصة - الثمامة",
+"nameEn": "Al-Hidayah Special Needs School – Al Thumama",
+"status": "Operational/تعمل",
+"building": "Public School Special need/مدرسة حكومية ذوى احتياجات",
+"stage": "مدرسة تخصصية/ابتدائي",
+"gender": "مشتركة/Mix",
+"district": "Al Thumama/الثمامة"
+},
+{
+"sn": 23,
+"nameAr": "مدرسة الخنساء الابتدائية للبنات",
+"nameEn": "Al-Khansa' Primary School for Girls",
+"status": "Operational/تعمل",
+"building": "Public School/مدرسة حكومية",
+"stage": "ابتدائي",
+"gender": "بنات/Girls",
+"district": "Al Thumama/الثمامة"
+},
+{
+"sn": 24,
+"nameAr": "مدرسة رابعة العدوية الثانوية للبنات",
+"nameEn": "Rabi'a al-Adawiyya Secondary School for Girls",
+"status": "Operational/تعمل",
+"building": "Public School/مدرسة حكومية",
+"stage": "ثانوي",
+"gender": "بنات/Girls",
+"district": "Al Thumama/الثمامة"
+},
+{
+"sn": 25,
+"nameAr": "مدرسة علي بن أبي طالب الإعدادية للبنين",
+"nameEn": "Ali ibn Abi Talib Preparatory School for Boys",
+"status": "Operational/تعمل",
+"building": "Public School/مدرسة حكومية",
+"stage": "اعدادي",
+"gender": "Boys/بنين",
+"district": "Al Thumama/الثمامة"
+},
+{
+"sn": 26,
+"nameAr": "مدرسة موزه بنت محمد الإعدادية للبنات",
+"nameEn": "Moza Bint Mohammad Preparatory School for Girls",
+"status": "Operational/تعمل",
+"building": "Public School/مدرسة حكومية",
+"stage": "اعدادي",
+"gender": "بنات/Girls",
+"district": "Al Thumama/الثمامة"
+},
+{
+"sn": 27,
+"nameAr": "مدرسة الوفاء النموذجية للبنين",
+"nameEn": "Al-Wafaa' Model School for Boys",
+"status": "Operational/تعمل",
+"building": "Public School/مدرسة حكومية",
+"stage": "نموذجي",
+"gender": "Boys/بنين",
+"district": "Al Thumama/الثمامة"
+},
+{
+"sn": 28,
+"nameAr": "مدرسة حسان بن ثابت الثانوية للبنين",
+"nameEn": "Hassan ibn Thabit Secondary School for Boys",
+"status": "Operational/تعمل",
+"building": "Public School/مدرسة حكومية",
+"stage": "ثانوي",
+"gender": "Boys/بنين",
+"district": "Old Airport/المطار القديم"
+},
+{
+"sn": 29,
+"nameAr": "مدرسة موزه بنت محمد الابتدائية للبنات",
+"nameEn": "Moza Bint Mohammad Primary School for Girls",
+"status": "Operational/تعمل",
+"building": "Public School/مدرسة حكومية",
+"stage": "ابتدائي",
+"gender": "بنات/Girls",
+"district": "Alhilal/الهلال"
+},
+{
+"sn": 30,
+"nameAr": "روضة سعود بن عبدالرحمن للبنين",
+"nameEn": "Saud Bin Abd al-Rahman Kindergarten for Boys",
+"status": "Operational/تعمل",
+"building": "Public kindergarten/روضة حكومية",
+"stage": "روضة",
+"gender": "Boys/بنين",
+"district": "Al Wakra/الوكرة"
+},
+{
+"sn": 31,
+"nameAr": "روضة الوكرة للبنات",
+"nameEn": "Al-Wakrah Kindergarten for Girls",
+"status": "Operational/تعمل",
+"building": "Public kindergarten/روضة حكومية",
+"stage": "روضة",
+"gender": "بنات/Girls",
+"district": "Al Wakra/الوكرة"
+},
+{
+"sn": 32,
+"nameAr": "روضة الشروق للبنين",
+"nameEn": "Al-Shuruq Kindergarten for Boys",
+"status": "Operational/تعمل",
+"building": "Public kindergarten/روضة حكومية",
+"stage": "روضة",
+"gender": "Boys/بنين",
+"district": "Al Wakra/الوكرة"
+},
+{
+"sn": 33,
+"nameAr": "روضة السلام للبنات",
+"nameEn": "Al-Salam Kindergarten for Girls",
+"status": "Operational/تعمل",
+"building": "Public kindergarten/روضة حكومية",
+"stage": "روضة",
+"gender": "بنات/Girls",
+"district": "Al Wakra/الوكرة"
+},
+{
+"sn": 34,
+"nameAr": "روضة الوفاء للبنين",
+"nameEn": "Al-Wafaa' Kindergarten for Boys",
+"status": "Operational/تعمل",
+"building": "Public kindergarten/روضة حكومية",
+"stage": "روضة",
+"gender": "Boys/بنين",
+"district": "Al Thumama/الثمامة"
+},
+{
+"sn": 35,
+"nameAr": "روضة الهداية لذوي الاحتياجات الخاصة - الثمامة",
+"nameEn": "Al-Hidayah Special Needs Kindergarten - Al Thumama",
+"status": "Operational/تعمل",
+"building": "Public kindergarten special need/روضة حكومية ذوى احتياجات",
+"stage": "روضة تخصصية",
+"gender": "مشتركة/Mix",
+"district": "Al Thumama/الثمامة"
+},
+{
+"sn": 36,
+"nameAr": "روضة موزة بنت محمد للبنات",
+"nameEn": "Moza Bint Mohammad Kindergarten for Girls",
+"status": "Operational/تعمل",
+"building": "Public kindergarten/روضة حكومية",
+"stage": "روضة",
+"gender": "بنات/Girls",
+"district": "Alhilal/الهلال"
+},
+{
+"sn": 37,
+"nameAr": "روضة الخنساء للبنات",
+"nameEn": "Al Khansaa Kindergarten for girls",
+"status": "Operational/تعمل",
+"building": "Public kindergarten/روضة حكومية",
+"stage": "روضة",
+"gender": "بنات/Girls",
+"district": "Al Thumama/الثمامة"
+},
+{
+"sn": 38,
+"nameAr": "مبنى المخازن العامة",
+"nameEn": "Public Warehouse Building",
+"status": "Operational/تعمل",
+"building": "Stores/ مخازن",
+"stage": "لا ينطبق- مبنى اداري/NA Admin",
+"gender": "لا ينطبق- مبنى اداري/NA Admin",
+"district": "Al Thumama/الثمامة"
+},
+{
+"sn": 39,
+"nameAr": "مدرسة لبابة بنت الحارث الابتدائية للبنات",
+"nameEn": "Lubaba bint al-Harith Primary School for Girls",
+"status": "Operational/تعمل",
+"building": "Public School/مدرسة حكومية",
+"stage": "ابتدائي",
+"gender": "بنات/Girls",
+"district": "Al Wakra/الوكرة"
+},
+{
+"sn": 40,
+"nameAr": "مدرسة قطر التقنية الثانوية للبنين_B",
+"nameEn": "Qatar Technical Secondary School for Boys_B",
+"status": "Operational/تعمل",
+"building": "Public School Specialized/مدرسة حكومية متخصصة",
+"stage": "مدرسة تخصصية ثانوي",
+"gender": "Boys/بنين",
+"district": "Abo Hamour/أبو هامور"
+},
+{
+"sn": 41,
+"nameAr": "مدرسة خالد بن أحمد الإعدادية للبنين",
+"nameEn": "Khalid Bin Ahmad Preparatory School for Boys",
+"status": "Operational/تعمل",
+"building": "Public School/مدرسة حكومية",
+"stage": "اعدادي",
+"gender": "Boys/بنين",
+"district": "Ain Khaled/عين خالد"
+},
+{
+"sn": 42,
+"nameAr": "مدرسة السيلية الإعدادية للبنين",
+"nameEn": "Al-Sailiyah Preparatory School for boys",
+"status": "Operational/تعمل",
+"building": "Public School/مدرسة حكومية",
+"stage": "اعدادي",
+"gender": "Boys/بنين",
+"district": "Al Sailiya/السيلية"
+},
+{
+"sn": 43,
+"nameAr": "مدرسة أسامة بن زيد الإعدادية للبنين",
+"nameEn": "Usama ibn Zayd Preparatory School for Boys",
+"status": "Operational/تعمل",
+"building": "Public School/مدرسة حكومية",
+"stage": "اعدادي",
+"gender": "Boys/بنين",
+"district": "Al Sailiya/السيلية"
+},
+{
+"sn": 44,
+"nameAr": "مدرسة الكوثر الثانوية للبنات",
+"nameEn": "Al-Kawthar Secondary School for Girls",
+"status": "Operational/تعمل",
+"building": "Public School/مدرسة حكومية",
+"stage": "ثانوي",
+"gender": "بنات/Girls",
+"district": "Al Waab/الوعب"
+},
+{
+"sn": 45,
+"nameAr": "مدرسة الكرعانة الابتدائية الإعدادية للبنين",
+"nameEn": "Al Karrana Primary and Preparatory school for Boys",
+"status": "Evacuated/مفرغة",
+"building": "Public School/مدرسة حكومية",
+"stage": "لا ينطبق",
+"gender": "لا ينطبق- مفرغة/NA Evacuated",
+"district": "Al Karaana/الكرعانة"
+},
+{
+"sn": 46,
+"nameAr": "مدرسة قطر التقنية الثانوية للبنين_A",
+"nameEn": "Qatar Technical Secondary School for Boys_A",
+"status": "Operational/تعمل",
+"building": "Public School Specialized/مدرسة حكومية متخصصة",
+"stage": "مدرسة تخصصية ثانوي",
+"gender": "Boys/بنين",
+"district": "Abo Hamour/أبو هامور"
+},
+{
+"sn": 47,
+"nameAr": "مدرسة الدوحة الثانوية للبنين",
+"nameEn": "Doha Secondary School for Boys",
+"status": "Operational/تعمل",
+"building": "Public School/مدرسة حكومية",
+"stage": "ثانوي",
+"gender": "Boys/بنين",
+"district": "Umm Al Seneem/ام السنيم"
+},
+{
+"sn": 48,
+"nameAr": "مدرسة أحمد بن محمد الثانوية للبنين",
+"nameEn": "Ahmad Bin Mohmmad Secondary School for Boys",
+"status": "Operational/تعمل",
+"building": "Public School/مدرسة حكومية",
+"stage": "ثانوي",
+"gender": "Boys/بنين",
+"district": "Umm Al Seneem/ام السنيم"
+},
+{
+"sn": 49,
+"nameAr": "مدرسة رقية الإعدادية للبنات",
+"nameEn": "Ruqayyah Preparatory School for Girls",
+"status": "Operational/تعمل",
+"building": "Public School/مدرسة حكومية",
+"stage": "اعدادي",
+"gender": "بنات/Girls",
+"district": "Ain Khaled/عين خالد"
+},
+{
+"sn": 50,
+"nameAr": "مدرسة نسيبة بنت كعب الابتدائية للبنات",
+"nameEn": "Nusseibeh bint Ka'ab Primary School for Girls",
+"status": "Operational/تعمل",
+"building": "Public School/مدرسة حكومية",
+"stage": "ابتدائي",
+"gender": "بنات/Girls",
+"district": "Umm Al Seneem/ام السنيم"
+},
+{
+"sn": 51,
+"nameAr": "مدرسة قطر للعلوم والتكنولوجيا الثانوية للبنين",
+"nameEn": "Qatar Science and Technology Secondary School for Boys",
+"status": "Operational/تعمل",
+"building": "Public School Specialized/مدرسة حكومية متخصصة",
+"stage": "ثانوي",
+"gender": "Boys/بنين",
+"district": "Umm Al Seneem/ام السنيم"
+},
+{
+"sn": 52,
+"nameAr": "مدرسة الفلاح الابتدائية للبنات",
+"nameEn": "Al-Falah Primary School for Girls",
+"status": "Operational/تعمل",
+"building": "Public School/مدرسة حكومية",
+"stage": "ابتدائي",
+"gender": "بنات/Girls",
+"district": "Abo Hamour/أبو هامور"
+},
+{
+"sn": 53,
+"nameAr": "مدرسة الخليج العربي النموذجية للبنين",
+"nameEn": "Al-Khaleej Al-Arabi Model School for Boys",
+"status": "Operational/تعمل",
+"building": "Public School/مدرسة حكومية",
+"stage": "نموذجي",
+"gender": "Boys/بنين",
+"district": "Abo Hamour/أبو هامور"
+},
+{
+"sn": 54,
+"nameAr": "مدرسة أبي أيوب الانصاري النموذجية للبنين",
+"nameEn": "Abi Ayyub Al-Ansari Model School for Boys",
+"status": "Operational/تعمل",
+"building": "Public School/مدرسة حكومية",
+"stage": "نموذجي",
+"gender": "Boys/بنين",
+"district": "Umm Al Seneem/ام السنيم"
+},
+{
+"sn": 55,
+"nameAr": "مدرسة الأقصى الإعدادية للبنات",
+"nameEn": "Al-Aqsa Preparatory School for Girls",
+"status": "Operational/تعمل",
+"building": "Public School/مدرسة حكومية",
+"stage": "اعدادي",
+"gender": "بنات/Girls",
+"district": "Umm Al Seneem/ام السنيم"
+},
+{
+"sn": 56,
+"nameAr": "مدرسة الدوحة الإعدادية للبنين",
+"nameEn": "Doha Preparatory School for Boys",
+"status": "Operational/تعمل",
+"building": "Public School/مدرسة حكومية",
+"stage": "اعدادي",
+"gender": "Boys/بنين",
+"district": "Umm Al Seneem/ام السنيم"
+},
+{
+"sn": 57,
+"nameAr": "مدرسة الكرعانة الابتدائية الإعدادية الثانوية للبنين",
+"nameEn": "Al-Karaana Primary, Preparatory and Secondary School for Boys",
+"status": "Operational/تعمل",
+"building": "Public School/مدرسة حكومية",
+"stage": "ابتدائي/اعدادي/ثانوي",
+"gender": "Boys/بنين",
+"district": "Al Karaana/الكرعانة"
+},
+{
+"sn": 58,
+"nameAr": "مدرسة عبدالله بن جاسم آل ثاني الابتدائية للبنين",
+"nameEn": "Abdullah Bin Jassim Al Thani Primary School for Boys",
+"status": "Operational/تعمل",
+"building": "Public School/مدرسة حكومية",
+"stage": "ابتدائي (خامس و سادس)",
+"gender": "Boys/بنين",
+"district": "Mebaireek/مبيريك"
+},
+{
+"sn": 59,
+"nameAr": "مدرسة الكرعانة الابتدائية الإعدادية الثانوية للبنات",
+"nameEn": "Al-Karaana Primary, Preparatory and Secondary School for Girls",
+"status": "Operational/تعمل",
+"building": "Public School/مدرسة حكومية",
+"stage": "ابتدائي/اعدادي/ثانوي",
+"gender": "بنات/Girls",
+"district": "Al Karaana/الكرعانة"
+},
+{
+"sn": 60,
+"nameAr": "مدرسة زينب الإعدادية للبنات",
+"nameEn": "Zaynab Preparatory School for Girls",
+"status": "Operational/تعمل",
+"building": "Public School/مدرسة حكومية",
+"stage": "اعدادي",
+"gender": "بنات/Girls",
+"district": "Al Waab/الوعب"
+},
+{
+"sn": 61,
+"nameAr": "مدرسة فاطمة الزهراء الإعدادية للبنات",
+"nameEn": "Fatima Al-Zahra Preparatory School for Girls",
+"status": "Operational/تعمل",
+"building": "Public School/مدرسة حكومية",
+"stage": "اعدادي",
+"gender": "بنات/Girls",
+"district": "Mebaireek/مبيريك"
+},
+{
+"sn": 62,
+"nameAr": "مدرسة أم هاني الابتدائية للبنات",
+"nameEn": "Umm Hani Primary School for Girls",
+"status": "Operational/تعمل",
+"building": "Public School/مدرسة حكومية",
+"stage": "ابتدائي",
+"gender": "بنات/Girls",
+"district": "Al Sailiya/السيلية"
+},
+{
+"sn": 63,
+"nameAr": "مدرسة أسماء بنت أبي بكر الابتدائية للبنات",
+"nameEn": "Asmaa bint Abi Bakr Primary School for Girls",
+"status": "Operational/تعمل",
+"building": "Public School/مدرسة حكومية",
+"stage": "ابتدائي",
+"gender": "بنات/Girls",
+"district": "Mebaireek/مبيريك"
+},
+{
+"sn": 64,
+"nameAr": "مدرسة السيلية الثانوية للبنات",
+"nameEn": "Sailiya Secondary School for Girls",
+"status": "Operational/تعمل",
+"building": "Public School/مدرسة حكومية",
+"stage": "ثانوي",
+"gender": "بنات/Girls",
+"district": "Mebaireek/مبيريك"
+},
+{
+"sn": 65,
+"nameAr": "مدرسة الإخلاص النموذجية للبنين",
+"nameEn": "Al-Ikhlas Model School for Boys",
+"status": "Operational/تعمل",
+"building": "Public School/مدرسة حكومية",
+"stage": "نموذجي",
+"gender": "Boys/بنين",
+"district": "Al Sailiya/السيلية"
+},
+{
+"sn": 66,
+"nameAr": "مدرسة صفية بنت عبدالمطلب الابتدائية للبنات",
+"nameEn": "Safiyyah bint Abd al-Muttalib Primary School for Girls",
+"status": "Operational/تعمل",
+"building": "Public School/مدرسة حكومية",
+"stage": "ابتدائي",
+"gender": "بنات/Girls",
+"district": "Mebaireek/مبيريك"
+},
+{
+"sn": 67,
+"nameAr": "روضة الجويرية بنت الحارث للبنات",
+"nameEn": "Juwayriyya bint al-Harith Kindergarten for Girls",
+"status": "Operational/تعمل",
+"building": "Public kindergarten/روضة حكومية",
+"stage": "روضة",
+"gender": "بنات/Girls",
+"district": "Umm Al Seneem/ام السنيم"
+},
+{
+"sn": 68,
+"nameAr": "روضة الخليج العربي للبنين",
+"nameEn": "Al-Khaleej Al-Arabi Kindergarten for Boys",
+"status": "Operational/تعمل",
+"building": "Public kindergarten/روضة حكومية",
+"stage": "روضة",
+"gender": "Boys/بنين",
+"district": "Umm Al Seneem/ام السنيم"
+},
+{
+"sn": 69,
+"nameAr": "روضة الفلاح للبنات",
+"nameEn": "Al-Falah Kindergarten for Girls",
+"status": "Operational/تعمل",
+"building": "Public kindergarten/روضة حكومية",
+"stage": "روضة",
+"gender": "بنات/Girls",
+"district": "Abo Hamour/أبو هامور"
+},
+{
+"sn": 70,
+"nameAr": "روضة أبي أيوب الأنصاري للبنين",
+"nameEn": "Abi Ayyub Al-Ansari Kindergarten for Boys",
+"status": "Operational/تعمل",
+"building": "Public kindergarten/روضة حكومية",
+"stage": "روضة",
+"gender": "Boys/بنين",
+"district": "Umm Al Seneem/ام السنيم"
+},
+{
+"sn": 71,
+"nameAr": "روضة نسيبة بنت كعب للبنات",
+"nameEn": "Nusseibeh bint Ka'ab Kindergarten for Girls",
+"status": "Operational/تعمل",
+"building": "Public kindergarten/روضة حكومية",
+"stage": "روضة",
+"gender": "بنات/Girls",
+"district": "Umm Al Seneem/ام السنيم"
+},
+{
+"sn": 72,
+"nameAr": "روضة الإخلاص للبنين 1",
+"nameEn": "Al-Ikhlas Kindergarten for Boy 1",
+"status": "Operational/تعمل",
+"building": "Public kindergarten/روضة حكومية",
+"stage": "روضة",
+"gender": "Boys/بنين",
+"district": "Al Sailiya/السيلية"
+},
+{
+"sn": 73,
+"nameAr": "روضة أم هاني للبنات",
+"nameEn": "Umm Hani Kindergarten for Girls",
+"status": "Operational/تعمل",
+"building": "Public kindergarten/روضة حكومية",
+"stage": "روضة",
+"gender": "بنات/Girls",
+"district": "Al Sailiya/السيلية"
+},
+{
+"sn": 74,
+"nameAr": "روضة صفية بنت عبدالمطلب للبنات",
+"nameEn": "Safiyyah bint Abd al-Muttalib Kindergarten for Girls",
+"status": "Operational/تعمل",
+"building": "Public kindergarten/روضة حكومية",
+"stage": "روضة",
+"gender": "بنات/Girls",
+"district": "Mebaireek/مبيريك"
+},
+{
+"sn": 75,
+"nameAr": "مدرسة الهداية لذوي الاحتياجات الخاصة للبنين – مبيريك",
+"nameEn": "Al-Hidayah Special Needs School for Boys - Mebaireek",
+"status": "Operational/تعمل",
+"building": "Public School Special need/مدرسة حكومية ذوى احتياجات",
+"stage": "روضة",
+"gender": "Boys/بنين",
+"district": "Mebaireek/مبيريك"
+},
+{
+"sn": 76,
+"nameAr": "روضة أسماء بنت أبي بكر للبنات",
+"nameEn": "Asmaa bint Abi Bakr Kindergarten for Girls",
+"status": "Operational/تعمل",
+"building": "Public kindergarten/روضة حكومية",
+"stage": "روضة",
+"gender": "بنات/Girls",
+"district": "Mebaireek/مبيريك"
+},
+{
+"sn": 77,
+"nameAr": "جمعية الكشافة والمرشدات القطرية",
+"nameEn": "Qatar Scouts and Guides Association",
+"status": "Operational/تعمل",
+"building": "Administration/ مبني اداري",
+"stage": "لا ينطبق- مبنى اداري/NA Admin",
+"gender": "لا ينطبق- مبنى اداري/NA Admin",
+"district": "Abo Hamour/أبو هامور"
+},
+{
+"sn": 78,
+"nameAr": "مدرسة جويرية بنت الحارث الابتدائية للبنات",
+"nameEn": "Juwayriyya bint al-Harith Primary School for Girls",
+"status": "Operational/تعمل",
+"building": "Public School/مدرسة حكومية",
+"stage": "ابتدائي",
+"gender": "بنات/Girls",
+"district": "Umm Al Seneem/ام السنيم"
+},
+{
+"sn": 79,
+"nameAr": "مدرسة السلم الثالثة",
+"nameEn": "Al Sallam Third",
+"status": "Operational/تعمل",
+"building": "Non Public School/مدرسة غير حكومية",
+"stage": "ابتدائي/اعدادي",
+"gender": "مشتركة/Mix",
+"district": "Wadi Al Sail/وادي السيل"
+},
+{
+"sn": 80,
+"nameAr": "مدرسة مصعب بن عمير الثانوية بنين",
+"nameEn": "Mus'ab ibn Umair Secondary School for Boys",
+"status": "Operational/تعمل",
+"building": "Public School/مدرسة حكومية",
+"stage": "ثانوي",
+"gender": "Boys/بنين",
+"district": "Wadi Al Sail/وادي السيل"
+},
+{
+"sn": 82,
+"nameAr": "مدرسة السلم الثانية",
+"nameEn": "Al Sallam second School",
+"status": "Operational/تعمل",
+"building": "Non Public School/مدرسة غير حكومية",
+"stage": "ابتدائي/اعدادي/ثانوي",
+"gender": "مشتركة/Mix",
+"district": "AL Rifaa/الرفاع"
+},
+{
+"sn": 86,
+"nameAr": "مدرسة السلم الأولى",
+"nameEn": "Al Sallam First School",
+"status": "Operational/تعمل",
+"building": "Non Public School/مدرسة غير حكومية",
+"stage": "ابتدائي",
+"gender": "مشتركة/Mix",
+"district": "AL Rifaa/الرفاع"
+},
+{
+"sn": 87,
+"nameAr": "مدرسة البيان الابتدائية الثانية للبنات",
+"nameEn": "AlBayan Second Primary School for Girls",
+"status": "Operational/تعمل",
+"building": "Public School/مدرسة حكومية",
+"stage": "ابتدائي",
+"gender": "بنات/Girls",
+"district": "Fereej Kulaib/فريج كليب"
+},
+{
+"sn": 88,
+"nameAr": "مدرسة آمنه بنت وهب الثانوية للبنات",
+"nameEn": "Aminah bint Wahb Secondary School for Girls",
+"status": "Operational/تعمل",
+"building": "Public School/مدرسة حكومية",
+"stage": "ثانوي",
+"gender": "بنات/Girls",
+"district": "Fereej Kulaib/فريج كليب"
+},
+{
+"sn": 89,
+"nameAr": "مدرسة القادسية النموذجية للبنين",
+"nameEn": "Al-Qadisiyah Model School for Boys",
+"status": "Operational/تعمل",
+"building": "Public School/مدرسة حكومية",
+"stage": "نموذجي",
+"gender": "Boys/بنين",
+"district": "Luabiab/لوعيب"
+},
+{
+"sn": 90,
+"nameAr": "مدرسة أم أيمن الثانوية للبنات",
+"nameEn": "Umm Ayman Secondary School for Girls",
+"status": "Operational/تعمل",
+"building": "Public School/مدرسة حكومية",
+"stage": "ثانوي",
+"gender": "بنات/Girls",
+"district": "Luabiab/لوعيب"
+},
+{
+"sn": 91,
+"nameAr": "مدرسة اليرموك الإعدادية للبنين",
+"nameEn": "Al-Yarmouk Preparatory School for Boys",
+"status": "Operational/تعمل",
+"building": "Public School/مدرسة حكومية",
+"stage": "اعدادي",
+"gender": "Boys/بنين",
+"district": "Fereej Bin Omran/فريج بن عمران"
+},
+{
+"sn": 92,
+"nameAr": "مدرسة الهداية لذوي الاحتياجات الخاصة للبنين - المسيلة",
+"nameEn": "Al-Hidayah Special Needs School for Boys- Al-Messila",
+"status": "Operational/تعمل",
+"building": "Public School Special need/مدرسة حكومية ذوى احتياجات",
+"stage": "مدرسة تخصصية/جميع المراحل",
+"gender": "Boys/بنين",
+"district": "Al Messila/المسيلة"
+},
+{
+"sn": 93,
+"nameAr": "مدرسة آمنه بنت وهب الإعدادية للبنات",
+"nameEn": "Aminah bint Wahb Preparatory School for Girls",
+"status": "Operational/تعمل",
+"building": "Public School/مدرسة حكومية",
+"stage": "اعدادي",
+"gender": "بنات/Girls",
+"district": "Al Messila/المسيلة"
+},
+{
+"sn": 94,
+"nameAr": "مدرسة خولة بنت الازور الابتدائية للبنات",
+"nameEn": "Khawlah bint al-Azwar Primary School for Girls",
+"status": "Operational/تعمل",
+"building": "Public School/مدرسة حكومية",
+"stage": "ابتدائي",
+"gender": "بنات/Girls",
+"district": "Madinat Khalifa South/مدينة خليفة الجنوبية"
+},
+{
+"sn": 95,
+"nameAr": "مدرسة خليفة النموذجية للبنين",
+"nameEn": "Khalifa Model School for Boys",
+"status": "Operational/تعمل",
+"building": "Public School/مدرسة حكومية",
+"stage": "نموذجي",
+"gender": "Boys/بنين",
+"district": "Madinat Khalifa South/مدينة خليفة الجنوبية"
+},
+{
+"sn": 96,
+"nameAr": "مدرسة خليفة الثانوية للبنين",
+"nameEn": "Khalifa Secondary School for Boys",
+"status": "Operational/تعمل",
+"building": "Public School/مدرسة حكومية",
+"stage": "ثانوي",
+"gender": "Boys/بنين",
+"district": "Madinat Khalifa South/مدينة خليفة الجنوبية"
+},
+{
+"sn": 97,
+"nameAr": "مدرسة قطر الابتدائية للبنات",
+"nameEn": "Qatar Primary School for Girls",
+"status": "Operational/تعمل",
+"building": "Public School/مدرسة حكومية",
+"stage": "ابتدائي",
+"gender": "بنات/Girls",
+"district": "Madinat Khalifa South/مدينة خليفة الجنوبية"
+},
+{
+"sn": 98,
+"nameAr": "مدرسة عمر بن الخطاب النموذجية للبنين",
+"nameEn": "Umar ibn Al-Khattab Model School for Boys",
+"status": "Operational/تعمل",
+"building": "Public School/مدرسة حكومية",
+"stage": "نموذجي",
+"gender": "Boys/بنين",
+"district": "Mehairja/محريجة"
+},
+{
+"sn": 99,
+"nameAr": "مدرسة حفصة الإعدادية للبنات",
+"nameEn": "Hafsa Preparatory School for Girls",
+"status": "Operational/تعمل",
+"building": "Public School/مدرسة حكومية",
+"stage": "اعدادي",
+"gender": "بنات/Girls",
+"district": "New Slata/اسلطة الجديدة"
+},
+{
+"sn": 100,
+"nameAr": "مدرسة خديجة الابتدائية للبنات",
+"nameEn": "Khadijah Primary School for Girls",
+"status": "Operational/تعمل",
+"building": "Public School/مدرسة حكومية",
+"stage": "ابتدائي",
+"gender": "بنات/Girls",
+"district": "Al Maamoura/المعمورة"
+},
+{
+"sn": 101,
+"nameAr": "مدرسة سميه الابتدائية للبنات",
+"nameEn": "Sumayyah Primary School for Girls",
+"status": "Operational/تعمل",
+"building": "Public School/مدرسة حكومية",
+"stage": "ابتدائي",
+"gender": "بنات/Girls",
+"district": "New Slata/اسلطة الجديدة"
+},
+{
+"sn": 102,
+"nameAr": "مدرسة حمزة بن عبد المطلب الإعدادية للبنين",
+"nameEn": "Hamza ibn Abdul-Muttalib Preparatory School for Boys",
+"status": "Operational/تعمل",
+"building": "Public School/مدرسة حكومية",
+"stage": "اعدادي",
+"gender": "Boys/بنين",
+"district": "bin Mahmoud/ بن محمود"
+},
+{
+"sn": 103,
+"nameAr": "مدرسه كمال ناجي النموذجية للبنين",
+"nameEn": "Kamal Naji Model School for Boys",
+"status": "Operational/تعمل",
+"building": "Public School/مدرسة حكومية",
+"stage": "نموذجي",
+"gender": "Boys/بنين",
+"district": "New Slata/اسلطة الجديدة"
+},
+{
+"sn": 104,
+"nameAr": "مدرسة الايمان الثانوية للبنات",
+"nameEn": "Al-Iman Secondary School for Girls",
+"status": "Operational/تعمل",
+"building": "Public School/مدرسة حكومية",
+"stage": "ثانوي",
+"gender": "بنات/Girls",
+"district": "Maamoura/المعمورة"
+},
+{
+"sn": 105,
+"nameAr": "مدرسة زبيدة الثانوية للبنات",
+"nameEn": "Zubaidah Secondary School for Girls",
+"status": "Operational/تعمل",
+"building": "Public School/مدرسة حكومية",
+"stage": "ثانوي",
+"gender": "بنات/Girls",
+"district": "Nuaija/نعيجة"
+},
+{
+"sn": 106,
+"nameAr": "مدرسة أم حكيم الثانوية للبنات",
+"nameEn": "Umm Hakeem Secondary School for Girls",
+"status": "Operational/تعمل",
+"building": "Public School/مدرسة حكومية",
+"stage": "ثانوي",
+"gender": "بنات/Girls",
+"district": "Al Maamoura/المعمورة"
+},
+{
+"sn": 107,
+"nameAr": "مدرسة الهداية لذوي الاحتياجات الخاصة للبنين - الهلال",
+"nameEn": "Al-Hidayah Special Needs School for Boys - Al-Hilal",
+"status": "Operational/تعمل",
+"building": "Public School Special need/مدرسة حكومية ذوى احتياجات",
+"stage": "مدرسة تخصصية/جميع المراحل",
+"gender": "Boys/بنين",
+"district": "Nuaija/نعيجة"
+},
+{
+"sn": 108,
+"nameAr": "مدرسة طارق بن زياد الثانوية للبنين",
+"nameEn": "Tariq ibn Ziyad Secondary School for Boys",
+"status": "Operational/تعمل",
+"building": "Public School/مدرسة حكومية",
+"stage": "ثانوي",
+"gender": "Boys/بنين",
+"district": "New Slata/اسلطة الجديدة"
+},
+{
+"sn": 109,
+"nameAr": "مدرسة القدس النموذجية للبنين 2",
+"nameEn": "Al-Quds Model School for Boys 2",
+"status": "Operational/تعمل",
+"building": "Public School/مدرسة حكومية",
+"stage": "نموذجي",
+"gender": "Boys/بنين",
+"district": "Umm Ghuwailina/ام غويلينة"
+},
+{
+"sn": 110,
+"nameAr": "مدرسة القدس النموذجية للبنين 1",
+"nameEn": "Al-Quds Model School for Boys 1",
+"status": "Operational/تعمل",
+"building": "Public School/مدرسة حكومية",
+"stage": "نموذجي",
+"gender": "Boys/بنين",
+"district": "Umm Ghuwailina/ام غويلينة"
+},
+{
+"sn": 111,
+"nameAr": "مدرسة أحمد بن حنبل الثانوية للبنين",
+"nameEn": "Ahmad ibn Hanbal Secondary School for Boys",
+"status": "Operational/تعمل",
+"building": "Public School/مدرسة حكومية",
+"stage": "ثانوي",
+"gender": "Boys/بنين",
+"district": "Najma/نجمة"
+},
+{
+"sn": 112,
+"nameAr": "مدرسة أبو بكر الصديق الإعدادية للبنين",
+"nameEn": "Abu Bakr as-Siddiq Preparatory School for Boys",
+"status": "Operational/تعمل",
+"building": "Public School/مدرسة حكومية",
+"stage": "اعدادي",
+"gender": "Boys/بنين",
+"district": "Rawdet AL Khail/روضة الخيل"
+},
+{
+"sn": 113,
+"nameAr": "روضة القادسية للبنين",
+"nameEn": "Al-Qadisiyah Kindergarten for Boys",
+"status": "Operational/تعمل",
+"building": "Public kindergarten/روضة حكومية",
+"stage": "روضة",
+"gender": "Boys/بنين",
+"district": "Luabiab/لوعيب"
+},
+{
+"sn": 114,
+"nameAr": "روضة البيان الثانية للبنات",
+"nameEn": "AlBayan Second Kindergarten for Girls",
+"status": "Operational/تعمل",
+"building": "Public kindergarten/روضة حكومية",
+"stage": "روضة",
+"gender": "بنات/Girls",
+"district": "Al Messila/المسيلة"
+},
+{
+"sn": 115,
+"nameAr": "روضة خليفة للبنين",
+"nameEn": "Khalifa Kindergarten for Boys",
+"status": "Operational/تعمل",
+"building": "Public kindergarten/روضة حكومية",
+"stage": "روضة",
+"gender": "Boys/بنين",
+"district": "Al Messila/المسيلة"
+},
+{
+"sn": 116,
+"nameAr": "روضة كمال ناجي للبنين",
+"nameEn": "Kamal Naji Kindergarten for Boys",
+"status": "Operational/تعمل",
+"building": "Public kindergarten/روضة حكومية",
+"stage": "روضة",
+"gender": "Boys/بنين",
+"district": "New Slata/اسلطة الجديدة"
+},
+{
+"sn": 117,
+"nameAr": "روضة خديجة للبنات",
+"nameEn": "Khadijah Kindergarten for Girls",
+"status": "Operational/تعمل",
+"building": "Public kindergarten/روضة حكومية",
+"stage": "روضة",
+"gender": "بنات/Girls",
+"district": "Al Maamoura/المعمورة"
+},
+{
+"sn": 118,
+"nameAr": "قسم النقليات - مستودع الدوحه",
+"nameEn": "Transportation Section - Doha Depot",
+"status": "Operational/تعمل",
+"building": "Depo/مستودع",
+"stage": "لا ينطبق- مبنى اداري/NA Admin",
+"gender": "لا ينطبق- مبنى اداري/NA Admin",
+"district": "New Slata/اسلطة الجديدة"
+},
+{
+"sn": 119,
+"nameAr": "المدرسة العالمية للمهن الطبية والهندسة",
+"nameEn": "International School for Medical Science and Engineering",
+"status": "Operational/تعمل",
+"building": "Non Public School/مدرسة غير حكومية",
+"stage": "ثانوي",
+"gender": "مشتركة/Mix",
+"district": "Al Messila/المسيلة"
+},
+{
+"sn": 120,
+"nameAr": "مدرسة معيذر الابتدائية للبنين",
+"nameEn": "Muaither Primary school for boys",
+"status": "Operational/تعمل",
+"building": "Public School/مدرسة حكومية",
+"stage": "ابتدائي (خامس و سادس)",
+"gender": "Boys/بنين",
+"district": "Muaither/معيذر"
+},
+{
+"sn": 121,
+"nameAr": "مدرسة فاطمة بنت الخطاب الابتدائية للبنات",
+"nameEn": "Fatima Bint Al-Khattab Primary for Girls",
+"status": "Operational/تعمل",
+"building": "Public School/مدرسة حكومية",
+"stage": "ابتدائي",
+"gender": "بنات/Girls",
+"district": "Bu Sidra/بو سدرة"
+},
+{
+"sn": 122,
+"nameAr": "مدرسة روضة بنت جاسم الثانوية للبنات",
+"nameEn": "Rawda Bint Jassim Secondary School for Girls",
+"status": "Operational/تعمل",
+"building": "Public School/مدرسة حكومية",
+"stage": "ثانوي",
+"gender": "بنات/Girls",
+"district": "Bu Sidra/بو سدرة"
+},
+{
+"sn": 123,
+"nameAr": "مدرسة عبدالله بن تركي الابتدائية للبنين",
+"nameEn": "Abdullah Bin Turky Primary School for Boys",
+"status": "Operational/تعمل",
+"building": "Public School/مدرسة حكومية",
+"stage": "ابتدائي (خامس و سادس)",
+"gender": "Boys/بنين",
+"district": "Al Aziziya/العزيزية"
+},
+{
+"sn": 124,
+"nameAr": "مدرسة الإمام الشافعي الإعدادية للبنين",
+"nameEn": "Al-Imam Al-Shafi'i Preparatory School for Boys",
+"status": "Operational/تعمل",
+"building": "Public School/مدرسة حكومية",
+"stage": "اعدادي",
+"gender": "Boys/بنين",
+"district": "Muaither/معيذر"
+},
+{
+"sn": 125,
+"nameAr": "مدرسة هند بنت أبي سفيان الثانوية للبنات",
+"nameEn": "Hind Bint Abi Sufyan Secondary School for Girls",
+"status": "Operational/تعمل",
+"building": "Public School/مدرسة حكومية",
+"stage": "ثانوي",
+"gender": "بنات/Girls",
+"district": "Al Merad/المعراض"
+},
+{
+"sn": 126,
+"nameAr": "مدرسة التعاون الابتدائية للبنات",
+"nameEn": "Al-Ta'awon Primary School for Girls",
+"status": "Operational/تعمل",
+"building": "Public School/مدرسة حكومية",
+"stage": "ابتدائي",
+"gender": "بنات/Girls",
+"district": "Al Merad/المعراض"
+},
+{
+"sn": 127,
+"nameAr": "مدرسة أم معبد الإعدادية للبنات",
+"nameEn": "Umm Ma'bad Preparatory School for Girls",
+"status": "Operational/تعمل",
+"building": "Public School/مدرسة حكومية",
+"stage": "اعدادي",
+"gender": "بنات/Girls",
+"district": "Al Merad/المعراض"
+},
+{
+"sn": 128,
+"nameAr": "مدرسة هاجر الابتدائية للبنات",
+"nameEn": "Hajar Primary School for Girls",
+"status": "Operational/تعمل",
+"building": "Public School/مدرسة حكومية",
+"stage": "ابتدائي",
+"gender": "بنات/Girls",
+"district": "Al Merad/المعراض"
+},
+{
+"sn": 129,
+"nameAr": "مدرسة مريم بنت عمران الابتدائية للبنات",
+"nameEn": "Maryam bint Imran Primary School for Girls",
+"status": "Operational/تعمل",
+"building": "Public School/مدرسة حكومية",
+"stage": "ابتدائي",
+"gender": "بنات/Girls",
+"district": "Muaither/معيذر"
+},
+{
+"sn": 130,
+"nameAr": "مدرسة معيذر الإعدادية للبنات",
+"nameEn": "Mueithar preparatory School for Girls",
+"status": "Operational/تعمل",
+"building": "Public School/مدرسة حكومية",
+"stage": "اعدادي",
+"gender": "بنات/Girls",
+"district": "Muaither/معيذر"
+},
+{
+"sn": 131,
+"nameAr": "مدرسة المثنى بن حارثة النموذجية للبنين",
+"nameEn": "Al-Muthanna ibn Harithah Model School for Boys",
+"status": "Operational/تعمل",
+"building": "Public School/مدرسة حكومية",
+"stage": "نموذجي",
+"gender": "Boys/بنين",
+"district": "Bu Sidra/بو سدرة"
+},
+{
+"sn": 132,
+"nameAr": "مدرسة خالد بن الوليد الإعدادية للبنين",
+"nameEn": "Khalid ibn al-Walid Preparatory School for Boys",
+"status": "Operational/تعمل",
+"building": "Public School/مدرسة حكومية",
+"stage": "اعدادي",
+"gender": "Boys/بنين",
+"district": "Muaither/معيذر"
+},
+{
+"sn": 133,
+"nameAr": "مدرسة بلال بن رباح النموذجية للبنين",
+"nameEn": "Bilal ibn Rabah Model School for Boys",
+"status": "Operational/تعمل",
+"building": "Public School/مدرسة حكومية",
+"stage": "نموذجي",
+"gender": "Boys/بنين",
+"district": "Muaither/معيذر"
+},
+{
+"sn": 134,
+"nameAr": "مدرسة عثمان بن عفان النموذجية للبنين",
+"nameEn": "Uthman ibn Affan Model School for Boys",
+"status": "Operational/تعمل",
+"building": "Public School/مدرسة حكومية",
+"stage": "نموذجي",
+"gender": "Boys/بنين",
+"district": "Bu Sidra/بو سدرة"
+},
+{
+"sn": 135,
+"nameAr": "مدرسة محمد بن عبد العزيز المانع الثانوية للبنين",
+"nameEn": "Mohammad Bin Abd al-Aziz Al-Mana Secondary School for Boys",
+"status": "Operational/تعمل",
+"building": "Public School/مدرسة حكومية",
+"stage": "ثانوي",
+"gender": "Boys/بنين",
+"district": "Muaither/معيذر"
+},
+{
+"sn": 136,
+"nameAr": "مدرسة الهدى الابتدائية للبنات",
+"nameEn": "Al-Huda Primary School for Girls",
+"status": "Operational/تعمل",
+"building": "Public School/مدرسة حكومية",
+"stage": "ابتدائي",
+"gender": "بنات/Girls",
+"district": "Al Merad/المعراض"
+},
+{
+"sn": 137,
+"nameAr": "مدرسة فاطمة بن الوليد بن المغيرة الإعدادية للبنات",
+"nameEn": "Fatima bint al-Walid ibn al-Mughirah Preparatory School for Girls",
+"status": "Operational/تعمل",
+"building": "Public School/مدرسة حكومية",
+"stage": "اعدادي",
+"gender": "بنات/Girls",
+"district": "Al Merad/المعراض"
+},
+{
+"sn": 138,
+"nameAr": "مدرسة محمد بن عبدالوهاب الثانوية للبنين",
+"nameEn": "Muhammad ibn Abd al-Wahhab Secondary School for Boys",
+"status": "Operational/تعمل",
+"building": "Public School/مدرسة حكومية",
+"stage": "ثانوي",
+"gender": "Boys/بنين",
+"district": "Muaither/معيذر"
+},
+{
+"sn": 139,
+"nameAr": "مدرسة حطين النموذجية للبنين",
+"nameEn": "Hittin Model School for Boys",
+"status": "Operational/تعمل",
+"building": "Public School/مدرسة حكومية",
+"stage": "نموذجي",
+"gender": "Boys/بنين",
+"district": "Al Aziziya/العزيزية"
+},
+{
+"sn": 140,
+"nameAr": "مدرسة الإسراء الابتدائية للبنات",
+"nameEn": "Al-Israa Primary School for Girls",
+"status": "Operational/تعمل",
+"building": "Public School/مدرسة حكومية",
+"stage": "ابتدائي",
+"gender": "بنات/Girls",
+"district": "Al Aziziya/العزيزية"
+},
+{
+"sn": 141,
+"nameAr": "مدرسة زينب بنت جحش الابتدائية للبنات",
+"nameEn": "Zaynab bint Jahsh Primary School for Girls",
+"status": "Operational/تعمل",
+"building": "Public School/مدرسة حكومية",
+"stage": "ابتدائي",
+"gender": "بنات/Girls",
+"district": "Rawdat Abal Heeran/روضة ابا الحيران"
+},
+{
+"sn": 142,
+"nameAr": "مدرسة سعد بن ابي وقاص النموذجية للبنين",
+"nameEn": "Sa'd ibn Abi Waqqas Model School for Boys",
+"status": "Operational/تعمل",
+"building": "Public School/مدرسة حكومية",
+"stage": "نموذجي",
+"gender": "Boys/بنين",
+"district": "Rawdat Abal Heeran/روضة ابا الحيران"
+},
+{
+"sn": 143,
+"nameAr": "مدرسة عبدالله بن رواحة الابتدائية للبنين",
+"nameEn": "Abdullah ibn Rawahah Primary School for Boys",
+"status": "Operational/تعمل",
+"building": "Public School/مدرسة حكومية",
+"stage": "ابتدائي (خامس و سادس)",
+"gender": "Boys/بنين",
+"district": "Rawdat Abal Heeran/روضة ابا الحيران"
+},
+{
+"sn": 144,
+"nameAr": "مدرسة حليمة السعدية الابتدائية للبنات",
+"nameEn": "Halimah al-Sa'diyah Primary School for Girls",
+"status": "Operational/تعمل",
+"building": "Public School/مدرسة حكومية",
+"stage": "ابتدائي",
+"gender": "بنات/Girls",
+"district": "Al Wajba/الوجبة"
+},
+{
+"sn": 145,
+"nameAr": "مدرسة أسماء بنت يزيد الأنصارية الثانوية للبنات",
+"nameEn": "Assma Bint Yazeed Alansaryeah Secondary School for Girls",
+"status": "Operational/تعمل",
+"building": "Public School/مدرسة حكومية",
+"stage": "ثانوي",
+"gender": "بنات/Girls",
+"district": "Al Wajba/الوجبة"
+},
+{
+"sn": 146,
+"nameAr": "روضة فاطمة بنت الخطاب للبنات",
+"nameEn": "Fatima Bin Al-khattab Kindergarten for Girls",
+"status": "Operational/تعمل",
+"building": "Public kindergarten/روضة حكومية",
+"stage": "روضة",
+"gender": "بنات/Girls",
+"district": "Muaither/معيذر"
+},
+{
+"sn": 147,
+"nameAr": "روضة المثنى بن حارثة للبنين",
+"nameEn": "Al-Muthanna ibn Harithah Kindergarten for Boys",
+"status": "Operational/تعمل",
+"building": "Public kindergarten/روضة حكومية",
+"stage": "روضة",
+"gender": "Boys/بنين",
+"district": "ALMurra/فريج المرة"
+},
+{
+"sn": 148,
+"nameAr": "روضة عثمان بن عفان للبنين",
+"nameEn": "Uthman ibn Affan Kindergarten for Boys",
+"status": "Operational/تعمل",
+"building": "Public kindergarten/روضة حكومية",
+"stage": "روضة",
+"gender": "Boys/بنين",
+"district": "ALMurra/فريج المرة"
+},
+{
+"sn": 149,
+"nameAr": "روضة حطين للبنين",
+"nameEn": "Hittin Kindergarten for Boys",
+"status": "Operational/تعمل",
+"building": "Public kindergarten/روضة حكومية",
+"stage": "روضة",
+"gender": "Boys/بنين",
+"district": "Al Aziziya/العزيزية"
+},
+{
+"sn": 150,
+"nameAr": "روضة مريم بنت عمران للبنات",
+"nameEn": "Maryam bint Imran Kindergarten for Girls",
+"status": "Operational/تعمل",
+"building": "Public kindergarten/روضة حكومية",
+"stage": "روضة",
+"gender": "بنات/Girls",
+"district": "Muaither/معيذر"
+},
+{
+"sn": 151,
+"nameAr": "روضة بلال بن رباح للبنين",
+"nameEn": "Bilal ibn Rabah Kindergarten for Boys",
+"status": "Operational/تعمل",
+"building": "Public kindergarten/روضة حكومية",
+"stage": "روضة",
+"gender": "Boys/بنين",
+"district": "Al Merad/المعراض"
+},
+{
+"sn": 152,
+"nameAr": "روضة هاجر للبنات",
+"nameEn": "Hajar Kindergarten for Girls",
+"status": "Operational/تعمل",
+"building": "Public kindergarten/روضة حكومية",
+"stage": "روضة",
+"gender": "بنات/Girls",
+"district": "Al Merad/المعراض"
+},
+{
+"sn": 153,
+"nameAr": "روضة زينب بنت جحش للبنات",
+"nameEn": "Zaynab bint Jahsh Kindergarten for Girls",
+"status": "Operational/تعمل",
+"building": "Public kindergarten/روضة حكومية",
+"stage": "روضة",
+"gender": "بنات/Girls",
+"district": "Rawdat Abal Heeran/روضة ابا الحيران"
+},
+{
+"sn": 154,
+"nameAr": "روضة حليمة السعدية للبنات",
+"nameEn": "Halimah al-Sa'diyah Kindergarten for Girls",
+"status": "Operational/تعمل",
+"building": "Public kindergarten/روضة حكومية",
+"stage": "روضة",
+"gender": "بنات/Girls",
+"district": "Rawdat Abal Heeran/روضة ابا الحيران"
+},
+{
+"sn": 155,
+"nameAr": "روضة سعد بن ابي وقاص للبنين",
+"nameEn": "Sa'd ibn Abi Waqqas Kindergarten for Boys",
+"status": "Operational/تعمل",
+"building": "Public kindergarten/روضة حكومية",
+"stage": "روضة",
+"gender": "Boys/بنين",
+"district": "Rawdat Abal Heeran/روضة ابا الحيران"
+},
+{
+"sn": 156,
+"nameAr": "روضة الهدى للبنات",
+"nameEn": "Al-Huda Kindergarten for Girls",
+"status": "Operational/تعمل",
+"building": "Public kindergarten/روضة حكومية",
+"stage": "روضة",
+"gender": "بنات/Girls",
+"district": "Al Wajba/الوجبة"
+},
+{
+"sn": 157,
+"nameAr": "روضة الشقب للبنات",
+"nameEn": "Al-Shaqab Kindergarten for Girls",
+"status": "Operational/تعمل",
+"building": "Public kindergarten/روضة حكومية",
+"stage": "روضة",
+"gender": "بنات/Girls",
+"district": "Al Wajba/الوجبة"
+},
+{
+"sn": 159,
+"nameAr": "مدرسة السلم الخامسة",
+"nameEn": "Al Sallam Fifth 5",
+"status": "Operational/تعمل",
+"building": "Non Public School/مدرسة غير حكومية",
+"stage": "ابتدائي (خامس و سادس)",
+"gender": "Boys/بنين",
+"district": "New Al Rayyan/الريان الجديد"
+},
+{
+"sn": 160,
+"nameAr": "مدرسة معاذ بن جبل الابتدائية للبنين",
+"nameEn": "Mu'adh ibn Jabal Primary School for Boys",
+"status": "Operational/تعمل",
+"building": "Public School/مدرسة حكومية",
+"stage": "ابتدائي (خامس و سادس)",
+"gender": "Boys/بنين",
+"district": "New Al Rayyan/الريان الجديد"
+},
+{
+"sn": 161,
+"nameAr": "مدرسة عبد الرحمن بن عوف الإعدادية للبنين",
+"nameEn": "Abd al-Rahman ibn Awf preparatory for Boys",
+"status": "Operational/تعمل",
+"building": "Public School/مدرسة حكومية",
+"stage": "اعدادي",
+"gender": "Boys/بنين",
+"district": "New Al Rayyan/الريان الجديد"
+},
+{
+"sn": 162,
+"nameAr": "مدرسة قطر الابتدائية للبنين",
+"nameEn": "Qatar Primary School for Boys",
+"status": "Operational/تعمل",
+"building": "Public School/مدرسة حكومية",
+"stage": "ابتدائي (خامس و سادس)",
+"gender": "Boys/بنين",
+"district": "New Al Rayyan/الريان الجديد"
+},
+{
+"sn": 163,
+"nameAr": "مدرسة روضة راشد الابتدائية الإعدادية للبنين",
+"nameEn": "Rawdat Rashid Primary and Preparatory School for Boys",
+"status": "Operational/تعمل",
+"building": "Public School/مدرسة حكومية",
+"stage": "ابتدائي/اعدادي",
+"gender": "Boys/بنين",
+"district": "Rawdat Rashed/روضة راشد"
+},
+{
+"sn": 164,
+"nameAr": "مدرسة دخان الابتدائية الإعدادية الثانوية للبنين",
+"nameEn": "Dukhan Primary and Preparatory and Secondary School for Boys",
+"status": "Operational/تعمل",
+"building": "Public School/مدرسة حكومية",
+"stage": "ابتدائي/اعدادي/ثانوي",
+"gender": "Boys/بنين",
+"district": "New Al Khattiya/الخطية الجديدة"
+},
+{
+"sn": 165,
+"nameAr": "مدرسة دخان الابتدائية الإعدادية الثانوية للبنات",
+"nameEn": "Dukhan Primary, Preparatory and Secondary School for Girls",
+"status": "Operational/تعمل",
+"building": "Public School/مدرسة حكومية",
+"stage": "ابتدائي/اعدادي/ثانوي",
+"gender": "بنات/Girls",
+"district": "New Al Khattiya/الخطية الجديدة"
+},
+{
+"sn": 166,
+"nameAr": "مدرسة روضة راشد الثانوية للبنين",
+"nameEn": "Rawdat Rashid Secondary School for Boys",
+"status": "Operational/تعمل",
+"building": "Public School/مدرسة حكومية",
+"stage": "ثانوي",
+"gender": "Boys/بنين",
+"district": "Rawdat Rashed/روضة راشد"
+},
+{
+"sn": 167,
+"nameAr": "روضة أمامة بنت حمزة للبنات",
+"nameEn": "Umama bint Hamza Kindergarten for Girls",
+"status": "Operational/تعمل",
+"building": "Public kindergarten/روضة حكومية",
+"stage": "روضة",
+"gender": "بنات/Girls",
+"district": "Bani Hajer/بنى هاجر"
+},
+{
+"sn": 168,
+"nameAr": "مدرسة الشقب الابتدائية للبنات",
+"nameEn": "Al-Shaqab Primary School for Girls",
+"status": "Operational/تعمل",
+"building": "Public School/مدرسة حكومية",
+"stage": "ابتدائي",
+"gender": "بنات/Girls",
+"district": "New Al Rayyan/الريان الجديد"
+},
+{
+"sn": 169,
+"nameAr": "مدرسة صلاح الدين الأيوبي الإعدادية للبنين",
+"nameEn": "Salah ad-Din Al-Ayyubi Preparatory School for Boys",
+"status": "Operational/تعمل",
+"building": "Public School/مدرسة حكومية",
+"stage": "اعدادي",
+"gender": "Boys/بنين",
+"district": "Al Seej/السيج"
+},
+{
+"sn": 170,
+"nameAr": "مدرسة على بن عبدالله النموذجية للبنين",
+"nameEn": "Ali Bin Abdullah Model School for Boys",
+"status": "Operational/تعمل",
+"building": "Public School/مدرسة حكومية",
+"stage": "نموذجي",
+"gender": "Boys/بنين",
+"district": "New Al Rayyan/الريان الجديد"
+},
+{
+"sn": 171,
+"nameAr": "مدرسة عبدالله بن زيد آل محمود النموذجية للبنين",
+"nameEn": "Abdullah Bin Zayd Al Mahmoud Model School for Boys",
+"status": "Operational/تعمل",
+"building": "Public School/مدرسة حكومية",
+"stage": "نموذجي",
+"gender": "Boys/بنين",
+"district": "Baiaa/بعيا"
+},
+{
+"sn": 172,
+"nameAr": "مدرسة رفيدة بنت كعب الإعدادية للبنات",
+"nameEn": "Rufaydah bint Kaab Preparatory School for Girls",
+"status": "Operational/تعمل",
+"building": "Public School/مدرسة حكومية",
+"stage": "اعدادي",
+"gender": "بنات/Girls",
+"district": "New Al Rayyan/الريان الجديد"
+},
+{
+"sn": 173,
+"nameAr": "مدرسة أم سلمة الابتدائية للبنات",
+"nameEn": "Umm Salamah Primary School for Girls",
+"status": "Operational/تعمل",
+"building": "Public School/مدرسة حكومية",
+"stage": "ابتدائي",
+"gender": "بنات/Girls",
+"district": "Al Wajba/الوجبة"
+},
+{
+"sn": 174,
+"nameAr": "مدرسة الرفاع الابتدائية للبنات",
+"nameEn": "Al-Rifaa Primary School for Girls",
+"status": "Operational/تعمل",
+"building": "Public School/مدرسة حكومية",
+"stage": "ابتدائي",
+"gender": "بنات/Girls",
+"district": "Old Rayyan/الريان العتيق"
+},
+{
+"sn": 175,
+"nameAr": "مدرسة سكينة بنت الحسين الإعدادية للبنات",
+"nameEn": "Sukaynah bint Al-Husayn Preparatory School for Girls",
+"status": "Operational/تعمل",
+"building": "Public School/مدرسة حكومية",
+"stage": "اعدادي",
+"gender": "بنات/Girls",
+"district": "Rawdat Ekdeem/روضة اقديم"
+},
+{
+"sn": 176,
+"nameAr": "مدرسة عائشة بنت أبي بكر الثانوية للبنات",
+"nameEn": "A'ishah bint Abi Bakr Secondary School for Girls",
+"status": "Operational/تعمل",
+"building": "Public School/مدرسة حكومية",
+"stage": "ثانوي",
+"gender": "بنات/Girls",
+"district": "Rawdat Ekdeem/روضة اقديم"
+},
+{
+"sn": 177,
+"nameAr": "مدرسة علي بن جاسم بن محمد آل ثاني الثانوية للبنين",
+"nameEn": "Ali Bin Jassim Bin Mohammad Al Thani Secondary School for Boys",
+"status": "Operational/تعمل",
+"building": "Public School/مدرسة حكومية",
+"stage": "ثانوي",
+"gender": "Boys/بنين",
+"district": "Rawdat Ekdeem/روضة اقديم"
+},
+{
+"sn": 178,
+"nameAr": "مدرسة حمد بن عبدالله بن جاسم الثانوية للبنين",
+"nameEn": "Hamad Bin Abdullah Secondary School for Boys",
+"status": "Operational/تعمل",
+"building": "Public School/مدرسة حكومية",
+"stage": "ثانوي",
+"gender": "Boys/بنين",
+"district": "Al Seej/السيج"
+},
+{
+"sn": 179,
+"nameAr": "مدرسة الشحانية الإعدادية الثانوية للبنين",
+"nameEn": "Ash-Shahaniya Preparatory and Secondary School for Boys",
+"status": "Operational/تعمل",
+"building": "Public School/مدرسة حكومية",
+"stage": "اعدادي/ثانوي",
+"gender": "Boys/بنين",
+"district": "Ash-Shahaniyah/الشحانية"
+},
+{
+"sn": 180,
+"nameAr": "مدرسة الشحانية الثانوية للبنات",
+"nameEn": "Ash-Shahaniya Secondary School for Girls",
+"status": "Operational/تعمل",
+"building": "Public School/مدرسة حكومية",
+"stage": "ثانوي",
+"gender": "بنات/Girls",
+"district": "Ash-Shahaniyah/الشحانية"
+},
+{
+"sn": 181,
+"nameAr": "مدرسة بروق الابتدائية للبنات",
+"nameEn": "Buruq Primary School for Girls",
+"status": "Operational/تعمل",
+"building": "Public School/مدرسة حكومية",
+"stage": "ابتدائي",
+"gender": "بنات/Girls",
+"district": "Ash-Shahaniyah/الشحانية"
+},
+{
+"sn": 182,
+"nameAr": "مدرسة الخرسعة الابتدائية الإعدادية الثانوية للبنين",
+"nameEn": "Al-Kharsaah, Primary ,Preparatory and Secondary School for Boys",
+"status": "Operational/تعمل",
+"building": "Public School/مدرسة حكومية",
+"stage": "ابتدائي/اعدادي/ثانوي",
+"gender": "Boys/بنين",
+"district": "Rawdet AL Buraq/روضة البراق"
+},
+{
+"sn": 183,
+"nameAr": "مدرسة الخرسعة الابتدائية الإعدادية الثانوية للبنات",
+"nameEn": "Al-Kharsaah Primary ,Preparatory and Secondary School for Girls",
+"status": "Operational/تعمل",
+"building": "Public School/مدرسة حكومية",
+"stage": "ابتدائي/اعدادي/ثانوي",
+"gender": "بنات/Girls",
+"district": "Rawdet AL Buraq/روضة البراق"
+},
+{
+"sn": 184,
+"nameAr": "مدرسة روضة راشد الابتدائية الإعدادية الثانوية للبنات",
+"nameEn": "Rawdat Rashid Primary, Preparatory and Secondary School for Girls",
+"status": "Operational/تعمل",
+"building": "Public School/مدرسة حكومية",
+"stage": "ابتدائي/اعدادي/ثانوي",
+"gender": "بنات/Girls",
+"district": "Rawdat Rashed/روضة راشد"
+},
+{
+"sn": 185,
+"nameAr": "مدرسة الشحانية النموذجية للبنين",
+"nameEn": "Ash-Shahaniya Model School for Boys",
+"status": "Operational/تعمل",
+"building": "Public School/مدرسة حكومية",
+"stage": "نموذجي",
+"gender": "Boys/بنين",
+"district": "Ash-Shahaniyah/الشحانية"
+},
+{
+"sn": 186,
+"nameAr": "مدرسة أمامة بنت حمزة الابتدائية للبنات",
+"nameEn": "Umama bint Hamza Primary School for Girls",
+"status": "Operational/تعمل",
+"building": "Public School/مدرسة حكومية",
+"stage": "ابتدائي",
+"gender": "بنات/Girls",
+"district": "Bani Hajer/بنى هاجر"
+},
+{
+"sn": 187,
+"nameAr": "روضة عبدالله بن زيد آل محمود للبنين",
+"nameEn": "Abdullah Bin Zayd Al Mahmoud Kindergarten for Boys",
+"status": "Operational/تعمل",
+"building": "Public kindergarten/روضة حكومية",
+"stage": "روضة",
+"gender": "Boys/بنين",
+"district": "Baiaa/بعيا"
+},
+{
+"sn": 188,
+"nameAr": "روضة علي بن عبدالله للبنين",
+"nameEn": "Ali Bin Abdullah Kindergarten for Boys",
+"status": "Operational/تعمل",
+"building": "Public kindergarten/روضة حكومية",
+"stage": "روضة",
+"gender": "Boys/بنين",
+"district": "Al Wajba/الوجبة"
+},
+{
+"sn": 189,
+"nameAr": "روضة المنار للبنين",
+"nameEn": "Al Manar Kindergarten for Boys",
+"status": "Operational/تعمل",
+"building": "Public kindergarten/روضة حكومية",
+"stage": "روضة",
+"gender": "Boys/بنين",
+"district": "Rawdat Ekdeem/روضة اقديم"
+},
+{
+"sn": 190,
+"nameAr": "روضة روضة راشد للبنين و البنات",
+"nameEn": "Rawdat Rashid Kindergarten for Girls and Boys",
+"status": "Operational/تعمل",
+"building": "Public kindergarten/روضة حكومية",
+"stage": "روضة",
+"gender": "مشتركة/Mix",
+"district": "Rawdat Rashed/روضة راشد"
+},
+{
+"sn": 191,
+"nameAr": "روضة بروق للبنات",
+"nameEn": "Buruq Kindergarten for Girls",
+"status": "Operational/تعمل",
+"building": "Public kindergarten/روضة حكومية",
+"stage": "روضة",
+"gender": "بنات/Girls",
+"district": "Ash-Shahaniyah/الشحانية"
+},
+{
+"sn": 192,
+"nameAr": "روضة الشحانية للبنين",
+"nameEn": "Ash-Shahaniya Kindergarten for Boys",
+"status": "Operational/تعمل",
+"building": "Public kindergarten/روضة حكومية",
+"stage": "روضة",
+"gender": "Boys/بنين",
+"district": "Ash-Shahaniyah/الشحانية"
+},
+{
+"sn": 193,
+"nameAr": "قسم النقليات - مستودع الريان",
+"nameEn": "Transportation Section - Al-Rayyan Depot",
+"status": "Operational/تعمل",
+"building": "Depo/مستودع",
+"stage": "لا ينطبق- مبنى اداري/NA Admin",
+"gender": "لا ينطبق- مبنى اداري/NA Admin",
+"district": "New Al Rayyan/الريان الجديد"
+},
+{
+"sn": 194,
+"nameAr": "جامعة كالجاري للتمريض جامعة قطر",
+"nameEn": "University of Calgary",
+"status": "Evacuated/مفرغة",
+"building": "Administration/ مبني اداري",
+"stage": "لا ينطبق- مبنى اداري/NA Admin",
+"gender": "لا ينطبق- مبنى اداري/NA Admin",
+"district": "Baiaa/بعيا"
+},
+{
+"sn": 195,
+"nameAr": "مدرسة الهداية لذوي الاحتياجات الخاصة الابتدائية للبنين والبنات - الغرافة",
+"nameEn": "Al-Hidayah Special Needs Primary School for boys and girls-Al Gharafa",
+"status": "Operational/تعمل",
+"building": "Public School Special need/مدرسة حكومية ذوى احتياجات",
+"stage": "مدرسة تخصصية",
+"gender": "مشتركة/Mix",
+"district": "Hazm Al Markhiya/حزم المرخية"
+},
+{
+"sn": 196,
+"nameAr": "مدرسة عمر بن عبدالعزيز الثانوية للبنين",
+"nameEn": "Umar ibn Abd al-Aziz Secondary School for Boys",
+"status": "Operational/تعمل",
+"building": "Public School/مدرسة حكومية",
+"stage": "ثانوي",
+"gender": "Boys/بنين",
+"district": "Al Markhiya/المرخية"
+},
+{
+"sn": 197,
+"nameAr": "مدرسة قطر للعلوم المصرفية وإدارة الأعمال الثانوية للبنات",
+"nameEn": "Qatar Banking Studies and Business Administration Secondary School for Girls",
+"status": "Evacuated/مفرغة",
+"building": "Public School Specialized/مدرسة حكومية متخصصة",
+"stage": "ثانوي",
+"gender": "بنات/Girls",
+"district": "Hazm Al Markhiya/حزام المرخية"
+},
+{
+"sn": 198,
+"nameAr": "المعهد الدينى الإعدادي الثانوي للبنين",
+"nameEn": "Institute of Religious Studies Preparatory Secondary for Boys",
+"status": "Operational/تعمل",
+"building": "Public School Specialized/مدرسة حكومية متخصصة",
+"stage": "اعدادي/ثانوي",
+"gender": "Boys/بنين",
+"district": "Al Luqta/اللقطة"
+},
+{
+"sn": 199,
+"nameAr": "مدرسة جاسم بن حمد الثانوية للبنين",
+"nameEn": "Jassim bin Hamad Secondary School for Boys",
+"status": "Operational/تعمل",
+"building": "Public School/مدرسة حكومية",
+"stage": "ثانوي",
+"gender": "Boys/بنين",
+"district": "Al Markhiya/المرخية"
+},
+{
+"sn": 200,
+"nameAr": "مدرسة أروى بنت عبد المطلب الثانوية للبنات",
+"nameEn": "Arwa bint Abdul Muttalib Secondary School for Girls",
+"status": "Operational/تعمل",
+"building": "Public School/مدرسة حكومية",
+"stage": "ثانوي",
+"gender": "بنات/Girls",
+"district": "Dahl Al Hamam/دحل الحمام"
+},
+{
+"sn": 201,
+"nameAr": "مجمع التربية السمعية للبنين",
+"nameEn": "Audio Education Complex for Boys",
+"status": "Operational/تعمل",
+"building": "Public School Specialized/مدرسة حكومية متخصصة",
+"stage": "ابتدائي/اعدادي/ثانوي",
+"gender": "Boys/بنين",
+"district": "Al Duhail/الدحيل"
+},
+{
+"sn": 202,
+"nameAr": "مدرسة السلم السادسة لذوى الاحتياجات الخاصة",
+"nameEn": "Al Sallam Sixth Special needs",
+"status": "Evacuated/مفرغة",
+"building": "Non Public kindergarten/روضة غير حكومية",
+"stage": "لا ينطبق",
+"gender": "لا ينطبق- مفرغة/NA Evacuated",
+"district": "Hazm Al Markhiya/حزام المرخية"
+},
+{
+"sn": 203,
+"nameAr": "مدرسة الزبير بن العوام الابتدائية للبنين",
+"nameEn": "Al Zubayr Bin Al-Awam Primary School for Boys",
+"status": "Operational/تعمل",
+"building": "Public School/مدرسة حكومية",
+"stage": "ابتدائي (خامس و سادس)",
+"gender": "Boys/بنين",
+"district": "Dahl Al Hamam/دحل الحمام"
+},
+{
+"sn": 204,
+"nameAr": "مدرسة البيان الإعدادية للبنات",
+"nameEn": "AlBayan Preparatory School for Girls",
+"status": "Operational/تعمل",
+"building": "Public School/مدرسة حكومية",
+"stage": "اعدادي",
+"gender": "بنات/Girls",
+"district": "Al Duhail/الدحيل"
+},
+{
+"sn": 205,
+"nameAr": "مدرسة طيبة الابتدائية للبنات",
+"nameEn": "Tibah Primary School for Girls",
+"status": "Operational/تعمل",
+"building": "Public School/مدرسة حكومية",
+"stage": "ابتدائي",
+"gender": "بنات/Girls",
+"district": "Dahl Al Hamam/دحل الحمام"
+},
+{
+"sn": 206,
+"nameAr": "مدرسة قطر التقنية الثانوية للبنات",
+"nameEn": "Qatar Technical Secondary School for Girls",
+"status": "Operational/تعمل",
+"building": "Public School Specialized/مدرسة حكومية متخصصة",
+"stage": "ثانوي",
+"gender": "بنات/Girls",
+"district": "Al Luqta/اللقطة"
+},
+{
+"sn": 207,
+"nameAr": "مدرسة مالك بن انس النموذجية للبنين",
+"nameEn": "Malik ibn Anas Model School for Boys",
+"status": "Operational/تعمل",
+"building": "Public School/مدرسة حكومية",
+"stage": "نموذجي",
+"gender": "Boys/بنين",
+"district": "Dahl Al Hamam/دحل الحمام"
+},
+{
+"sn": 208,
+"nameAr": "أكاديمية وارف لذوي الاحتياجات الخاصة",
+"nameEn": "Warif Academy Special needs School",
+"status": "Operational/تعمل",
+"building": "Public School Special need/مدرسة حكومية ذوى احتياجات",
+"stage": "مدرسة تخصصية جميع المراحل",
+"gender": "مشتركة/Mix",
+"district": "Ouneza/عنيزه"
+},
+{
+"sn": 209,
+"nameAr": "مدرسة الشيماء الثانوية للبنات",
+"nameEn": "Al-Shaymaa' Secondary School for Girls",
+"status": "Operational/تعمل",
+"building": "Public School/مدرسة حكومية",
+"stage": "ثانوي",
+"gender": "بنات/Girls",
+"district": "Hazm Al Markhiya/حزام المرخية"
+},
+{
+"sn": 210,
+"nameAr": "مدرسة البيان الابتدائية الاولى للبنات",
+"nameEn": "AlBayan First Primary School for Girls",
+"status": "Operational/تعمل",
+"building": "Public School/مدرسة حكومية",
+"stage": "ابتدائي",
+"gender": "بنات/Girls",
+"district": "Hazm Al Markhiya/حزام المرخية"
+},
+{
+"sn": 211,
+"nameAr": "مدرسة الهداية لذوي الاحتياجات الخاصة الإبتدائية الإعدادية الثانوية للبنات - الدفنة",
+"nameEn": "Al-Hidayah Special Needs Primary Preparatory and Secondary School for Girls - Al Dafna",
+"status": "Operational/تعمل",
+"building": "Public School Special need/مدرسة حكومية ذوى احتياجات",
+"stage": "مدرسة تخصصية/جميع المراحل",
+"gender": "بنات/Girls",
+"district": "Hazm Al Markhiya/حزام المرخية"
+},
+{
+"sn": 212,
+"nameAr": "مدرسة الأحنف بن قيس الإعدادية للبنين",
+"nameEn": "Al-Ahnaf ibn Qays Preparatory School for Boys",
+"status": "Operational/تعمل",
+"building": "Public School/مدرسة حكومية",
+"stage": "اعدادي",
+"gender": "Boys/بنين",
+"district": "Legtaifiya/لقطيفة"
+},
+{
+"sn": 213,
+"nameAr": "مدرسة أبي حنيفة النموذجية للبنين",
+"nameEn": "Abi Hanifa Model School for Boys",
+"status": "Operational/تعمل",
+"building": "Public School/مدرسة حكومية",
+"stage": "نموذجي",
+"gender": "Boys/بنين",
+"district": "Legtaifiya/لقطيفة"
+},
+{
+"sn": 214,
+"nameAr": "مدرسه أحمد منصور الابتدائيه للبنين",
+"nameEn": "Ahmad Mansour Primary School for boys",
+"status": "Operational/تعمل",
+"building": "Public School/مدرسة حكومية",
+"stage": "ابتدائي (خامس و سادس)",
+"gender": "Boys/بنين",
+"district": "Legtaifiya/لقطيفة"
+},
+{
+"sn": 215,
+"nameAr": "مدرسة الرسالة الثانوية للبنات",
+"nameEn": "Al-Risalah Secondary School for Girls",
+"status": "Operational/تعمل",
+"building": "Public School/مدرسة حكومية",
+"stage": "ثانوي",
+"gender": "بنات/Girls",
+"district": "Legtaifiya/لقطيفة"
+},
+{
+"sn": 216,
+"nameAr": "مدرسة غرناطة الإعدادية للبنات",
+"nameEn": "Gharnatah Preparatory School for Girls",
+"status": "Operational/تعمل",
+"building": "Public School/مدرسة حكومية",
+"stage": "اعدادي",
+"gender": "بنات/Girls",
+"district": "Ouneza/عنيزه"
+},
+{
+"sn": 217,
+"nameAr": "مدرسة عمر بن الخطاب الثانوية للبنين",
+"nameEn": "Umar ibn Al-Khattab Secondary School for Boys",
+"status": "Operational/تعمل",
+"building": "Public School/مدرسة حكومية",
+"stage": "ثانوي",
+"gender": "Boys/بنين",
+"district": "Ouneza/عنيزه"
+},
+{
+"sn": 218,
+"nameAr": "مدرسة عمر بن الخطاب الإعدادية للبنين",
+"nameEn": "Umar ibn Al-Khattab Preparatory School for Boys",
+"status": "Operational/تعمل",
+"building": "Public School/مدرسة حكومية",
+"stage": "اعدادي",
+"gender": "Boys/بنين",
+"district": "Lejbailat/لجبيليات"
+},
+{
+"sn": 219,
+"nameAr": "مدرسة الخوارزمي الابتدائية للبنات",
+"nameEn": "Al-Khawarizmi Primary School for Girls",
+"status": "Operational/تعمل",
+"building": "Public School/مدرسة حكومية",
+"stage": "ابتدائي",
+"gender": "بنات/Girls",
+"district": "Al Gharrafa/الغرافة"
+},
+{
+"sn": 220,
+"nameAr": "مدرسة قطر للعلوم المصرفية وإدارة الأعمال الثانوية للبنين",
+"nameEn": "Qatar Banking Studies and Business Administration Secondary School for Boys",
+"status": "Operational/تعمل",
+"building": "Public School Specialized/مدرسة حكومية متخصصة",
+"stage": "ثانوي",
+"gender": "Boys/بنين",
+"district": "Al Gharrafa/الغرافة"
+},
+{
+"sn": 221,
+"nameAr": "مدرسة المرخية الابتدائية للبنات",
+"nameEn": "Al-Markhiyah Primary School for Girls",
+"status": "Operational/تعمل",
+"building": "Public School/مدرسة حكومية",
+"stage": "ابتدائي",
+"gender": "بنات/Girls",
+"district": "Al Markhiya/المرخية"
+},
+{
+"sn": 222,
+"nameAr": "روضة الجيوان",
+"nameEn": "Al-Jiwan Kindergarten",
+"status": "Operational/تعمل",
+"building": "Public kindergarten special need/روضة حكومية ذوى احتياجات",
+"stage": "روضة تخصصية",
+"gender": "مشتركة/Mix",
+"district": "Dahl Al Hamam/دحل الحمام"
+},
+{
+"sn": 223,
+"nameAr": "مدرسة الوجبة الإعدادية للبنات",
+"nameEn": "Al-Wajbah Preparatory School for Girls",
+"status": "Operational/تعمل",
+"building": "Public School/مدرسة حكومية",
+"stage": "اعدادي",
+"gender": "بنات/Girls",
+"district": "Al Duhail/الدحيل"
+},
+{
+"sn": 224,
+"nameAr": "مجمع التربية السمعية للبنات",
+"nameEn": "Audio Education Complex for Girls",
+"status": "Operational/تعمل",
+"building": "Public School Specialized/مدرسة حكومية متخصصة",
+"stage": "ابتدائي/اعدادي/ثانوي",
+"gender": "بنات/Girls",
+"district": "Al Duhail/الدحيل"
+},
+{
+"sn": 225,
+"nameAr": "مدرسة قطر الإعدادية للبنات",
+"nameEn": "Qatar Preparatory School for Girls",
+"status": "Operational/تعمل",
+"building": "Public School/مدرسة حكومية",
+"stage": "اعدادي",
+"gender": "بنات/Girls",
+"district": "Al Duhail/الدحيل"
+},
+{
+"sn": 226,
+"nameAr": "مدرسة الرشاد النموذجية للبنين",
+"nameEn": "Al-Rashad Model School for Boys",
+"status": "Operational/تعمل",
+"building": "Public School/مدرسة حكومية",
+"stage": "نموذجي",
+"gender": "Boys/بنين",
+"district": "Al Duhail/الدحيل"
+},
+{
+"sn": 227,
+"nameAr": "روضة الهداية لذوي الاحتياجات الخاصة - بنين وبنات الغرافة",
+"nameEn": "Al-Hidayah Special Needs Kindergarten for Boys and Girls - Al Gharafa",
+"status": "Operational/تعمل",
+"building": "Public kindergarten special need/روضة حكومية ذوى احتياجات",
+"stage": "روضة تخصصية",
+"gender": "مشتركة/Mix",
+"district": "Hazm Al Markhiya/حزام المرخية"
+},
+{
+"sn": 228,
+"nameAr": "روضة الرشاد للبنين",
+"nameEn": "Al-Rashad Kindergarten for Boys",
+"status": "Operational/تعمل",
+"building": "Public kindergarten/روضة حكومية",
+"stage": "روضة",
+"gender": "Boys/بنين",
+"district": "Al Targa/الطرفة"
+},
+{
+"sn": 229,
+"nameAr": "روضة البيان الأولي للبنات",
+"nameEn": "AlBayan First Kindergarten for Girls",
+"status": "Operational/تعمل",
+"building": "Public kindergarten/روضة حكومية",
+"stage": "روضة",
+"gender": "بنات/Girls",
+"district": "Hazm Al Markhiya/حزام المرخية"
+},
+{
+"sn": 230,
+"nameAr": "روضة أبي حنيفة للبنين",
+"nameEn": "Abi Hanifa Kindergarten for Boys",
+"status": "Operational/تعمل",
+"building": "Public kindergarten/روضة حكومية",
+"stage": "روضة",
+"gender": "Boys/بنين",
+"district": "Legtaifiya/لقطيفة"
+},
+{
+"sn": 231,
+"nameAr": "روضة المرخية للبنات",
+"nameEn": "Al-Markhiyah Kindergarten for Girls",
+"status": "Operational/تعمل",
+"building": "Public kindergarten/روضة حكومية",
+"stage": "روضة",
+"gender": "بنات/Girls",
+"district": "Al Markhiya/المرخية"
+},
+{
+"sn": 232,
+"nameAr": "مركز رؤي للتقييم والاستشارات والدعم",
+"nameEn": "Rou'a Assessment advice and support Center",
+"status": "Operational/تعمل",
+"building": "Administration/ مبني اداري",
+"stage": "لا ينطبق- مبنى اداري/NA Admin",
+"gender": "لا ينطبق- مبنى اداري/NA Admin",
+"district": "Dahl Al Hamam/دحل الحمام"
+},
+{
+"sn": 233,
+"nameAr": "مدرسة قطر للعلوم والعلوم الشرعية الإعدادية للبنات",
+"nameEn": "Qatar Science and Legitimacy Preparatory school for girls",
+"status": "Evacuated/مفرغة",
+"building": "Public School/مدرسة حكومية",
+"stage": "اعدادي",
+"gender": "بنات/Girls",
+"district": "Ouneza/عنيزه"
+},
+{
+"sn": 234,
+"nameAr": "مدرسة قطر للعلوم المصرفية وإدارة الاعمال الثانوية للبنات",
+"nameEn": "Qatar Banking Studies and Business Administration Secondary School for Girls",
+"status": "Operational/تعمل",
+"building": "Public School Specialized/مدرسة حكومية متخصصة",
+"stage": "ثانوي",
+"gender": "بنات/Girls",
+"district": "Hazm Al Markhiya/حزام المرخية"
+},
+{
+"sn": 235,
+"nameAr": "مدرسة الخريطيات الابتدائية للبنات",
+"nameEn": "Al Kharaitiyat Primary School for Girls",
+"status": "Operational/تعمل",
+"building": "Public School/مدرسة حكومية",
+"stage": "ابتدائي",
+"gender": "بنات/Girls",
+"district": "Al Kharaitiyat/الخريطيات"
+},
+{
+"sn": 236,
+"nameAr": "مدرسة ناصر بن عبدالله العطية الثانوية للبنين",
+"nameEn": "Nasser Bin Abdullah Al-Attiyah Secondary School for Boys",
+"status": "Operational/تعمل",
+"building": "Public School/مدرسة حكومية",
+"stage": "ثانوي",
+"gender": "Boys/بنين",
+"district": "Al Kharaitiyat/الخريطيات"
+},
+{
+"sn": 237,
+"nameAr": "مدرسة الرازي الإعدادية للبنين",
+"nameEn": "Al-Razi Preparatory School for Boys",
+"status": "Operational/تعمل",
+"building": "Public School/مدرسة حكومية",
+"stage": "اعدادي",
+"gender": "Boys/بنين",
+"district": "Luabiab/لعبيب"
+},
+{
+"sn": 238,
+"nameAr": "مدرسة أم صلال الثانوية للبنين",
+"nameEn": "Umm Salal Secondary School for Boys",
+"status": "Operational/تعمل",
+"building": "Public School/مدرسة حكومية",
+"stage": "ثانوي",
+"gender": "Boys/بنين",
+"district": "Umm Slal Mohammed/ام صلال محمد"
+},
+{
+"sn": 239,
+"nameAr": "مدرسة الجالية السورية في قطر",
+"nameEn": "Syrian Community School in Qatar",
+"status": "Operational/تعمل",
+"building": "Communities Schools/ مدارس جاليات",
+"stage": "ابتدائي/اعدادي",
+"gender": "مشتركة/Mix",
+"district": "Luabiab/لعبيب"
+},
+{
+"sn": 240,
+"nameAr": "مدرسة أم القرى الابتدائية للبنين",
+"nameEn": "Umm Alqora primary for boys",
+"status": "Operational/تعمل",
+"building": "Public School/مدرسة حكومية",
+"stage": "ابتدائي (خامس و سادس)",
+"gender": "Boys/بنين",
+"district": "Azgawa/ازغوى"
+},
+{
+"sn": 241,
+"nameAr": "مدرسة آمنه محمود الجيدة الابتدائية للبنات",
+"nameEn": "Aminah Mahmoud Al-Jaida Primary School for Girls",
+"status": "Operational/تعمل",
+"building": "Public School/مدرسة حكومية",
+"stage": "ابتدائي",
+"gender": "بنات/Girls",
+"district": "Al Ebb/العب"
+},
+{
+"sn": 242,
+"nameAr": "مدرسة النهضة الإبتدائية للبنات",
+"nameEn": "Al-Nahdah Primary School for Girls",
+"status": "Operational/تعمل",
+"building": "Public School/مدرسة حكومية",
+"stage": "ابتدائي",
+"gender": "بنات/Girls",
+"district": "Umm Slal Mohammed/ام صلال محمد"
+},
+{
+"sn": 243,
+"nameAr": "مدرسة أبي عبيدة الإعدادية للبنين",
+"nameEn": "Abu Ubaydah Preparatory School for Boys",
+"status": "Operational/تعمل",
+"building": "Public School/مدرسة حكومية",
+"stage": "اعدادي",
+"gender": "Boys/بنين",
+"district": "Gharrafa Rayyan/غرافة الريان"
+},
+{
+"sn": 244,
+"nameAr": "مدرسة روضة بنت محمد الثانوية للبنات",
+"nameEn": "Rawda Bint Mohhammad Secondary School for Girls",
+"status": "Operational/تعمل",
+"building": "Public School/مدرسة حكومية",
+"stage": "ثانوي",
+"gender": "بنات/Girls",
+"district": "Umm Slal Mohammed/ام صلال محمد"
+},
+{
+"sn": 245,
+"nameAr": "مدرسة قطر الثانوية للبنات",
+"nameEn": "Qatar Secondary School for Girls",
+"status": "Operational/تعمل",
+"building": "Public School/مدرسة حكومية",
+"stage": "ثانوي",
+"gender": "بنات/Girls",
+"district": "Al Ebb/العب"
+},
+{
+"sn": 246,
+"nameAr": "مدرسة العب الثانوية للبنات",
+"nameEn": "Al-Ebb Secondary School for Girls",
+"status": "Operational/تعمل",
+"building": "Public School/مدرسة حكومية",
+"stage": "ثانوي",
+"gender": "بنات/Girls",
+"district": "Al Ebb/العب"
+},
+{
+"sn": 247,
+"nameAr": "مدرسة البيان الثانوية للبنات",
+"nameEn": "Al-Bayan Secondary School for Girls",
+"status": "Operational/تعمل",
+"building": "Public School/مدرسة حكومية",
+"stage": "ثانوي",
+"gender": "بنات/Girls",
+"district": "Wadi Al Banat/وادي البنات"
+},
+{
+"sn": 248,
+"nameAr": "مدرسة أم صلال محمد النموذجية للبنين",
+"nameEn": "Umm Salal Mohammad Model School for Boys",
+"status": "Operational/تعمل",
+"building": "Public School/مدرسة حكومية",
+"stage": "نموذجي",
+"gender": "Boys/بنين",
+"district": "Umm Slal Mohammed/ام صلال محمد"
+},
+{
+"sn": 249,
+"nameAr": "مدرسة محمد بن جاسم بن محمد آل ثاني الإعدادية للبنين",
+"nameEn": "Mohammad Bin Jassim Bin Mohammad Al Thani Preparatory School for Boys",
+"status": "Operational/تعمل",
+"building": "Public School/مدرسة حكومية",
+"stage": "اعدادي",
+"gender": "Boys/بنين",
+"district": "Al Froosh/الفروش"
+},
+{
+"sn": 250,
+"nameAr": "مدرسة عبدالله بن الزبير النموذجية للبنين",
+"nameEn": "Abd Allah ibn al-Zubayr Model School for Boys",
+"status": "Operational/تعمل",
+"building": "Public School/مدرسة حكومية",
+"stage": "نموذجي",
+"gender": "Boys/بنين",
+"district": "Al Forosh/الفروش"
+},
+{
+"sn": 251,
+"nameAr": "مدرسة سعد بن معاذ الابتدائية للبنين",
+"nameEn": "Sa'd ibn Mu'adh Primary School for Boys",
+"status": "Operational/تعمل",
+"building": "Public School/مدرسة حكومية",
+"stage": "ابتدائي (خامس و سادس)",
+"gender": "Boys/بنين",
+"district": "Umm Slal Aly/ام صلال علي"
+},
+{
+"sn": 252,
+"nameAr": "مدرسة برزان الإعدادية للبنات",
+"nameEn": "Barzan Preparatory School for Girls",
+"status": "Operational/تعمل",
+"building": "Public School/مدرسة حكومية",
+"stage": "اعدادي",
+"gender": "بنات/Girls",
+"district": "Umm Slal Mohammed/ام صلال محمد"
+},
+{
+"sn": 253,
+"nameAr": "مدرسة أم صلال محمد الابتدائية للبنات",
+"nameEn": "Umm Salal Mohammad Primary School for Girls",
+"status": "Operational/تعمل",
+"building": "Public School/مدرسة حكومية",
+"stage": "ابتدائي",
+"gender": "بنات/Girls",
+"district": "Umm Slal Mohammed/ام صلال محمد"
+},
+{
+"sn": 254,
+"nameAr": "مدرسة الشفاء بنت عبدالرحمن الأنصارية الابتدائية للبنات",
+"nameEn": "Al-Shifaa Bint Abd al-Rahman Al-Ansariyah Primary School for Girls",
+"status": "Operational/تعمل",
+"building": "Public School/مدرسة حكومية",
+"stage": "ابتدائي",
+"gender": "بنات/Girls",
+"district": "Umm Slal Mohammed/ام صلال محمد"
+},
+{
+"sn": 255,
+"nameAr": "مدرسة مارية القبطية الإعدادية للبنات",
+"nameEn": "Maria al-Qibtiyya Preparatory School for Girls",
+"status": "Operational/تعمل",
+"building": "Public School/مدرسة حكومية",
+"stage": "اعدادي",
+"gender": "بنات/Girls",
+"district": "Rawdet AL Hamama/روضة الحمامة"
+},
+{
+"sn": 256,
+"nameAr": "مدرسة عبد الحميد الدايل النموذجية للبنين",
+"nameEn": "Abd Al-Hameed Al-Dayil Model School for Boys",
+"status": "Operational/تعمل",
+"building": "Public School/مدرسة حكومية",
+"stage": "نموذجي",
+"gender": "Boys/بنين",
+"district": "Rawdet AL Hamama/روضة الحمامة"
+},
+{
+"sn": 257,
+"nameAr": "مدرسة زكريت الابتدائية للبنات",
+"nameEn": "Zekreet Primary School for Girls",
+"status": "Operational/تعمل",
+"building": "Public School/مدرسة حكومية",
+"stage": "ابتدائي",
+"gender": "بنات/Girls",
+"district": "Luabiab/لعبيب"
+},
+{
+"sn": 258,
+"nameAr": "مدرسة العبيب الابتدائية للبنات",
+"nameEn": "Leabaib Primary School for Girls",
+"status": "Operational/تعمل",
+"building": "Public School/مدرسة حكومية",
+"stage": "ابتدائي",
+"gender": "بنات/Girls",
+"district": "Al Ebb/العب"
+},
+{
+"sn": 259,
+"nameAr": "مدرسة الهداية لذوي الاحتياجات الخاصة للبنين والبنات - الصخامة",
+"nameEn": "Al-Hidayah Special Needs School for Boys and Girls - Al Sakhama",
+"status": "Operational/تعمل",
+"building": "Public School Special need/مدرسة حكومية ذوى احتياجات",
+"stage": "مدرسة تخصصية/ابتدائي",
+"gender": "مشتركة/Mix",
+"district": "Garyan Gunayhat/جريان جريحات"
+},
+{
+"sn": 260,
+"nameAr": "مدرسة أم العمد النموذجية للبنين",
+"nameEn": "Umm Al-Amad Model School for Boys",
+"status": "Operational/تعمل",
+"building": "Public School/مدرسة حكومية",
+"stage": "نموذجي",
+"gender": "Boys/بنين",
+"district": "AL Sakhama/الصخامة"
+},
+{
+"sn": 261,
+"nameAr": "مدرسة المنار النموذجية للبنين",
+"nameEn": "Al-Manar Model School for Boys",
+"status": "Operational/تعمل",
+"building": "Public School/مدرسة حكومية",
+"stage": "نموذجي",
+"gender": "Boys/بنين",
+"district": "Al Thamid/الثميد"
+},
+{
+"sn": 262,
+"nameAr": "مدرسة الأندلس الابتدائية للبنات",
+"nameEn": "Al-Andalus Primary School for Girls",
+"status": "Operational/تعمل",
+"building": "Public School/مدرسة حكومية",
+"stage": "ابتدائي",
+"gender": "بنات/Girls",
+"district": "Al Thamid/الثميد"
+},
+{
+"sn": 263,
+"nameAr": "مدرسة ابن خلدون الإعدادية للبنين",
+"nameEn": "Ibn Khaldun Preparatory School for Boys",
+"status": "Operational/تعمل",
+"building": "Public School/مدرسة حكومية",
+"stage": "اعدادي",
+"gender": "Boys/بنين",
+"district": "Azgawa/ازغوى"
+},
+{
+"sn": 264,
+"nameAr": "روضة آمنة محمود الجيدة",
+"nameEn": "Aminah Mahmoud Al-Jaida Kindergarten",
+"status": "Operational/تعمل",
+"building": "Public kindergarten/روضة حكومية",
+"stage": "روضة",
+"gender": "بنات/Girls",
+"district": "Al Ebb/العب"
+},
+{
+"sn": 265,
+"nameAr": "روضة النهضة للبنات",
+"nameEn": "Al-Nahdah Kindergarten for Girls",
+"status": "Operational/تعمل",
+"building": "Public kindergarten/روضة حكومية",
+"stage": "روضة",
+"gender": "بنات/Girls",
+"district": "Al Kharaitiyat/الخريطيات"
+},
+{
+"sn": 266,
+"nameAr": "روضة أم العمد للبنين",
+"nameEn": "Umm Al-Amad Kindergarten for Boys",
+"status": "Operational/تعمل",
+"building": "Public kindergarten/روضة حكومية",
+"stage": "روضة",
+"gender": "Boys/بنين",
+"district": "Umm Slal Aly/ام صلال علي"
+},
+{
+"sn": 267,
+"nameAr": "روضة الشفاء بنت عبدالرحمن الأنصارية للبنات",
+"nameEn": "Al-Shifaa Bint Abd al-Rahman Al-Ansariyah Kindergarten for Girls",
+"status": "Operational/تعمل",
+"building": "Public kindergarten/روضة حكومية",
+"stage": "روضة",
+"gender": "بنات/Girls",
+"district": "Umm Slal Mohammed/ام صلال محمد"
+},
+{
+"sn": 268,
+"nameAr": "روضة أم صلال محمد للبنين",
+"nameEn": "Umm Salal Mohammad Kindergarten for Boys",
+"status": "Operational/تعمل",
+"building": "Public kindergarten/روضة حكومية",
+"stage": "روضة",
+"gender": "Boys/بنين",
+"district": "Umm Slal Mohammed/ام صلال محمد"
+},
+{
+"sn": 269,
+"nameAr": "روضة أم صلال محمد للبنات",
+"nameEn": "Umm Salal Mohammad Kindergarten for Girls",
+"status": "Operational/تعمل",
+"building": "Public kindergarten/روضة حكومية",
+"stage": "روضة",
+"gender": "بنات/Girls",
+"district": "Umm Slal Mohammed/ام صلال محمد"
+},
+{
+"sn": 270,
+"nameAr": "روضة العبيب للبنات",
+"nameEn": "Leabaib Kindergarten for Girls",
+"status": "Operational/تعمل",
+"building": "Public kindergarten/روضة حكومية",
+"stage": "روضة",
+"gender": "بنات/Girls",
+"district": "Al Ebb/العب"
+},
+{
+"sn": 271,
+"nameAr": "روضة زكريت للبنات",
+"nameEn": "Zekreet Kindergarten for Girls",
+"status": "Operational/تعمل",
+"building": "Public kindergarten/روضة حكومية",
+"stage": "روضة",
+"gender": "بنات/Girls",
+"district": "Al Ebb/العب"
+},
+{
+"sn": 272,
+"nameAr": "روضة عبدالحميد الدايل للبنين",
+"nameEn": "Abd Al-Hameed Al-Dayil Kindergarten for Boys",
+"status": "Operational/تعمل",
+"building": "Public kindergarten/روضة حكومية",
+"stage": "روضة",
+"gender": "Boys/بنين",
+"district": "Wadi Al Banat/وادي البنات"
+},
+{
+"sn": 273,
+"nameAr": "روضة الخوارزمي للبنات",
+"nameEn": "Al-Khawarizmi Kindergarten for Girls",
+"status": "Operational/تعمل",
+"building": "Public kindergarten/روضة حكومية",
+"stage": "روضة",
+"gender": "بنات/Girls",
+"district": "Al Gharrafa/الغرافة"
+},
+{
+"sn": 274,
+"nameAr": "روضة عبدالله بن الزبير للبنين",
+"nameEn": "Abd Allah ibn al-Zubayr Kindergarten for Boys",
+"status": "Operational/تعمل",
+"building": "Public kindergarten/روضة حكومية",
+"stage": "روضة",
+"gender": "Boys/بنين",
+"district": "Al Gharrafa/الغرافة"
+},
+{
+"sn": 275,
+"nameAr": "روضة مالك بن أنس للبنين",
+"nameEn": "Malik bin Anas Kindergarten for Boys",
+"status": "Operational/تعمل",
+"building": "Public kindergarten/روضة حكومية",
+"stage": "روضة",
+"gender": "Boys/بنين",
+"district": "Al Gharrafa/الغرافة"
+},
+{
+"sn": 276,
+"nameAr": "مركز التدريب والتطوير التربوي",
+"nameEn": "Training and Educational Development Centre",
+"status": "Operational/تعمل",
+"building": "Administration/ مبني اداري",
+"stage": "لا ينطبق- مبنى اداري/NA Admin",
+"gender": "لا ينطبق- مبنى اداري/NA Admin",
+"district": "Luabiab/لعبيب"
+},
+{
+"sn": 277,
+"nameAr": "مدرسة سميسمة الإعدادية للبنين",
+"nameEn": "Smaisima Preparatory School for Boys",
+"status": "Operational/تعمل",
+"building": "Public School/مدرسة حكومية",
+"stage": "اعدادي",
+"gender": "Boys/بنين",
+"district": "Al Khor /الخور"
+},
+{
+"sn": 278,
+"nameAr": "مدرسة سميسمة الثانوية للبنين",
+"nameEn": "Smaisima Secondary School for Boys",
+"status": "Operational/تعمل",
+"building": "Public School/مدرسة حكومية",
+"stage": "ثانوي",
+"gender": "Boys/بنين",
+"district": "Al Khor /الخور"
+},
+{
+"sn": 279,
+"nameAr": "مدرسة السلم الرابعة",
+"nameEn": "Al Sallam Fourth",
+"status": "Operational/تعمل",
+"building": "Non Public School/مدرسة غير حكومية",
+"stage": "ابتدائي/اعدادي/ثانوي",
+"gender": "مشتركة/Mix",
+"district": "Umm Garn/ام قرن"
+},
+{
+"sn": 280,
+"nameAr": "الشمال الابتدائية للبنات",
+"nameEn": "Al Shamal Primary for Girls",
+"status": "Evacuated/مفرغة",
+"building": "Public School/مدرسة حكومية",
+"stage": "لا ينطبق",
+"gender": "لا ينطبق- مفرغة/NA Evacuated",
+"district": "Al Shamal/الشمال"
+},
+{
+"sn": 281,
+"nameAr": "الغويرية الابتدائية الإعدادية الثانوية للبنات (كشافة)",
+"nameEn": "Al Ghoayria Primary preparatory secondary school for Girls",
+"status": "Evacuated/مفرغة (تم التسليم للكشافة)",
+"building": "Public School/مدرسة حكومية",
+"stage": "لا ينطبق",
+"gender": "لا ينطبق- مفرغة/NA Evacuated",
+"district": "Leghwairiya/لغويرية"
+},
+{
+"sn": 282,
+"nameAr": "مدرسة الكعبان الابتدائية الاعدادية للبنات",
+"nameEn": "Al-Kaaban Primary and Preparatory School for Girls",
+"status": "Evacuated/مفرغة (تم الموافقة على تسليمها لشركة خارجية للقيام بصيانه شامله - في انتظار تأكيد الحالة",
+"building": "Public School/مدرسة حكومية",
+"stage": "لا ينطبق",
+"gender": "لا ينطبق- مفرغة/NA Evacuated",
+"district": "AL Kaabaan/الكعبان"
+},
+{
+"sn": 283,
+"nameAr": "مدرسة الكعبان الابتدائية الاعدادية للبنين",
+"nameEn": "Al-Kaaban Primary and Preparatory School for Boys",
+"status": "Evacuated/مفرغة (تم الموافقة على تسليمها لشركة خارجية للقيام بصيانه شامله - في انتظار تأكيد الحالة",
+"building": "Public School/مدرسة حكومية",
+"stage": "لا ينطبق",
+"gender": "لا ينطبق- مفرغة/NA Evacuated",
+"district": "AL Kaabaan/الكعبان"
+},
+{
+"sn": 287,
+"nameAr": "مدرسة الزبارة الابتدائية الإعدادية الثانوية للبنين",
+"nameEn": "Al-Zubarah Primary, Preparatory and Secondary School for Boys",
+"status": "Operational/تعمل",
+"building": "Public School/مدرسة حكومية",
+"stage": "ابتدائي/اعدادي/ثانوي",
+"gender": "Boys/بنين",
+"district": "Leghwairiya/لغويرية"
+},
+{
+"sn": 288,
+"nameAr": "مدرسة الشمال الثانوية للبنين",
+"nameEn": "Ash-Shamal Secondary School for Boys",
+"status": "Operational/تعمل",
+"building": "Public School/مدرسة حكومية",
+"stage": "ثانوي",
+"gender": "Boys/بنين",
+"district": "Al Shamal/الشمال"
+},
+{
+"sn": 289,
+"nameAr": "مدرسة الخور الإعدادية للبنات",
+"nameEn": "Al-Khor Preparatory School for Girls",
+"status": "Operational/تعمل",
+"building": "Public School/مدرسة حكومية",
+"stage": "اعدادي",
+"gender": "بنات/Girls",
+"district": "Al Khor/الخور"
+},
+{
+"sn": 290,
+"nameAr": "مدرسة الذخيرة الابتدائية للبنات",
+"nameEn": "Al-Dhakhira Primary School for Girls",
+"status": "Operational/تعمل",
+"building": "Public School/مدرسة حكومية",
+"stage": "ابتدائي",
+"gender": "بنات/Girls",
+"district": "Al Thakhira/الذخيرة"
+},
+{
+"sn": 291,
+"nameAr": "مدرسة الخور الثانوية للبنات",
+"nameEn": "Al-Khor Secondary School for Girls",
+"status": "Operational/تعمل",
+"building": "Public School/مدرسة حكومية",
+"stage": "ثانوي",
+"gender": "بنات/Girls",
+"district": "Al Khor/الخور"
+},
+{
+"sn": 292,
+"nameAr": "مدرسة الخور الابتدائية الأولى للبنات",
+"nameEn": "Al-Khor First Primary School for Girls",
+"status": "Operational/تعمل",
+"building": "Public School/مدرسة حكومية",
+"stage": "ابتدائي",
+"gender": "بنات/Girls",
+"district": "Al Khor /الخور"
+},
+{
+"sn": 293,
+"nameAr": "مدرسة الذخيرة النموذجية للبنين",
+"nameEn": "Al-Dhakhira Model School for Boys",
+"status": "Operational/تعمل",
+"building": "Public School/مدرسة حكومية",
+"stage": "نموذجي",
+"gender": "Boys/بنين",
+"district": "Al Thakhira/الذخيرة"
+},
+{
+"sn": 294,
+"nameAr": "مدرسة الخور النموذجية للبنين",
+"nameEn": "Al-Khor Model School for Boys",
+"status": "Operational/تعمل",
+"building": "Public School/مدرسة حكومية",
+"stage": "نموذجي",
+"gender": "Boys/بنين",
+"district": "Al Khor/الخور"
+},
+{
+"sn": 295,
+"nameAr": "مدرسة الشمال الإعدادية الثانوية للبنات",
+"nameEn": "Ash-Shamal Preparatory and Secondary School for Girls",
+"status": "Operational/تعمل",
+"building": "Public School/مدرسة حكومية",
+"stage": "اعدادي/ثانوي",
+"gender": "بنات/Girls",
+"district": "Al Ruwais/الرويس"
+},
+{
+"sn": 296,
+"nameAr": "مدرسة الشمال الإعدادية للبنين",
+"nameEn": "Ash-Shamal Preparatory School for Boys",
+"status": "Operational/تعمل",
+"building": "Public School/مدرسة حكومية",
+"stage": "اعدادي",
+"gender": "Boys/بنين",
+"district": "Al Shamal/الشمال"
+},
+{
+"sn": 297,
+"nameAr": "مدرسة الشمال الابتدائية للبنات",
+"nameEn": "Ash-Shamal Primary School for Girls",
+"status": "Operational/تعمل",
+"building": "Public School/مدرسة حكومية",
+"stage": "ابتدائي",
+"gender": "بنات/Girls",
+"district": "Umm Sabah/ام صباح"
+},
+{
+"sn": 298,
+"nameAr": "مدرسة الشمال الابتدائية للبنين",
+"nameEn": "Ash-Shamal Primary School for Boys",
+"status": "Operational/تعمل",
+"building": "Public School/مدرسة حكومية",
+"stage": "ابتدائي (خامس و سادس)",
+"gender": "Boys/بنين",
+"district": "Umm Sabah/ام صباح"
+},
+{
+"sn": 299,
+"nameAr": "مدرسة الغويرية الابتدائية الإعدادية الثانوية للبنات",
+"nameEn": "Al-Ghuwayriyah Primary, Preparatory and Secondary School for Girls",
+"status": "Operational/تعمل",
+"building": "Public School/مدرسة حكومية",
+"stage": "ابتدائي/اعدادي/ثانوي",
+"gender": "بنات/Girls",
+"district": "Leghwairiya/لغويرية"
+},
+{
+"sn": 300,
+"nameAr": "مدرسة الكعبان الابتدائية الإعدادية الثانوية للبنات",
+"nameEn": "Al-Kaaban Primary, Preparatory and secondary School for Girls",
+"status": "Operational/تعمل",
+"building": "Public School/مدرسة حكومية",
+"stage": "ابتدائي/اعدادي/ثانوي",
+"gender": "بنات/Girls",
+"district": "AL Kaabaan/الكعبان"
+},
+{
+"sn": 301,
+"nameAr": "مدرسة الكعبان الابتدائية الإعدادية الثانوية للبنين",
+"nameEn": "Al-Kaaban Primary, Preparatory and secondary School for Boys",
+"status": "Operational/تعمل",
+"building": "Public School/مدرسة حكومية",
+"stage": "ابتدائي/اعدادي/ثانوي",
+"gender": "Boys/بنين",
+"district": "AL Kaabaan/الكعبان"
+},
+{
+"sn": 302,
+"nameAr": "مدرسة آمنة بنت الأرقم المخزومية الثانوية للبنات",
+"nameEn": "Aminah Bint AlArqam Almakhzoumya secondary school for girls",
+"status": "Operational/تعمل",
+"building": "Public School/مدرسة حكومية",
+"stage": "ثانوي",
+"gender": "بنات/Girls",
+"district": "Al Khor/الخور"
+},
+{
+"sn": 303,
+"nameAr": "مدرسة عبدالله بن علي المسند الإعدادية للبنين",
+"nameEn": "Abdullah Bin Ali Al-Missned Preparatory School for Boys",
+"status": "Operational/تعمل",
+"building": "Public School/مدرسة حكومية",
+"stage": "اعدادي",
+"gender": "Boys/بنين",
+"district": "Al Khor/الخور"
+},
+{
+"sn": 304,
+"nameAr": "مدرسة عبدالله بن علي المسند الثانوية للبنين",
+"nameEn": "Abdullah Bin Ali Al-Missned Secondary School for Boys",
+"status": "Operational/تعمل",
+"building": "Public School/مدرسة حكومية",
+"stage": "ثانوي",
+"gender": "Boys/بنين",
+"district": "Al Khor/الخور"
+},
+{
+"sn": 305,
+"nameAr": "مدرسة الجميلية الابتدائية الإعدادية الثانوية للبنين",
+"nameEn": "Al-Jumaliyah Primary, Preparatory and Secondary School for Boys",
+"status": "Operational/تعمل",
+"building": "Public School/مدرسة حكومية",
+"stage": "ابتدائي/اعدادي/ثانوي",
+"gender": "Boys/بنين",
+"district": "Lijmiliya/لجملية"
+},
+{
+"sn": 306,
+"nameAr": "مدرسة الجميلية الابتدائية الإعدادية الثانوية للبنات",
+"nameEn": "Al-Jumaliyah Primary, Preparatory and Secondary School for Girls",
+"status": "Operational/تعمل",
+"building": "Public School/مدرسة حكومية",
+"stage": "ابتدائي/اعدادي/ثانوي",
+"gender": "بنات/Girls",
+"district": "Lijmiliya/لجملية"
+},
+{
+"sn": 307,
+"nameAr": "مدرسة الظعاين الابتدائية الإعدادية للبنات",
+"nameEn": "Al-Daayen Primary Preparatory School for Girls",
+"status": "Operational/تعمل",
+"building": "Public School/مدرسة حكومية",
+"stage": "ابتدائي/اعدادي",
+"gender": "بنات/Girls",
+"district": "Umm Garn/ام قرن"
+},
+{
+"sn": 308,
+"nameAr": "مدرسة سميسمة الابتدائية للبنين",
+"nameEn": "Smaisma Primary School for Boys",
+"status": "Operational/تعمل",
+"building": "Public School/مدرسة حكومية",
+"stage": "ابتدائي (خامس و سادس)",
+"gender": "Boys/بنين",
+"district": "Umm Garn/ام قرن"
+},
+{
+"sn": 309,
+"nameAr": "مدرسة قطر التقنية الثانوية بنات – الشمال",
+"nameEn": "Qatar Technical Secondary School for Girls – Al-Shamal",
+"status": "Operational/تعمل",
+"building": "Public School/مدرسة حكومية",
+"stage": "ثانوي",
+"gender": "بنات/Girls",
+"district": "Umm Sabah/ام صباح"
+},
+{
+"sn": 310,
+"nameAr": "روضة الشمال المختلطة",
+"nameEn": "Ash-Shamal Kindergarten for Girls and boys",
+"status": "Operational/تعمل",
+"building": "Public kindergarten/روضة حكومية",
+"stage": "روضة",
+"gender": "مشتركة/Mix",
+"district": "Umm Sabah/ام صباح"
+},
+{
+"sn": 311,
+"nameAr": "روضة الغويرية المشتركة",
+"nameEn": "Al-Ghuwayriyah Kindergarten for Boys and Girls",
+"status": "Operational/تعمل",
+"building": "Public kindergarten/روضة حكومية",
+"stage": "روضة",
+"gender": "مشتركة/Mix",
+"district": "Leghwairiya/لغويرية"
+},
+{
+"sn": 312,
+"nameAr": "روضة الذخيرة للبنين والبنات",
+"nameEn": "Al-Dhakhira Kindergarten for Boys and Girls",
+"status": "Operational/تعمل",
+"building": "Public kindergarten/روضة حكومية",
+"stage": "روضة",
+"gender": "مشتركة/Mix",
+"district": "Al Thakhira/الذخيرة"
+},
+{
+"sn": 313,
+"nameAr": "روضة الخور للبنين",
+"nameEn": "Al-Khor Kindergarten School for Boys",
+"status": "Operational/تعمل",
+"building": "Public kindergarten/روضة حكومية",
+"stage": "روضة",
+"gender": "Boys/بنين",
+"district": "Al Khor/الخور"
+},
+{
+"sn": 314,
+"nameAr": "روضة الجميلية للبنات",
+"nameEn": "Al-Jumaliyah Kindergarten for Girls",
+"status": "Operational/تعمل",
+"building": "Public kindergarten/روضة حكومية",
+"stage": "روضة",
+"gender": "بنات/Girls",
+"district": "Lijmiliya/لجملية"
+}
+]
