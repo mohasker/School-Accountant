@@ -31,12 +31,24 @@ class ErrorFilter implements ExceptionFilter {
 }
 
 /** Mutations must come from the web origin; responses are never cached. */
+/**
+ * Addresses the browser may send changes from: WEB_ORIGIN, any listed in WEB_ORIGINS (comma-separated),
+ * and — for the trial only (TRIAL_LINKS=1) — the temporary share links of a Cloudflare quick tunnel or a
+ * GitHub Codespace. The session cookie (SameSite=Strict) and the CSRF token still apply to every change.
+ */
+const TRIAL_HOSTS = /^https:\/\/[a-z0-9-]+\.(trycloudflare\.com|app\.github\.dev)$/i;
+export function originAllowed(origin: string) {
+  const listed = [process.env.WEB_ORIGIN || 'http://localhost:3000', ...(process.env.WEB_ORIGINS ?? '').split(',')]
+    .map((x) => x.trim().replace(/\/$/, ''))
+    .filter(Boolean);
+  return listed.includes(origin) || (process.env.TRIAL_LINKS === '1' && TRIAL_HOSTS.test(origin));
+}
+
 function originGuard(req: Request, res: Response, next: NextFunction) {
   res.setHeader('Cache-Control', 'no-store');
   if (!['GET', 'HEAD', 'OPTIONS'].includes(req.method)) {
     const origin = req.headers.origin;
-    if (origin && origin !== (process.env.WEB_ORIGIN || 'http://localhost:3000'))
-      return res.status(403).json({ message: 'مصدر الطلب غير مسموح' });
+    if (origin && !originAllowed(origin)) return res.status(403).json({ message: 'مصدر الطلب غير مسموح' });
   }
   next();
 }

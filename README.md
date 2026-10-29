@@ -5,6 +5,14 @@
 نظام مساعد شخصي لخدمة محاسبي المدارس (50–75 مدرسة ومستخدماً في المرحلة الأولى). **ليس نظاماً حكومياً رسمياً.**
 V0 هو إعادة هيكلة النسخة التجريبية 0.2.0 مع الإبقاء على قاعدة البيانات والاختبارات، وإدماج النماذج المعتمدة والشعار والقواعد المالية.
 
+## تجربة بالرابط مباشرة
+
+[![فتح التجربة في GitHub Codespaces](https://github.com/codespaces/badge.svg)](https://codespaces.new/mohasker/School-Accountant?quickstart=1)
+
+- **من GitHub**: الرابط أعلاه يفتح النظام في المتصفح بدون تثبيت (الدخول `admin` / `accountant` / `supervisor` — `Madar-Trial-2026`).
+- **من جهازك لآخرين**: `Start-Madar-Trial.bat` ثم `Share-Trial-Link.bat` يعطي رابطاً مؤقتاً `https://….trycloudflare.com`.
+- التفاصيل والحدود: `docs/trial-link-ar.md`.
+
 ## ما الجديد في V0
 
 | المجال | ما يعمل |
@@ -22,7 +30,7 @@ V0 هو إعادة هيكلة النسخة التجريبية 0.2.0 مع الإ�
 | PDF | تصدير كل النماذج إلى PDF من الخادم بخط Calibri للأرقام والنص اللاتيني وArial للعربي (مع بدائل مفتوحة مطابقة القياس على الخادم: Carlito وNoto Sans Arabic) وتنسيق A4 احترافي وترقيم الصفحات؛ الخطابات وشهادة الإنجاز في صفحة واحدة. |
 | الشعار | شعار الوزارة الجديد في شاشات النظام، وترويسة الوزارة في كل التقارير المطبوعة. |
 | المكتبة | بند المكتبة على حساب المصروف 510201، وشراء الكتب يُقيد على حساب الأصل 110805 من نفس البند، ويظهر كل حساب منفصلاً في ملخص كشف النثرية. |
-| الكود | تقسيم إلى طبقات ووحدات منظمة (انظر «بنية المشروع»)، وتنسيق موحد بـ Prettier. 79 اختباراً آلياً، واختبار تزامن على PostgreSQL حقيقي. |
+| الكود | تقسيم إلى طبقات ووحدات منظمة (انظر «بنية المشروع»)، وتنسيق موحد بـ Prettier. 80 اختباراً آلياً، واختبار تزامن على PostgreSQL حقيقي. |
 
 لقطات الشاشات والنماذج المطبوعة: [`docs/screenshots`](docs/screenshots)، ونماذج PDF: [`docs/screenshots/pdf`](docs/screenshots/pdf).
 
@@ -87,7 +95,7 @@ docker compose -f docker-compose.yml -f deploy/docker-compose.prod.yml run --rm 
 
 ```bash
 npm run typecheck
-npm test            # 79 اختباراً عبر HTTP فعلي على PostgreSQL (PGlite) في الذاكرة
+npm test            # 80 اختباراً عبر HTTP فعلي على PostgreSQL (PGlite) في الذاكرة
 DATABASE_URL=postgresql://…/empty_db npm run test:concurrency   # تزامن على PostgreSQL حقيقي (قاعدة فارغة)
 npm run build
 npm run walkthrough # مع تشغيل demo: لقطات لكل الشاشات والنماذج في docs/screenshots

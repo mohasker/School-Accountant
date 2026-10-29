@@ -43,11 +43,14 @@ echo    MOESAS TRIAL is starting (trial data, not your real data).
 echo    Address : http://localhost:3000
 echo    Sign in  : admin  or  accountant  /  Madar-Trial-2026
 echo    Trial data: %~dp0.data\demo   (delete this folder to start the trial again)
+echo    Share   : run Share-Trial-Link.bat to get a link others can open
 echo    To stop : close this window
 echo  ============================================================
 echo.
 start "" /b powershell -NoProfile -Command "for($i=0;$i -lt 90;$i++){try{Invoke-WebRequest -UseBasicParsing http://localhost:3000 -TimeoutSec 2 | Out-Null; Start-Process 'http://localhost:3000'; break}catch{Start-Sleep 2}}"
 set DEMO_PASSWORD=Madar-Trial-2026
+rem Accept the temporary share links of Share-Trial-Link.bat (Cloudflare) and GitHub Codespaces.
+set TRIAL_LINKS=1
 call npm run demo
 goto end
 

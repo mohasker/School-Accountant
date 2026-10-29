@@ -2893,3 +2893,29 @@ test('OFFICIAL FORMS: no watermark and no system footer on the certificate, cove
     assert.ok(html.includes('moesas-doc'), path + ' is marked official (no PDF page footer)');
   }
 });
+
+test('TRIAL LINKS: share-link origins are accepted only when the trial allows them', async () => {
+  const { originAllowed } = await import('../apps/api/src/main');
+  const before = process.env.TRIAL_LINKS;
+  try {
+    delete process.env.TRIAL_LINKS;
+    assert.equal(originAllowed('https://quiet-river-1234.trycloudflare.com'), false);
+    assert.equal(originAllowed(origin), true, 'the configured address always works');
+    process.env.TRIAL_LINKS = '1';
+    assert.equal(originAllowed('https://quiet-river-1234.trycloudflare.com'), true);
+    assert.equal(originAllowed('https://my-space-abc-3000.app.github.dev'), true);
+    assert.equal(originAllowed('https://evil.example.com'), false);
+    assert.equal(originAllowed('http://quiet-river-1234.trycloudflare.com'), false, 'https only');
+    assert.equal(originAllowed('https://x.trycloudflare.com.evil.com'), false);
+    // A change from a share link passes the origin check (and still needs the session and CSRF token).
+    const r = await fetch(base + '/auth/login', {
+      method: 'POST',
+      headers: { Origin: 'https://quiet-river-1234.trycloudflare.com', 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username: 'accountant', password }),
+    });
+    assert.notEqual(r.status, 403);
+  } finally {
+    if (before === undefined) delete process.env.TRIAL_LINKS;
+    else process.env.TRIAL_LINKS = before;
+  }
+});

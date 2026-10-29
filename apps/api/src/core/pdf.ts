@@ -28,7 +28,8 @@ function chromiumPath() {
       .filter((n) => n.startsWith('chromium-'))
       .sort()
       .reverse())
-      candidates.push(join(pw, d, 'chrome-linux', 'chrome'));
+      // Newer Playwright builds use chrome-linux64.
+      candidates.push(join(pw, d, 'chrome-linux', 'chrome'), join(pw, d, 'chrome-linux64', 'chrome'));
   return candidates.find((p) => p && existsSync(p));
 }
 
