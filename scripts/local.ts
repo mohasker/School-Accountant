@@ -103,7 +103,8 @@ export async function runLocal(demo: boolean) {
       process.env.DEMO_DEV === 'true' ? 'dev' : 'start',
       'apps/web',
       '--hostname',
-      '127.0.0.1',
+      // Only the trial server (deploy/docker-compose.trial.yml) opens it to its proxy container.
+      process.env.WEB_HOST || '127.0.0.1',
       '--port',
       '3000',
     ],

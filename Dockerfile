@@ -21,6 +21,8 @@ RUN if [ "$WITH_CLAMAV" = "true" ]; then \
 RUN apt-get update && apt-get install -y --no-install-recommends chromium && rm -rf /var/lib/apt/lists/*
 ENV CHROMIUM_PATH=/usr/bin/chromium PRINT_ASSETS_DIR=/app/apps/web/public
 COPY --from=build --chown=node:node /app /app
+# The trial server keeps its data in a volume mounted here (deploy/docker-compose.trial.yml).
+RUN mkdir -p /app/.data && chown node:node /app/.data
 USER node
 EXPOSE 3000 3001
 CMD ["npm","run","start:api"]

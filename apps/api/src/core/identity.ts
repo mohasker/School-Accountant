@@ -72,9 +72,11 @@ export async function login(
   // The shared trial account may be typed in Arabic.
   if (username.trim() === 'زائر') username = 'guest';
   const address = clientAddress(req);
-  const keys = ['ip:' + address, 'u:' + hash(username.trim().toLowerCase())];
+  // The trial's shared account is limited per address only: wrong passwords from one tester must not lock it for everyone.
+  const shared = process.env.DEMO_MODE === 'true' && username.trim().toLowerCase() === 'guest';
+  const keys = ['ip:' + address, ...(shared ? [] : ['u:' + hash(username.trim().toLowerCase())])];
   throttle(keys[0], 30);
-  throttle(keys[1]);
+  if (keys[1]) throttle(keys[1]);
   // «Admin» and «admin» are the same account at sign-in.
   const user =
     (await db.user.findUnique({ where: { username } })) ??

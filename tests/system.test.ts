@@ -2931,5 +2931,7 @@ test('TRIAL GUEST: the shared «زائر» account signs in by its Arabic name a
   assert.equal((await req(guest, 'auth/me')).body.user.name, 'زائر');
   const change = await req(guest, 'auth/password', 'POST', { current: '112233', password: 'another-password-1' });
   assert.equal(change.status, 400, 'the shared password stays the same for everyone');
+  // Wrong passwords from one tester do not lock the shared account for everyone else.
+  for (let i = 0; i < 11; i++) await req(null, 'auth/login', 'POST', { username: 'guest', password: 'wrong-password' });
   assert.equal((await req(null, 'auth/login', 'POST', { username: 'guest', password: '112233' })).status < 300, true);
 });

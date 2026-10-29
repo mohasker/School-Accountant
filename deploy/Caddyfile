@@ -5,5 +5,5 @@
 		Strict-Transport-Security "max-age=31536000"
 		-Server
 	}
-	reverse_proxy web:3000
+	reverse_proxy {$UPSTREAM:web:3000}
 }
