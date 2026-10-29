@@ -31,7 +31,8 @@ echo "جارٍ تشغيل MOESAS…"
 for _ in $(seq 1 60); do
   if curl -s -o /dev/null -f http://localhost:3000/; then
     echo "✅ MOESAS يعمل الآن: $URL"
-    echo "الحسابات: admin / accountant / supervisor — كلمة المرور: ${DEMO_PASSWORD}"
+    echo "الحساب المشترك: زائر (أو guest) — كلمة المرور 112233"
+    echo "حسابات الإدارة: admin / accountant / supervisor — كلمة المرور: ${DEMO_PASSWORD}"
     exit 0
   fi
   sleep 2

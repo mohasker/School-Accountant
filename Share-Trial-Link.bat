@@ -30,8 +30,8 @@ echo.
 echo  ============================================================
 echo    Starting the share link. In a few seconds a box appears below
 echo    with a link like:  https://xxxx-xxxx.trycloudflare.com
-echo    Copy that link and send it. Accounts: admin / accountant /
-echo    supervisor  -  password: Madar-Trial-2026
+echo    Copy that link and send it with the shared account:
+echo    guest (or the Arabic name) / 112233
 echo    TRIAL DATA ONLY - never share your real data this way.
 echo    To stop sharing: close this window.
 echo  ============================================================

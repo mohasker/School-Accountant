@@ -1,4 +1,4 @@
-npm test — 2026-10-29 (0.1.2) — 80 passed, 0 failed
+npm test — 2026-10-29 (0.2.0) — 81 passed, 0 failed
 
 ok 1 - PEN: exact partial delivery and single cumulative cap
 ok 2 - AUTH: school isolation on list, search, dashboard and mutation
@@ -80,5 +80,4 @@ ok 77 - SUPERVISOR and ACTIVE SCHOOLS: a read-only supervisor sees its schools b
 ok 78 - DIRECTORY, NOTEPAD, GUIDANCE ENTRIES and ITEMIZED ORDER
 ok 79 - OFFICIAL FORMS: no watermark and no system footer on the certificate, cover letter and assignment
 ok 80 - TRIAL LINKS: share-link origins are accepted only when the trial allows them
-
-Share-link check 2026-10-29: login through the web proxy with a trycloudflare.com origin accepted (201), unknown origin refused (403)
+ok 81 - TRIAL GUEST: the shared «زائر» account signs in by its Arabic name and its password cannot be changed

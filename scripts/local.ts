@@ -88,6 +88,7 @@ export async function runLocal(demo: boolean) {
       },
     }),
   );
+  if (demo) await ensureTrialGuest();
   if (fresh && demo && process.env.DEMO_SCENARIO !== 'false') {
     console.log('Preparing the trial files (quote reports, assignments, certificates, imprests)…');
     const { runScenario } = await import('./demo-scenario');
@@ -218,4 +219,29 @@ async function openEngine(dataDir: string) {
     });
   }
   return engine;
+}
+
+/**
+ * The shared trial account «زائر» (user name guest, or زائر at sign-in): an accountant in the trial
+ * schools, for everyone the trial link is sent to. Created once on any trial, new or existing; its
+ * password (TRIAL_GUEST_PASSWORD, default 112233) cannot be changed from the screens.
+ */
+async function ensureTrialGuest() {
+  const { db } = await import('../apps/api/src/common/db');
+  const { passwordHash } = await import('../apps/api/src/core/identity');
+  if (await db.user.findFirst({ where: { username: { equals: 'guest', mode: 'insensitive' } } })) return;
+  const tenant = await db.tenant.findFirst();
+  const model = await db.user.findFirst({ where: { username: 'accountant' }, include: { memberships: true } });
+  if (!tenant || !model) return;
+  const guest = await db.user.create({
+    data: {
+      tenantId: tenant.id,
+      username: 'guest',
+      name: 'زائر',
+      passwordHash: await passwordHash(process.env.TRIAL_GUEST_PASSWORD || '112233'),
+    },
+  });
+  for (const m of model.memberships)
+    await db.membership.create({ data: { tenantId: tenant.id, userId: guest.id, schoolId: m.schoolId, roles: ['ACCOUNTANT'] } });
+  console.log('Trial account: زائر (guest) — the password set in TRIAL_GUEST_PASSWORD (112233 by default).');
 }

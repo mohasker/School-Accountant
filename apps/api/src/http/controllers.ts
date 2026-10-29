@@ -3,7 +3,7 @@ import type { Request, Response } from 'express';
 import * as argon2 from 'argon2';
 import { z } from 'zod';
 import { db } from '../common/db';
-import { parse } from '../common/validation';
+import { fail, parse } from '../common/validation';
 import { authenticate, clearSessionCookie, login, passwordHash } from '../core/identity';
 import { htmlToPdf } from '../core/pdf';
 import { transact } from '../core/transaction';
@@ -46,7 +46,7 @@ export class AuthController {
       z
         .object({
           username: z.string().min(3).max(50),
-          password: z.string().min(8).max(128),
+          password: z.string().min(1).max(128), // the 8-character rule applies when a password is set
           location: z
             .object({
               lat: z.number().min(-90).max(90),
@@ -93,6 +93,8 @@ export class AuthController {
   @Post('auth/password') async password(@Body() b: any, @Req() req: Request, @Res({ passthrough: true }) res: Response) {
     const s = await authenticate(req),
       p = parse(z.object({ current: z.string().max(128), password: z.string().min(8).max(128) }).strict(), b);
+    // The trial's «زائر» account is shared by everyone testing: nobody may change its password for the others.
+    if (process.env.DEMO_MODE === 'true' && s.user.username === 'guest') fail('حساب «زائر» مشترك للتجربة؛ لا يمكن تغيير كلمة مروره');
     if (!(await argon2.verify(s.user.passwordHash, p.current))) throw new UnauthorizedException('كلمة المرور الحالية غير صحيحة');
     await db.$transaction([
       db.user.update({

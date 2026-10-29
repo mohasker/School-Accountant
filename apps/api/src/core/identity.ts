@@ -69,6 +69,8 @@ export async function login(
   res: Response,
   location?: { lat: number; lng: number; accuracy?: number },
 ) {
+  // The shared trial account may be typed in Arabic.
+  if (username.trim() === 'زائر') username = 'guest';
   const address = clientAddress(req);
   const keys = ['ip:' + address, 'u:' + hash(username.trim().toLowerCase())];
   throttle(keys[0], 30);

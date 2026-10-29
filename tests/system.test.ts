@@ -2919,3 +2919,17 @@ test('TRIAL LINKS: share-link origins are accepted only when the trial allows th
     else process.env.TRIAL_LINKS = before;
   }
 });
+
+test('TRIAL GUEST: the shared «زائر» account signs in by its Arabic name and its password cannot be changed', async () => {
+  const { passwordHash } = await import('../apps/api/src/core/identity');
+  const tenant = await db.tenant.findFirst();
+  if (!(await db.user.findFirst({ where: { username: 'guest' } })))
+    await db.user.create({ data: { tenantId: tenant.id, username: 'guest', name: 'زائر', passwordHash: await passwordHash('112233') } });
+  const r = await req(null, 'auth/login', 'POST', { username: 'زائر', password: '112233' });
+  assert.ok(r.status < 300, JSON.stringify(r.body));
+  const guest = { cookie: r.cookie, csrf: r.body.csrf };
+  assert.equal((await req(guest, 'auth/me')).body.user.name, 'زائر');
+  const change = await req(guest, 'auth/password', 'POST', { current: '112233', password: 'another-password-1' });
+  assert.equal(change.status, 400, 'the shared password stays the same for everyone');
+  assert.equal((await req(null, 'auth/login', 'POST', { username: 'guest', password: '112233' })).status < 300, true);
+});

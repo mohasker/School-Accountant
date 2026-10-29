@@ -41,7 +41,8 @@ echo.
 echo  ============================================================
 echo    MOESAS TRIAL is starting (trial data, not your real data).
 echo    Address : http://localhost:3000
-echo    Sign in  : admin  or  accountant  /  Madar-Trial-2026
+echo    Sign in  : guest (or the Arabic name) / 112233   -  shared trial account
+echo               admin / accountant / supervisor  -  Madar-Trial-2026
 echo    Trial data: %~dp0.data\demo   (delete this folder to start the trial again)
 echo    Share   : run Share-Trial-Link.bat to get a link others can open
 echo    To stop : close this window
