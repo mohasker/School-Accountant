@@ -11,7 +11,7 @@ V0 هو إعادة هيكلة النسخة التجريبية 0.2.0 مع الإ�
 
 - **من GitHub**: الرابط أعلاه يفتح النظام في المتصفح بدون تثبيت (الحساب المشترك للتجربة: **زائر** / `112233`).
 - **من جهازك لآخرين**: `Start-Madar-Trial.bat` ثم `Share-Trial-Link.bat` يعطي رابطاً مؤقتاً `https://….trycloudflare.com`.
-- **سيرفر برابط ثابت**: أمر واحد `deploy/install-trial.sh` — `docs/trial-server-ar.md`.
+- **سيرفر برابط ثابت**: على Railway بدون إدارة سيرفر (`docs/railway-ar.md`)، أو VPS بأمر واحد `deploy/install-trial.sh` (`docs/trial-server-ar.md`).
 - التفاصيل والحدود: `docs/trial-link-ar.md` — التجربة العملية ورسالة التعميم: `docs/practical-trial-ar.md`.
 
 ## ما الجديد في V0

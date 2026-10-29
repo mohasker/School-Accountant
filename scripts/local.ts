@@ -22,9 +22,15 @@ export async function runLocal(demo: boolean) {
   process.env.DATABASE_URL = 'postgresql://postgres:postgres@127.0.0.1:55432/postgres';
   // In GitHub Codespaces the app is opened through the forwarded https address of port 3000.
   const codespace = process.env.CODESPACE_NAME && process.env.GITHUB_CODESPACES_PORT_FORWARDING_DOMAIN;
+  // On Railway (docs/railway-ar.md) it is the service's public domain, and the web server listens for Railway's proxy.
+  const railway = process.env.RAILWAY_PUBLIC_DOMAIN;
   process.env.WEB_ORIGIN = codespace
     ? `https://${process.env.CODESPACE_NAME}-3000.${process.env.GITHUB_CODESPACES_PORT_FORWARDING_DOMAIN}`
-    : process.env.WEB_ORIGIN || 'http://localhost:3000';
+    : process.env.WEB_ORIGIN || (railway ? `https://${railway}` : 'http://localhost:3000');
+  if (process.env.RAILWAY_ENVIRONMENT) {
+    process.env.WEB_HOST ||= '0.0.0.0';
+    process.env.TRUST_PROXY ||= '1';
+  }
   const dataDir = process.env.PGLITE_DATA || (demo ? '.data/demo' : '.data/moesas');
   const backupRoot = resolve(dataDir, '..', demo ? 'demo-backups' : 'backups');
   if (!demo) dailyBackup(dataDir, backupRoot);
