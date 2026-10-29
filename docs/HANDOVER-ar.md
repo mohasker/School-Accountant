@@ -160,6 +160,7 @@ PR: https://github.com/mohasker/School-Accountant/pull/1
 - [ ] **التحقق من طباعة PDF على Railway** (لم يُختبر Chromium داخل Docker في بيئة التطوير لأن مستودعات Debian كانت محجوبة هناك).
 - [ ] `deploy/install.sh` (النشر الرسمي) ما زال افتراضياً على فرع `main` القديم — يُصحح إلى `claude/vibrant-bell-tj6ext` عند مرحلة النشر الرسمي.
 - [ ] تذكير: إنشاء Release يدوياً على GitHub (Tag `v0.2.2`)، وجعل المستودع **Private** (Railway يعمل مع Private بعد السماح له بالوصول).
+- [ ] بعد تشغيل السيرفر: `TARGET=https://الرابط node scripts/load-test.mjs 20 60` ومقارنة النتائج بـ `docs/performance-ar.md`.
 - [ ] جمع ملاحظات المجرّبين وتحويلها لإصدارات 0.2.x / 0.3.0.
 - [ ] لاحقاً: النشر الرسمي على خادم داخل قطر (Azure Qatar Central أو خادم الوزارة) بعد موافقة إدارة تقنية المعلومات — البيانات الحقيقية لا توضع على Railway أو سيرفرات خارج قطر قبل الموافقة.
 
@@ -194,3 +195,4 @@ PR: https://github.com/mohasker/School-Accountant/pull/1
 | `data-safety-ar.md` | حماية البيانات والنسخ |
 | `security-and-operations.md`, `release-readiness.md`, `test-results.txt` | الأمان، الجاهزية، نتائج الاختبارات |
 | `file-check-study-ar.md` | دراسة فحص الملف |
+| `performance-ar.md` | اختبار الضغط ونتائجه (`scripts/load-test.mjs`) |
